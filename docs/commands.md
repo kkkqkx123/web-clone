@@ -42,6 +42,16 @@ node dist/cli.js <url> [options]
 | `--retry-count <number>` | `1` | 失败重试次数 |
 | `--no-inline` | (内联) | 禁用 data URI 内联（仅 single 模式） |
 | `--pretty` | (压缩) | 美化输出 HTML |
+| `--skip-types <extensions>` | 见下方说明 | 跳过指定扩展名的资源下载，逗号分隔，如 `.zip,.mp4,.ts`；空字符串禁用过滤 |
+| `--max-file-size <size>` | `50MB` | 单文件大小硬上限，支持 `50MB`、`10m`、`10485760` 等格式；`0` 为不限制 |
+
+**默认跳过的扩展名**：
+- 压缩包：`.zip`, `.rar`, `.7z`, `.tar`, `.gz`, `.bz2`
+- 安装包：`.exe`, `.msi`, `.dmg`, `.apk`, `.deb`, `.rpm`
+- 文档：`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`
+- 视频：`.ts`, `.m3u8`, `.m4v`, `.mkv`, `.avi`, `.mov`, `.flv`, `.mp4`, `.webm`
+- 音频：`.mp3`, `.aac`, `.flac`, `.ogg`, `.wma`, `.wav`
+- 其它：`.iso`, `.torrent`, `.wasm`, `.bin`
 
 ### 组件提取选项
 
@@ -96,6 +106,18 @@ npm run dev -- https://example.com --concurrency 4 --max-assets 50
 # 禁用内联 + 美化 + 提取组件
 npm run dev -- https://example.com --no-inline --pretty --extract-components
 
+# 跳过指定类型资源（使用自定义列表）
+npm run dev -- https://example.com --skip-types .zip,.mp4,.pdf
+
+# 禁用资源类型过滤（下载所有类型）
+npm run dev -- https://example.com --skip-types ""
+
+# 限制单文件最大大小
+npm run dev -- https://example.com --max-file-size 10MB
+
+# 禁用文件大小限制
+npm run dev -- https://example.com --max-file-size 0
+
 # 完整示例：生成 bundle 并提取组件
 npm run dev -- https://example.com \
   -o ./project \
@@ -105,7 +127,9 @@ npm run dev -- https://example.com \
   --component-depth 4 \
   --max-assets 200 \
   --concurrency 8 \
-  --pretty
+  --pretty \
+  --skip-types .zip,.exe \
+  --max-file-size 20MB
 ```
 
 ## 输出模式

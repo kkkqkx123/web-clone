@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import { isValidCachedResponse, mimeFromExt } from './validators.js';
+import { isValidCachedResponse, mimeFromExt, checkResourceFilter } from './validators.js';
 import { type AssetType, type Asset, type AssetRef, type SnapshotOptions, MAX_INLINE_SIZE } from './types.js';
 
 export interface FetchResult {
@@ -10,7 +10,7 @@ export interface FetchResult {
   isHtmlLike: boolean;
 }
 
-export async function fetchWithTimeout(url: string, timeout: number, referer?: string): Promise<FetchResult> {
+export async function fetchWithTimeout(url: string, timeout: number, referer?: string, maxSize?: number): Promise<FetchResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -23,8 +23,22 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       },
     });
 
+    if (maxSize && maxSize > 0) {
+      const cl = response.headers.get('content-length');
+      if (cl) {
+        const size = parseInt(cl, 10);
+        if (!isNaN(size) && size > maxSize) {
+          throw new SizeLimitError(size, maxSize);
+        }
+      }
+    }
+
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    if (maxSize && maxSize > 0 && buffer.length > maxSize) {
+      throw new SizeLimitError(buffer.length, maxSize);
+    }
 
     return {
       buffer,
@@ -34,9 +48,21 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       isHtmlLike: response.headers.get('content-type')?.includes('text/html') || false,
     };
   } catch (err: any) {
+    if (err instanceof SizeLimitError) throw err;
     throw new Error(err.name === 'AbortError' ? `Timeout after ${timeout}ms` : err.message);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+export class SizeLimitError extends Error {
+  size: number;
+  limit: number;
+  constructor(size: number, limit: number) {
+    super(`File too large: ${size} bytes (max ${limit})`);
+    this.name = 'SizeLimitError';
+    this.size = size;
+    this.limit = limit;
   }
 }
 
@@ -64,11 +90,19 @@ export async function downloadSingleAsset(
     mime: '',
   };
 
+  const filterResult = checkResourceFilter(ref.url, options);
+  if (filterResult.skip) {
+    asset.status = 'skipped';
+    asset.error = filterResult.reason;
+    return asset;
+  }
+
   const maxAttempts = Math.max(1, options.retryCount);
+  const maxSize = options.maxFileSize ?? 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const result = await fetchWithTimeout(ref.url, options.timeout, referer);
+      const result = await fetchWithTimeout(ref.url, options.timeout, referer, maxSize);
 
       if (!result.ok) {
         asset.error = `HTTP ${result.status}`;
@@ -103,6 +137,11 @@ export async function downloadSingleAsset(
 
       return asset;
     } catch (err: any) {
+      if (err instanceof SizeLimitError) {
+        asset.status = 'skipped';
+        asset.error = err.message;
+        return asset;
+      }
       asset.error = err.message;
       if (attempt < maxAttempts) continue;
       asset.status = 'failed';

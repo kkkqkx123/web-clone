@@ -29,6 +29,9 @@ export interface SnapshotOptions {
   extractLogic?: boolean;
   // Framework code generation
   frameworkCodegen?: FrameworkCodeGenOptions;
+  // Resource filtering
+  skipExtensions?: string[];
+  maxFileSize?: number;
 }
 
 export interface StateVariable {

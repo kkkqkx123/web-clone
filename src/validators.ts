@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import { type Asset } from './types.js';
+import { type Asset, type SnapshotOptions } from './types.js';
 
 const MAGIC_BYTES: Record<string, number[]> = {
   '.png': [0x89, 0x50, 0x4e, 0x47],
@@ -92,6 +92,60 @@ export function mimeFromExt(filePath: string): string {
     '.zip': 'application/zip',
   };
   return map[ext] || 'application/octet-stream';
+}
+
+const DEFAULT_SKIP_EXTENSIONS: string[] = [
+  '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
+  '.exe', '.msi', '.dmg', '.apk', '.deb', '.rpm',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.ts', '.m3u8', '.m4v', '.mkv', '.avi', '.mov', '.flv',
+  '.mp3', '.aac', '.flac', '.ogg', '.wma', '.wav',
+  '.mp4', '.webm',
+  '.iso', '.torrent', '.wasm', '.bin',
+];
+
+function normalizeExt(ext: string): string {
+  const e = ext.startsWith('.') ? ext : '.' + ext;
+  return e.toLowerCase();
+}
+
+export function getSkipExtensions(custom?: string[]): string[] {
+  if (custom && custom.length > 0) {
+    return custom.map(normalizeExt);
+  }
+  return DEFAULT_SKIP_EXTENSIONS;
+}
+
+export function shouldSkipByExtension(url: string, skipExts: string[]): boolean {
+  if (!skipExts || skipExts.length === 0) return false;
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = extname(pathname).toLowerCase();
+    return ext.length > 0 && skipExts.includes(ext);
+  } catch {
+    return false;
+  }
+}
+
+export interface SkipResult {
+  skip: boolean;
+  reason?: string;
+}
+
+export function checkResourceFilter(refUrl: string, options: SnapshotOptions): SkipResult {
+  const skipExts = getSkipExtensions(options.skipExtensions);
+  if (shouldSkipByExtension(refUrl, skipExts)) {
+    const ext = extname(new URL(refUrl).pathname).toLowerCase();
+    return { skip: true, reason: `Skipped by extension: ${ext}` };
+  }
+  return { skip: false };
+}
+
+export const DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+export function isOverMaxFileSize(size: number, options: SnapshotOptions): boolean {
+  const limit = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+  return limit > 0 && size > limit;
 }
 
 export function postDownloadValidation(assets: Asset[]): Array<{url: string, error: string}> {

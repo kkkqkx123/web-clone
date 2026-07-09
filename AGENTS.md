@@ -41,6 +41,8 @@ node dist/cli.js <url> [options]  # After npm run build
 - `--timeout <ms>` — Per-resource timeout (default: 15000)
 - `--no-inline` — Skip data URI inlining
 - `--pretty` — Prettify HTML
+- `--skip-types <extensions>` — Comma-separated extensions to skip (e.g. `.zip,.mp4,.ts`); empty to disable; defaults to archives/installers/docs/video/audio/binaries
+- `--max-file-size <size>` — Hard size limit per file (e.g. `50MB`, `10m`, or bytes; default: 50MB; 0 = no limit)
 
 ## Architecture
 

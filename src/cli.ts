@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { snapshot } from './assembler.js';
 import { type SnapshotOptions } from './types.js';
+import { DEFAULT_MAX_FILE_SIZE } from './validators.js';
 
 const program = new Command();
 
@@ -29,6 +30,8 @@ program
   .option('--codegen-css-modules', 'Use CSS Modules for React (default: false)')
   .option('--codegen-generate-drafts', 'Generate complete project templates in __drafts__/ (requires --codegen-framework)')
   .option('--codegen-extract-shared', 'Extract shared logic to shared/ directory (requires --extract-components)')
+  .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4,.ts"); empty to disable filtering')
+  .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
   .action(async (url: string, opts: Record<string, any>) => {
     const options: SnapshotOptions = {
       url,
@@ -60,6 +63,16 @@ program
         };
       }
     }
+
+    // Resource filtering options
+    if (opts.skipTypes !== undefined) {
+      options.skipExtensions = opts.skipTypes
+        ? opts.skipTypes.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+    }
+    options.maxFileSize = opts.maxFileSize !== undefined
+      ? parseFileSize(opts.maxFileSize)
+      : DEFAULT_MAX_FILE_SIZE;
 
     console.log(chalk.cyan('\n◉ Web Snapshot\n'));
 
@@ -100,4 +113,15 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function parseFileSize(val: string): number {
+  const m = val.match(/^(\d+(?:\.\d+)?)\s*(k|m|g|kb|mb|gb)?$/i);
+  if (!m) return parseInt(val, 10) || 0;
+  const num = parseFloat(m[1]);
+  const unit = (m[2] || '').toLowerCase();
+  if (unit === 'k' || unit === 'kb') return Math.round(num * 1024);
+  if (unit === 'm' || unit === 'mb') return Math.round(num * 1024 * 1024);
+  if (unit === 'g' || unit === 'gb') return Math.round(num * 1024 * 1024 * 1024);
+  return Math.round(num);
 }

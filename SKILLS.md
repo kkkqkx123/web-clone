@@ -31,6 +31,12 @@
 - 可选 TypeScript、CSS Modules、完整项目模板（`__drafts__/`）
 - 共享逻辑提取（API 客户端、工具函数、常量）
 
+### 4. 资源过滤（Resource Filtering）
+
+- **扩展名过滤** — 默认跳过压缩包、安装包、文档、视频、音频等与网页渲染无关的资源
+- **大小限制** — 单文件大小硬上限，防止异常大文件浪费带宽
+- **早期拦截** — 下载前检查扩展名，响应头检查 `content-length`，超标立即中止
+
 ## 输入
 
 ```bash
@@ -61,6 +67,8 @@ npx tsx src/cli.ts <url> [options]
 | `--retry-count <n>` | `1` | 重试次数 |
 | `--no-inline` | — | 禁用 data URI 内联 |
 | `--pretty` | — | 美化 HTML |
+| `--skip-types <extensions>` | 完整默认列表 | 跳过指定扩展名的资源下载，逗号分隔；空字符串禁用过滤 |
+| `--max-file-size <size>` | `50MB` | 单文件大小硬上限，支持 `50MB`/`10m`/字节数；`0` 为不限制 |
 
 ### 组件提取选项
 
