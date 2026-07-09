@@ -1,5 +1,8 @@
 # web-clone
 
+**Language**
+Always use English in code files(include config files, comments) and use Simplified Chinese in docs.
+
 ## Project Overview
 
 **web-clone** is a single-execution web page snapshot tool that downloads and bundles a complete webpage snapshot into either a self-contained HTML file or a directory structure. It can optionally extract and analyze component structure.

@@ -1,3 +1,4 @@
+import { writeFile, mkdir } from 'node:fs/promises';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { type SnapshotOptions, type SnapshotResult, type AssetRef } from './types.js';
@@ -10,6 +11,7 @@ import { assembleBundle } from './output/bundle.js';
 import { assembleConvert } from './output/convert.js';
 import { postDownloadValidation, isHtmlLike } from './validators.js';
 import { convert } from './converter.js';
+import { assessMemoryBudget, MemoryWatchdog, formatDegradationSummary } from './memory-budget.js';
 
 async function fetchHtml(url: string, timeout: number): Promise<string | null> {
   try {
@@ -68,12 +70,80 @@ function extractCssFromAssets(assets: any[]): string {
     .join('\n');
 }
 
+/**
+ * Framework/library file path patterns for JS pre-filtering.
+ */
+const FRAMEWORK_PATTERNS = [
+  /\/node_modules\//,
+  /\/react(\.[a-z]+)?\.js$/,
+  /\/vue(\.[a-z]+)?\.js$/,
+  /\/angular(\.[a-z]+)?\.js$/,
+  /\/jquery(\.[a-z]+)?\.js$/,
+  /\/umi(\.[a-z]+)?\.js$/,
+  /\/lodash(\.[a-z]+)?\.js$/,
+  /\/moment(\.[a-z]+)?\.js$/,
+  /\/antd(\.[a-z]+)?\.js$/,
+  /\/babel(\.[a-z]+)?\.js$/,
+  /\/webpack(\.[a-z]+)?\.js$/,
+  /\.min\.js$/,
+];
+
+function isFrameworkCode(originUrl: string): boolean {
+  return FRAMEWORK_PATTERNS.some(pattern => pattern.test(originUrl));
+}
+
 function extractJsFromAssets(assets: any[]): string {
-  return assets
-    .filter(a => a.type === 'js' && a.status === 'fetched')
-    .map(a => a.textContent || '')
+  const userCode = assets.filter((a: any) =>
+    a.type === 'js' &&
+    a.status === 'fetched' &&
+    !isFrameworkCode(a.originUrl)
+  );
+  const frameworkCode = assets.filter((a: any) =>
+    a.type === 'js' &&
+    a.status === 'fetched' &&
+    isFrameworkCode(a.originUrl)
+  );
+
+  if (frameworkCode.length > 0) {
+    const userSize = userCode.reduce((s: number, a: any) => s + (a.size || 0), 0);
+    const fwSize = frameworkCode.reduce((s: number, a: any) => s + (a.size || 0), 0);
+    process.stdout.write(`  JS filter: ${userCode.length} user files (${fmt(userSize)}) + ${frameworkCode.length} framework files (${fmt(fwSize)}) filtered\n`);
+  }
+
+  return userCode
+    .map((a: any) => a.textContent || '')
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * Async write assets with concurrency control and progress reporting.
+ */
+async function writeAssets(assets: any[], outDir: string): Promise<void> {
+  const toWrite = assets.filter((a: any) => a.status === 'fetched' && a.localPath);
+  let written = 0;
+  const total = toWrite.length;
+
+  const writeOne = async (a: any): Promise<void> => {
+    const dir = dirname(a.localPath);
+    await mkdir(dir, { recursive: true });
+    const buf = a.dataUri
+      ? Buffer.from(a.dataUri.split(',')[1]!, 'base64')
+      : a.textContent
+        ? Buffer.from(a.textContent, 'utf8')
+        : Buffer.alloc(0);
+    await writeFile(a.localPath, buf);
+    written++;
+    if (written % Math.max(1, Math.floor(total / 10)) === 0 || written === total) {
+      process.stdout.write(`  Writing assets: ${written}/${total}\n`);
+    }
+  };
+
+  // Batch concurrent writes to avoid file descriptor exhaustion
+  const batchSize = 5;
+  for (let i = 0; i < toWrite.length; i += batchSize) {
+    await Promise.all(toWrite.slice(i, i + batchSize).map(writeOne));
+  }
 }
 
 export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult> {
@@ -171,21 +241,11 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
     mkdirSync(options.output, { recursive: true });
     assembleBundle(parsed.document, assets, options);
 
-    for (const a of assets) {
-      if (a.status === 'fetched' && a.localPath) {
-        mkdirSync(dirname(a.localPath), { recursive: true });
-        const buf = a.dataUri
-          ? Buffer.from(a.dataUri.split(',')[1]!, 'base64')
-          : a.textContent
-            ? Buffer.from(a.textContent, 'utf8')
-            : Buffer.alloc(0);
-        writeFileSync(a.localPath, buf);
-      }
-    }
+    await writeAssets(assets, options.output);
   } else {
     const outputHtml = assembleSingleFile(parsed.document, assets, options);
-    mkdirSync(dirname(options.output), { recursive: true });
-    writeFileSync(options.output, outputHtml, 'utf8');
+    await mkdir(dirname(options.output), { recursive: true });
+    await writeFile(options.output, outputHtml, 'utf8');
   }
 
   // Handle component extraction if requested
@@ -205,20 +265,39 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
       js = js ? (js + '\n' + jsFromAssets) : jsFromAssets;
     }
 
-    process.stdout.write(`Converting to component structure...\n`);
-    const converted = await convert(html, css, js, options);
+    // In-memory budget assessment and degradation
+    const budget = assessMemoryBudget(html, css, js);
+    const degradations = formatDegradationSummary(budget);
 
-    process.stdout.write(`Writing component output...\n`);
-    const componentOutputDir = options.mode === 'bundle'
-      ? options.output + '/components'
-      : options.output + '_components';
+    if (degradations.length > 0) {
+      process.stdout.write(`⚠ Memory budget: ${degradations.join(', ')} — results may be partial\n`);
+    }
 
-    const componentOptions = {
-      ...options,
-      output: componentOutputDir,
-    };
+    // If the HTML is marked as skip, the entire component extraction is skipped.
+    if (budget.htmlStrategy === 'skip') {
+      process.stdout.write(`⚠ HTML too large (${(html.length / 1024 / 1024).toFixed(1)}MB), skipping component extraction\n`);
+    } else {
+      // Pass the downgrade policy to convert
+      const convertOptions = {
+        ...options,
+        memoryBudget: budget,
+      };
 
-    assembleConvert(converted, componentOptions);
+      process.stdout.write(`Converting to component structure...\n`);
+      const converted = await convert(html, css, js, convertOptions);
+
+      process.stdout.write(`Writing component output...\n`);
+      const componentOutputDir = options.mode === 'bundle'
+        ? options.output + '/components'
+        : options.output + '_components';
+
+      const componentOptions = {
+        ...options,
+        output: componentOutputDir,
+      };
+
+      assembleConvert(converted, componentOptions);
+    }
   }
 
   return { sourceUrl: options.url, timestamp, html: '', assets, stats };

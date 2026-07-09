@@ -122,17 +122,29 @@ export async function downloadAllAssets(
   const results: Asset[] = [];
   const queue = [...refs];
   const total = queue.length;
+  const maxConcurrent = Math.max(1, Math.min(options.concurrency, queue.length));
 
-  const workers = Array.from({ length: Math.min(options.concurrency, queue.length, 1) }, async () => {
-    while (queue.length > 0 && results.length < options.maxAssets) {
+  // Semaphore pattern: Use Promise.race to control concurrency
+  const inFlight = new Set<Promise<void>>();
+
+  while (queue.length > 0 || inFlight.size > 0) {
+    // Fill concurrent slots
+    while (queue.length > 0 && inFlight.size < maxConcurrent && results.length < options.maxAssets) {
       const ref = queue.shift()!;
-      const asset = await downloadSingleAsset(ref, options, options.url);
-      results.push(asset);
-      onProgress?.(asset, results.length, total);
+      const promise = downloadSingleAsset(ref, options, options.url)
+        .then(asset => {
+          results.push(asset);
+          onProgress?.(asset, results.length, total);
+        })
+        .finally(() => inFlight.delete(promise));
+      inFlight.add(promise);
     }
-  });
 
-  await Promise.all(workers);
+    // Wait for any one to complete
+    if (inFlight.size > 0) {
+      await Promise.race(inFlight);
+    }
+  }
 
   return results;
 }

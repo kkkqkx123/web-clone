@@ -7,20 +7,6 @@ function assetCategory(type: string): string {
   return map[type] || 'data';
 }
 
-function uniqueFilename(url: string, index: number): string {
-  try {
-    const u = new URL(url);
-    let name = u.pathname.replace(/^\/+/, '') || 'index';
-    if (name.length > 120) {
-      const e = extname(name);
-      name = name.slice(0, 100) + '_' + index + e;
-    }
-    return name || `asset_${index}`;
-  } catch {
-    return `asset_${index}${extname(url.split('?')[0]) || '.bin'}`;
-  }
-}
-
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -34,10 +20,88 @@ function safeJoin(base: string, target: string): string | null {
   return resolved;
 }
 
+/** MIME → extension mapping */
+function extnameFromMime(mime: string): string | null {
+  const map: Record<string, string> = {
+    'text/css': '.css',
+    'application/javascript': '.js',
+    'text/javascript': '.js',
+    'application/x-javascript': '.js',
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/gif': '.gif',
+    'image/svg+xml': '.svg',
+    'image/webp': '.webp',
+    'image/x-icon': '.ico',
+    'font/woff': '.woff',
+    'font/woff2': '.woff2',
+    'font/ttf': '.ttf',
+    'font/opentype': '.otf',
+  };
+  return map[mime] || null;
+}
+
+/**
+ * Classify an asset URL and produce a safe filename.
+ * Priority: Content-Type → URL path semantics → fallback.
+ */
+function classifyAssetFilename(url: string, mime: string, index: number): string {
+  try {
+    const u = new URL(url);
+    let pathname = u.pathname.replace(/^\/+/, '') || 'index';
+
+    // 1. Content-Type inference extension name
+    const extFromMime = extnameFromMime(mime);
+    const existingExt = extname(pathname);
+    if (extFromMime && !existingExt) {
+      return pathname + extFromMime;
+    }
+    if (extFromMime && existingExt && existingExt !== extFromMime) {
+      // The file has an extension but differs from, For example,js files are not treated text .html.
+      return pathname + extFromMime;
+    }
+
+    // 2. Handle paths with query parameters like /gtag/js?id=xxx without extension
+    const lastSegment = pathname.split('/').pop() || 'index';
+    const extFromUrl = extname(lastSegment);
+    if (!extFromUrl && u.search) {
+      // As /gtag/js?id=xxx → → /gtagtag.js
+      const base = lastSegment.length < 10 ? `asset_${index}` : lastSegment;
+      // According to MIME, add a supplemental extension
+      if (extFromMime) return base + extFromMime;
+      // Common path segment path inference
+      if (lastSegment === 'js' || lastSegment === 'script') return base + '.js';
+      if (lastSegment === 'css' || lastSegment === 'style') return base + '.css';
+      return base + '.bin';
+    }
+
+    // 3. Existing extension
+    if (existingExt) return pathname;
+
+    // 4. No file extension, query parameters → may be a route path
+    return pathname || `asset_${index}`;
+  } catch {
+    return `asset_${index}${extname(url.split('?')[0]) || '.bin'}`;
+  }
+}
+
+/**
+ * Determine if a URL represents a route path (i.e. produces an HTML page).
+ * Strict check: pathname has no extension AND last segment is not a short filename-like word.
+ */
 function isRoutePath(url: string): boolean {
   try {
-    const pathname = new URL(url).pathname;
-    return extname(pathname) === '';
+    const u = new URL(url);
+    const pathname = u.pathname.replace(/\/+$/, '');
+    const ext = extname(pathname);
+    if (ext) return false; // Has extension → File
+
+    // Check the last path segment
+    const lastSegment = pathname.split('/').pop() || '';
+    // Has query parameters and the last part is shorter → Likely an API or file (e.g., /gtag/js?id=xxx)
+    if (lastSegment && lastSegment.length < 10 && u.search) return false;
+    // No query parameters → Route path
+    return true;
   } catch {
     return false;
   }
@@ -76,7 +140,7 @@ export function assembleBundle(
     if (isRoutePath(a.originUrl)) {
       fn = routeToIndexPath(a.originUrl, i);
     } else {
-      fn = uniqueFilename(a.originUrl, i);
+      fn = classifyAssetFilename(a.originUrl, a.mime, i);
     }
     
     const localPath = join(catDir, fn);

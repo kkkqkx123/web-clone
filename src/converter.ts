@@ -11,16 +11,48 @@ export async function convert(
   js: string,
   options: SnapshotOptions
 ): Promise<ConvertResult> {
-  // Phase 1: Parallel analysis
-  const htmlAnalysis = analyzeHtml(html, {
-    depth: options.componentDepth  // undefined when not specified (no limit)
-  });
+  // Memory budget downgrade strategy
+  const budget = (options as any).memoryBudget;
 
-  const cssAnalysis = analyzeCss(css);
+  // Phase 1: Parallel analysis (with memory budget degradation)
+  const htmlOptions: any = {
+    depth: options.componentDepth,  // undefined when not specified (no limit)
+  };
+  if (budget) {
+    if (budget.htmlStrategy === 'streaming') {
+      htmlOptions.maxTagScan = 50000;  // Limit the number of tags scanned
+    }
+  }
 
-  const jsAnalysis = analyzeJavaScript(js, {
-    extractLogic: options.extractLogic !== false
-  });
+  const htmlAnalysis = analyzeHtml(html, htmlOptions);
+
+  // CSS analysis: executed according to downgrade policy
+  let cssAnalysis;
+  if (budget?.cssStrategy === 'skip') {
+    cssAnalysis = { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
+  } else if (budget?.cssStrategy === 'head') {
+    // Analyze only the first 500KB of CSS
+    const headCss = css.slice(0, 500 * 1024);
+    cssAnalysis = analyzeCss(headCss);
+  } else {
+    cssAnalysis = analyzeCss(css);
+  }
+
+  // JS analysis: executed according to downgrade policy
+  let jsAnalysis;
+  if (budget?.jsStrategy === 'skip') {
+    jsAnalysis = { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
+  } else if (budget?.jsStrategy === 'head') {
+    // Analyze only the top 1MB of JS
+    const headJs = js.slice(0, 1024 * 1024);
+    jsAnalysis = analyzeJavaScript(headJs, {
+      extractLogic: options.extractLogic !== false
+    });
+  } else {
+    jsAnalysis = analyzeJavaScript(js, {
+      extractLogic: options.extractLogic !== false
+    });
+  }
 
   // Phase 2: Correlation
   const correlated = correlateComponents(htmlAnalysis, cssAnalysis, jsAnalysis);

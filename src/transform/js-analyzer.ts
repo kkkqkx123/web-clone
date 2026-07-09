@@ -6,6 +6,11 @@ import type { StateVariable, MethodSpec, EventBinding, MigrationTodo } from '../
 const require = createRequire(import.meta.url);
 const traverse = require('@babel/traverse').default;
 
+// Grading Strategy Thresholds
+const FULL_PARSE_LIMIT = 100 * 1024;        // < 100KB: Full Babel Explanation
+const FILTERED_PARSE_LIMIT = 1024 * 1024;   // < 1MB: Babel parsing after prefiltering
+const TRUNCATED_PARSE_LIMIT = 5 * 1024 * 1024; // < 5MB: Babel parsing after truncation
+
 export function analyzeJavaScript(js: string, options?: any): JsAnalysisResult {
   const result: JsAnalysisResult = {
     state: [],
@@ -18,6 +23,156 @@ export function analyzeJavaScript(js: string, options?: any): JsAnalysisResult {
 
   if (!js.trim()) return result;
 
+  const size = js.length;
+
+  // Hierarchical strategy: choose different parsing methods according to file size
+  if (size <= FULL_PARSE_LIMIT) {
+    // < 100KB: Full Babel Explanation
+    return parseWithBabel(js, result);
+  } else if (size <= FILTERED_PARSE_LIMIT) {
+    // 100KB - 1MB: Quick Scan + Babel Parsing
+    const quick = quickScanJs(js);
+    result.state = quick.state.map(n => ({
+      name: n,
+      type: 'unknown',
+      initial: undefined,
+      bindings: [],
+      mutators: [],
+      confidence: 0.3
+    }));
+    result.methods = quick.handlers.map(n => ({
+      name: n,
+      kind: 'handler' as const,
+      code: '',
+      parameters: [],
+      sideEffects: []
+    }));
+    // Supplemental Babel Analysis
+    const babelResult = parseWithBabel(js, emptyResult());
+    result.state = mergeStateDeduped(result.state, babelResult.state);
+    result.methods = mergeMethodsDeduped(result.methods, babelResult.methods);
+    result.events = babelResult.events;
+    result.refs = babelResult.refs;
+    result.lifecycles = babelResult.lifecycles;
+    result.todos.push(...babelResult.todos);
+    return result;
+  } else if (size <= TRUNCATED_PARSE_LIMIT) {
+    // 1MB - 5MB: Babel parsing after truncation
+    console.warn(`⚠ JS truncated: ${fmt(size)} → ${fmt(FULL_PARSE_LIMIT)}`);
+    // Quick scan first to get the full amount of information
+    const quick = quickScanJs(js);
+    result.state = quick.state.map(n => ({
+      name: n,
+      type: 'unknown',
+      initial: undefined,
+      bindings: [],
+      mutators: [],
+      confidence: 0.3
+    }));
+    result.methods = quick.handlers.map(n => ({
+      name: n,
+      kind: 'handler' as const,
+      code: '',
+      parameters: [],
+      sideEffects: []
+    }));
+    // Truncate the first 500KB for Babel parsing.
+    const truncated = js.slice(0, FULL_PARSE_LIMIT * 5);
+    const babelResult = parseWithBabel(truncated, emptyResult());
+    result.state = mergeStateDeduped(result.state, babelResult.state);
+    result.methods = mergeMethodsDeduped(result.methods, babelResult.methods);
+    result.events = babelResult.events;
+    result.refs = babelResult.refs;
+    result.lifecycles = babelResult.lifecycles;
+    result.todos.push(...babelResult.todos);
+    result.todos.push({
+      type: 'unknown_pattern',
+      description: `JS truncated: ${fmt(size)} parsed, full size ${fmt(size)}`,
+      severity: 'info'
+    });
+    return result;
+  } else {
+    // > 5MB: regular fast scan only
+    console.warn(`⚠ JS too large (${fmt(size)}), using quick scan only`);
+    const quick = quickScanJs(js);
+    result.state = quick.state.map(n => ({
+      name: n,
+      type: 'unknown',
+      initial: undefined,
+      bindings: [],
+      mutators: [],
+      confidence: 0.3
+    }));
+    result.methods = quick.handlers.map(n => ({
+      name: n,
+      kind: 'handler' as const,
+      code: '',
+      parameters: [],
+      sideEffects: []
+    }));
+    result.todos.push({
+      type: 'unknown_pattern',
+      description: `JS too large (${fmt(size)}), quick scan only — results may be incomplete`,
+      severity: 'warning'
+    });
+    return result;
+  }
+}
+
+function fmt(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${['B', 'KB', 'MB', 'GB'][i]}`;
+}
+
+function emptyResult(): JsAnalysisResult {
+  return { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
+}
+
+function mergeStateDeduped(existing: StateVariable[], incoming: StateVariable[]): StateVariable[] {
+  const names = new Set(existing.map(s => s.name));
+  return [...existing, ...incoming.filter(s => !names.has(s.name))];
+}
+
+function mergeMethodsDeduped(existing: MethodSpec[], incoming: MethodSpec[]): MethodSpec[] {
+  const names = new Set(existing.map(m => m.name));
+  return [...existing, ...incoming.filter(m => !names.has(m.name))];
+}
+
+/**
+ * Quick scan JS using regex patterns — lightweight, no Babel.
+ */
+function quickScanJs(js: string): { state: string[]; handlers: string[] } {
+  const state: string[] = [];
+  const handlers: string[] = [];
+
+  // A quick scan of variable declarations
+  const statePattern = /\b(var|let|const)\s+(\w+)\s*=\s*(['"`]|\d+|true|false|null|undefined|\{|\[)/g;
+  let match;
+  while ((match = statePattern.exec(js)) !== null) {
+    const name = match[2];
+    if (isLikelyState(name) && !state.includes(name)) {
+      state.push(name);
+    }
+  }
+
+  // 快速扫描函数定义
+  const handlerPattern = /\b(?:function\s+(\w+)|(\w+)\s*=\s*(?:function|\([^)]*\)\s*=>))\s*[({]/g;
+  while ((match = handlerPattern.exec(js)) !== null) {
+    const name = match[1] || match[2];
+    if (name && isLikelyHandler(name) && !handlers.includes(name)) {
+      handlers.push(name);
+    }
+  }
+
+  return { state, handlers };
+}
+
+/**
+ * Full Babel-based AST parsing.
+ */
+function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult {
   try {
     const ast = parser.parse(js, {
       sourceType: 'unambiguous',

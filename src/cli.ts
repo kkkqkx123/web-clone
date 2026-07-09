@@ -23,6 +23,7 @@ program
   .option('--component-depth <n>', 'Limit component recognition to specified depth (no limit if not specified, requires --extract-components)')
   .option('--framework <hint>', 'Framework hint: vue | react | svelte (requires --extract-components)')
   .option('--extract-logic', 'Extract JavaScript logic (default: true, requires --extract-components)')
+  .option('--memory-limit <mb>', 'Memory budget in MB for component extraction (requires --extract-components)', '1536')
   .option('--codegen-framework <type>', 'Generate framework code: vue | react | angular | svelte | jquery (requires --extract-components)')
   .option('--codegen-typescript', 'Use TypeScript for generated code (default: true)')
   .option('--codegen-css-modules', 'Use CSS Modules for React (default: false)')
