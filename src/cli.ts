@@ -23,6 +23,11 @@ program
   .option('--component-depth <n>', 'Limit component recognition to specified depth (no limit if not specified, requires --extract-components)')
   .option('--framework <hint>', 'Framework hint: vue | react | svelte (requires --extract-components)')
   .option('--extract-logic', 'Extract JavaScript logic (default: true, requires --extract-components)')
+  .option('--codegen-framework <type>', 'Generate framework code: vue | react | angular | svelte | jquery (requires --extract-components)')
+  .option('--codegen-typescript', 'Use TypeScript for generated code (default: true)')
+  .option('--codegen-css-modules', 'Use CSS Modules for React (default: false)')
+  .option('--codegen-generate-drafts', 'Generate complete project templates in __drafts__/ (requires --codegen-framework)')
+  .option('--codegen-extract-shared', 'Extract shared logic to shared/ directory (requires --extract-components)')
   .action(async (url: string, opts: Record<string, any>) => {
     const options: SnapshotOptions = {
       url,
@@ -39,9 +44,20 @@ program
 
     // Component extraction options only apply if --extract-components is specified
     if (options.extractComponents) {
-      options.componentDepth = opts.componentDepth ? parseInt(opts.componentDepth, 10) : 4;
+      options.componentDepth = opts.componentDepth ? parseInt(opts.componentDepth, 10) : undefined;
       options.frameworkHint = opts.framework as any;
       options.extractLogic = opts.extractLogic !== 'false';
+
+      // Framework code generation options
+      if (opts.codegenFramework) {
+        options.frameworkCodegen = {
+          framework: opts.codegenFramework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery',
+          typescript: opts.codegenTypescript !== 'false',
+          cssModules: opts.codegenCssModules === 'true',
+          generateDrafts: opts.codegenGenerateDrafts === 'true',
+          extractSharedLogic: opts.codegenExtractShared === 'true',
+        };
+      }
     }
 
     console.log(chalk.cyan('\n◉ Web Snapshot\n'));

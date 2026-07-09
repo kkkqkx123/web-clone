@@ -4,6 +4,14 @@ export type AssetStatus = 'pending' | 'fetched' | 'failed' | 'skipped';
 
 export type SnapshotMode = 'single' | 'bundle';
 
+export interface FrameworkCodeGenOptions {
+  framework?: 'vue' | 'react' | 'angular' | 'svelte' | 'jquery';
+  typescript?: boolean;
+  cssModules?: boolean;
+  generateDrafts?: boolean;
+  extractSharedLogic?: boolean;
+}
+
 export interface SnapshotOptions {
   url: string;
   output: string;
@@ -19,6 +27,8 @@ export interface SnapshotOptions {
   componentDepth?: number;
   frameworkHint?: 'vue' | 'react' | 'svelte';
   extractLogic?: boolean;
+  // Framework code generation
+  frameworkCodegen?: FrameworkCodeGenOptions;
 }
 
 export interface StateVariable {
@@ -53,8 +63,11 @@ export interface ComponentManifest {
   state: Record<string, StateVariable>;
   events: Record<string, EventBinding>;
   migration: {
-    priority: 'high' | 'medium' | 'low';
-    effort: string;
+    effort: string;          // Estimated hours: "0.5h", "1h", "2h", "4h", "8h+"
+    effortBreakdown: {       // NEW: detailed breakdown for transparency
+      extraction: string;     // Time to verify extraction accuracy
+      conversion: string;     // Time to convert extracted content
+    };
     suggestions: string[];
     todos: MigrationTodo[];
   };
@@ -123,3 +136,28 @@ export interface SnapshotResult {
 }
 
 export const MAX_INLINE_SIZE = 10 * 1024 * 1024;
+
+// Framework code generation types
+export interface GeneratedComponent {
+  name: string;
+  code: string;
+  language: 'vue' | 'jsx' | 'tsx' | 'svelte' | 'ts' | 'js';
+  imports: string[];
+  dependencies: string[];
+  metadata: {
+    hasState: boolean;
+    eventCount: number;
+    styleSize: number;
+  };
+}
+
+export interface GeneratedFramework {
+  components: GeneratedComponent[];
+  appTemplate?: string;
+  mainEntry?: string;
+  packageJson?: Record<string, any>;
+  shared?: {
+    api?: string;
+    utils?: string;
+  };
+}

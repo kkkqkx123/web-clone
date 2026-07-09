@@ -9,7 +9,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
-    "snapshot": "tsx src/cli.ts"
+    "snapshot": "tsx src/cli.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@babel/parser": "^7.24.0",
@@ -28,7 +31,9 @@
     "@types/babel__traverse": "^7.28.0",
     "@types/css-tree": "^2.3.11",
     "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^1.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.0"
   }
 }

@@ -29,9 +29,7 @@ export function generateComponentStructure(
 }
 
 function buildManifest(comp: CorrelatedComponent): ComponentManifest {
-  const priority = calculatePriority(comp);
-  const effort = estimateEffort(comp);
-  const eventCount = comp.logic?.events?.length || 0;
+  const { effort, breakdown } = estimateEffort(comp);
 
   return {
     name: comp.name,
@@ -41,31 +39,65 @@ function buildManifest(comp: CorrelatedComponent): ComponentManifest {
     state: buildStateMap(comp.logic?.state || []),
     events: buildEventMap(comp.logic?.events || []),
     migration: {
-      priority,
       effort,
+      effortBreakdown: breakdown,
       suggestions: generateSuggestions(comp),
       todos: enrichTodos(comp)
     }
   };
 }
 
-function calculatePriority(comp: CorrelatedComponent): 'high' | 'medium' | 'low' {
-  if (comp.type === 'stateful' && (comp.logic?.state?.length || 0) > 3) return 'high';
-  if (comp.type === 'stateful') return 'medium';
-  if (comp.type === 'presentational') return 'medium';
-  return 'low';
-}
-
-function estimateEffort(comp: CorrelatedComponent): string {
+function estimateEffort(comp: CorrelatedComponent): { effort: string; breakdown: { extraction: string; conversion: string } } {
   const stateCount = comp.logic?.state?.length || 0;
   const methodCount = comp.logic?.methods?.length || 0;
   const eventCount = comp.logic?.events?.length || 0;
-  const complexity = stateCount * 0.5 + methodCount * 0.3 + eventCount * 0.2;
 
-  if (complexity <= 1) return '1h';
-  if (complexity <= 2.5) return '2h';
-  if (complexity <= 5) return '4h';
-  return '8h+';
+  // Conversion complexity: based on logic
+  const logicComplexity = stateCount * 0.5 + methodCount * 0.3 + eventCount * 0.2;
+
+  // Extraction verification time: based on confidence
+  // Low confidence components need manual review and correction
+  const confidenceMultiplier = Math.max(1, 1 / (comp.matchConfidence || 0.5));
+
+  const totalComplexity = logicComplexity * confidenceMultiplier;
+
+  // Time bands: based on combined complexity
+  let effort = '0.5h';
+  let conversion = '15m';
+  let extraction = '10m';
+
+  if (totalComplexity <= 0.5) {
+    effort = '0.5h';
+    conversion = '15m';
+  } else if (totalComplexity <= 1.5) {
+    effort = '1h';
+    conversion = '30m';
+  } else if (totalComplexity <= 3) {
+    effort = '2h';
+    conversion = '1h';
+  } else if (totalComplexity <= 6) {
+    effort = '4h';
+    conversion = '2h';
+  } else {
+    effort = '8h+';
+    conversion = '4h+';
+  }
+
+  // Add extraction review time based on confidence
+  if (comp.matchConfidence < 0.6) {
+    extraction = '30m+';  // Needs careful review
+    effort = effort === '0.5h' ? '1h' : effort === '1h' ? '2h' : effort === '2h' ? '4h' : effort === '4h' ? '8h+' : '8h+';
+  } else if (comp.matchConfidence < 0.8) {
+    extraction = '15m';
+  }
+
+  return {
+    effort,
+    breakdown: {
+      extraction,
+      conversion
+    }
+  };
 }
 
 function buildStateMap(stateVars: any[]): Record<string, any> {

@@ -1,6 +1,9 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ConvertResult } from '../types.js';
+import { codeGenerator } from '../transform/framework-codegen/index.js';
+import { ConfigGenerator } from '../transform/framework-codegen/config-generator.js';
+import { SharedLogicExtractor } from '../transform/framework-codegen/shared-logic-extractor.js';
 
 export function assembleConvert(result: ConvertResult, options: any): ConvertResult {
   const outputDir = options.output;
@@ -38,6 +41,15 @@ export function assembleConvert(result: ConvertResult, options: any): ConvertRes
           reason: (comp.matchConfidence ?? 0) < 0.3 ? 'Very low confidence - strong manual review recommended' : 'Low confidence - manual review suggested'
         });
       }
+
+      // NEW: Generate framework code if specified
+      if (options.frameworkCodegen?.framework) {
+        const generated = codeGenerator.generateComponent(comp, options.frameworkCodegen);
+        if (generated) {
+          const filename = `${generated.name}${generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.tsx' : '.jsx'}`;
+          writeFileSync(join(compDir, filename), generated.code);
+        }
+      }
     });
 
     // Write global styles if available
@@ -56,6 +68,11 @@ export function assembleConvert(result: ConvertResult, options: any): ConvertRes
       );
     }
 
+    // NEW: Generate application template if requested
+    if (options.frameworkCodegen?.framework && options.frameworkCodegen?.generateDrafts) {
+      writeApplicationDrafts(result, outputDir, options.frameworkCodegen);
+    }
+
     console.log(`\n  ✓ Conversion complete`);
     console.log(`    Components: ${result.components.size}`);
     if (result.index?.stats) {
@@ -64,6 +81,9 @@ export function assembleConvert(result: ConvertResult, options: any): ConvertRes
     }
     if (lowConfidenceComponents.length > 0) {
       console.log(`    ⚠️  Low confidence: ${lowConfidenceComponents.length} (see REVIEW_REQUIRED.md)`);
+    }
+    if (options.frameworkCodegen?.framework) {
+      console.log(`    📦 Framework: ${options.frameworkCodegen.framework}`);
     }
   } catch (err: any) {
     console.error(`Failed to write output: ${err.message}`);
@@ -119,6 +139,265 @@ body {
   }
 }
 
+/**
+ * NEW: Write application template drafts
+ */
+function writeApplicationDrafts(result: ConvertResult, outputDir: string, frameworkOptions: any): void {
+  const components = Array.from(result.components.values());
+  if (components.length === 0) return;
+
+  const draftsDir = join(outputDir, '__drafts__');
+  const framework = frameworkOptions.framework;
+  const frameworkDir = join(draftsDir, framework);
+
+  mkdirSync(frameworkDir, { recursive: true });
+  mkdirSync(join(frameworkDir, 'src'), { recursive: true });
+  mkdirSync(join(frameworkDir, 'src', 'shared'), { recursive: true });
+
+  // 1. Generate index.html (CRITICAL - entry point for browser)
+  const indexHtml = ConfigGenerator.generateIndexHtml(framework, frameworkOptions.typescript);
+  writeFileSync(join(frameworkDir, 'index.html'), indexHtml);
+
+  // 2. Generate vite.config.ts
+  const viteConfig = ConfigGenerator.generateViteConfig(framework);
+  writeFileSync(join(frameworkDir, 'vite.config.ts'), viteConfig);
+
+  // 3. Generate tsconfig.json
+  const tsConfig = ConfigGenerator.generateTsConfig(framework);
+  writeFileSync(join(frameworkDir, 'tsconfig.json'), tsConfig);
+
+  // 4. Generate tsconfig.app.json (app-specific TS config)
+  const tsAppConfig = ConfigGenerator.generateTsAppConfig(framework);
+  writeFileSync(join(frameworkDir, 'tsconfig.app.json'), tsAppConfig);
+
+  // 5. Generate .env.example
+  const envExample = ConfigGenerator.generateEnvExample();
+  writeFileSync(join(frameworkDir, '.env.example'), envExample);
+
+  // 6. Generate shared logic files
+  writeSharedLogicFiles(frameworkDir, result.components, frameworkOptions);
+
+  // 7. Generate App component/file
+  const appTemplate = codeGenerator.generateAppTemplate(
+    components.map(c => ({
+      name: c.name,
+      code: '',
+      language: framework === 'vue' ? 'vue' : frameworkOptions.typescript ? 'tsx' : 'jsx',
+      imports: [],
+      dependencies: [],
+      metadata: {
+        hasState: false,
+        eventCount: 0,
+        styleSize: 0,
+      },
+    })),
+    frameworkOptions
+  );
+
+  if (framework === 'vue') {
+    writeFileSync(join(frameworkDir, 'src', 'App.vue'), appTemplate);
+  } else {
+    const ext = frameworkOptions.typescript ? '.tsx' : '.jsx';
+    writeFileSync(join(frameworkDir, 'src', `App${ext}`), appTemplate);
+  }
+
+  // 8. Generate main entry point
+  const mainEntry = codeGenerator.generateMainEntry(frameworkOptions);
+  writeFileSync(join(frameworkDir, 'src', mainEntry.filename), mainEntry.code);
+
+  // 9. Generate package.json (framework only, no forced dependencies)
+  const packageJson = codeGenerator.generatePackageJson(
+    'migrated-app',
+    frameworkOptions,
+    []
+  );
+  writeFileSync(join(frameworkDir, 'package.json'), JSON.stringify(packageJson, null, 2));
+
+  // 10. Create .gitignore
+  const gitignore = `node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+*.swp
+`;
+  writeFileSync(join(frameworkDir, '.gitignore'), gitignore);
+
+
+  const draftsReadme = `# ${framework.toUpperCase()} Application Draft
+
+This is an auto-generated project template for ${framework.toUpperCase()}.
+
+## Quick Start
+
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+The app will open at \`http://localhost:5173\`.
+
+## Project Structure
+
+\`\`\`
+src/
+├── App.${framework === 'vue' ? 'vue' : frameworkOptions.typescript ? 'tsx' : 'jsx'}    # Root application component
+├── main.${frameworkOptions.typescript ? 'ts' : 'js'}           # Application entry point
+├── components/         # Generated components (copy from snapshot)
+└── shared/             # Shared utilities, API clients, and constants
+    ├── api.${frameworkOptions.typescript ? 'ts' : 'js'}        # API client methods
+    ├── utils.${frameworkOptions.typescript ? 'ts' : 'js'}      # Utility functions
+    └── constants.${frameworkOptions.typescript ? 'ts' : 'js'}  # Constants and configuration
+\`\`\`
+
+## Setup Instructions
+
+1. **Copy Components**
+   \`\`\`bash
+   cp -r ../components ./src/
+   \`\`\`
+
+2. **Install Dependencies**
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+3. **Start Development Server**
+   \`\`\`bash
+   npm run dev
+   \`\`\`
+
+4. **Build for Production**
+   \`\`\`bash
+   npm run build
+   npm run preview
+   \`\`\`
+
+## Next Steps
+
+1. Review each component in \`src/components/\` and adjust as needed
+2. Implement any TODO markers in component logic
+3. Update styles if needed for your design system
+4. Configure your API endpoints in \`src/shared/api.${frameworkOptions.typescript ? 'ts' : 'js'}\`
+5. Add utility functions to \`src/shared/utils.${frameworkOptions.typescript ? 'ts' : 'js'}\`
+6. Update constants in \`src/shared/constants.${frameworkOptions.typescript ? 'ts' : 'js'}\`
+7. Run tests and verify functionality
+8. Deploy to production
+
+## Available Scripts
+
+- \`npm run dev\` - Start development server (hot reload enabled)
+- \`npm run build\` - Build for production
+- \`npm run preview\` - Preview production build locally
+- \`npm run type-check\` - Check TypeScript types (if applicable)
+
+## Shared Logic
+
+The \`src/shared/\` directory contains auto-generated shared code:
+
+### API Client (\`api.${frameworkOptions.typescript ? 'ts' : 'js'}\`)
+Centralized API communication with error handling and retry logic.
+
+\`\`\`typescript
+import { apiClient, fetchUsers } from './shared/api'
+
+const users = await fetchUsers({ page: 1 })
+\`\`\`
+
+### Utilities (\`utils.${frameworkOptions.typescript ? 'ts' : 'js'}\`)
+Common utility functions like debounce, throttle, and deep clone.
+
+\`\`\`typescript
+import { debounce, deepClone } from './shared/utils'
+
+const handleResize = debounce(() => { /* ... */ }, 300)
+\`\`\`
+
+### Constants (\`constants.${frameworkOptions.typescript ? 'ts' : 'js'}\`)
+Application configuration and constants.
+
+\`\`\`typescript
+import { API_ENDPOINTS, DEFAULT_TIMEOUT } from './shared/constants'
+\`\`\`
+
+## Framework Documentation
+
+- **Vue 3**: https://vuejs.org/guide/
+- **React 18**: https://react.dev/
+- **Angular 17**: https://angular.io/docs
+- **Svelte 4**: https://svelte.dev/docs
+- **jQuery 3.7**: https://api.jquery.com/
+
+## Important Notes
+
+- All components are auto-generated from the original HTML/CSS/JavaScript
+- Manual implementation of complex logic may be required
+- Some patterns may need adjustment for the target framework
+- CSS styles may need tuning for visual consistency
+- API calls and external integrations need to be configured
+
+## Troubleshooting
+
+### Port already in use
+Change the port in \`vite.config.ts\`:
+\`\`\`typescript
+server: {
+  port: 5174,  // Change to different port
+}
+\`\`\`
+
+### TypeScript errors
+Run type checking:
+\`\`\`bash
+npx tsc --noEmit
+\`\`\`
+
+### Styles not loading
+Ensure CSS files are imported in components and \`index.html\` has:
+\`\`\`html
+<div id="app"></div>
+\`\`\`
+
+## Support
+
+For component-specific issues, check the generated component manifests:
+\`\`\`bash
+../components/*/manifest.json  # Migration metadata
+\`\`\`
+
+---
+
+Generated by web-clone framework code generator
+`;
+  writeFileSync(join(frameworkDir, 'README.md'), draftsReadme);
+
+  console.log(`  📂 Generated ${framework} draft project at ${frameworkDir}`);
+  console.log(`  ✅ Ready to use: cd ${join('__drafts__', framework)} && npm install && npm run dev`);
+}
+
+/**
+ * Write shared logic files (API, utilities, constants)
+ */
+function writeSharedLogicFiles(
+  frameworkDir: string,
+  components: Map<string, any>,
+  frameworkOptions: any
+): void {
+  const sharedDir = join(frameworkDir, 'src', 'shared');
+  const specs = Array.from(components.values());
+  const ext = frameworkOptions.typescript ? 'ts' : 'js';
+
+  // Use SharedLogicExtractor to generate actual code from components
+  const apiContent = SharedLogicExtractor.extractApiLogic(specs);
+  const utilsContent = SharedLogicExtractor.extractUtilities(specs);
+  const constantsContent = SharedLogicExtractor.extractConstants(specs);
+
+  writeFileSync(join(sharedDir, `api.${ext}`), apiContent);
+  writeFileSync(join(sharedDir, `utils.${ext}`), utilsContent);
+  writeFileSync(join(sharedDir, `constants.${ext}`), constantsContent);
+}
+
 function generateReadme(result: ConvertResult): string {
   const components = Array.from(result.components.values());
 
@@ -139,6 +418,7 @@ ${components.map(c => {
     return `### ${c.name}
 
 - **Type**: ${c.type}
+- **Confidence**: ${Math.round((c.matchConfidence ?? 0) * 100)}%
 - **Path**: \`components/${c.name}/\`
 - **Files**:
   - \`template.html\` - Component template
@@ -146,8 +426,9 @@ ${components.map(c => {
   - \`manifest.json\` - Component metadata
 ${c.logic ? `  - \`logic.original.json\` - Original logic` : ''}
 
-**Effort**: ${c.manifest.migration.effort}
-**Priority**: ${c.manifest.migration.priority}
+**Estimated Effort**: ${c.manifest.migration.effort}
+- Extraction review: ${c.manifest.migration.effortBreakdown.extraction}
+- Conversion: ${c.manifest.migration.effortBreakdown.conversion}
 
 ${c.manifest.migration.suggestions.length > 0 ? `**Suggestions**:
 ${c.manifest.migration.suggestions.map(s => `- ${s}`).join('\n')}` : ''}
@@ -158,44 +439,120 @@ ${c.manifest.migration.suggestions.map(s => `- ${s}`).join('\n')}` : ''}
 
 function generateMigrationGuide(result: ConvertResult): string {
   const components = Array.from(result.components.values());
-  const highPriority = components.filter(c => c.manifest.migration.priority === 'high');
+
+  // Sort by recommended migration order: high confidence + simple first
+  const sortedByRecommendation = components.sort((a, b) => {
+    const aConfidence = a.matchConfidence ?? 0;
+    const bConfidence = b.matchConfidence ?? 0;
+
+    // Prioritize high-confidence components
+    if (aConfidence >= 0.8 && bConfidence < 0.8) return -1;
+    if (aConfidence < 0.8 && bConfidence >= 0.8) return 1;
+
+    // Within similar confidence, prefer simpler components (shorter effort)
+    const effortOrder = { '0.5h': 1, '1h': 2, '2h': 3, '4h': 4, '8h+': 5 };
+    const aEffortRank = effortOrder[a.manifest.migration.effort as keyof typeof effortOrder] ?? 5;
+    const bEffortRank = effortOrder[b.manifest.migration.effort as keyof typeof effortOrder] ?? 5;
+    return aEffortRank - bEffortRank;
+  });
+
+  const highConfidenceSimple = sortedByRecommendation.filter(c => (c.matchConfidence ?? 0) >= 0.8 && c.manifest.migration.effort === '0.5h');
+  const highConfidenceModerate = sortedByRecommendation.filter(c => (c.matchConfidence ?? 0) >= 0.8 && ['1h', '2h'].includes(c.manifest.migration.effort));
+  const highConfidenceComplex = sortedByRecommendation.filter(c => (c.matchConfidence ?? 0) >= 0.8 && ['4h', '8h+'].includes(c.manifest.migration.effort));
+  const lowConfidence = sortedByRecommendation.filter(c => (c.matchConfidence ?? 0) < 0.8);
 
   return `# Migration Guide
 
-## Quick Start
+## Overview
 
-1. Start with high-priority components
-2. Follow the suggestions in each component's \`manifest.json\`
-3. Check \`logic.original.json\` for state and methods that need conversion
+This guide helps you migrate components in an optimal order. Components with higher confidence should be migrated first, as their extraction is more reliable. Lower-confidence components need manual review before migration.
 
-## High Priority Components
+## Recommended Migration Phases
 
-${highPriority.map(c => `- **${c.name}** (${c.manifest.migration.effort})`).join('\n')}
+### Phase 1: Quick Wins (High Confidence, Simple)
+
+${highConfidenceSimple.length > 0 ? `Start with these high-confidence, simple components:
+
+${highConfidenceSimple.map(c => `- **${c.name}** (${Math.round((c.matchConfidence ?? 0) * 100)}%, ${c.manifest.migration.effort})`).join('\n')}` : 'No high-confidence simple components found.'}
+
+### Phase 2: Core Features (High Confidence, Moderate Complexity)
+
+${highConfidenceModerate.length > 0 ? `Once quick wins are done, migrate these reliable components:
+
+${highConfidenceModerate.map(c => `- **${c.name}** (${Math.round((c.matchConfidence ?? 0) * 100)}%, ${c.manifest.migration.effort})`).join('\n')}` : 'No moderate-complexity components found.'}
+
+### Phase 3: Complex Features (High Confidence, Complex)
+
+${highConfidenceComplex.length > 0 ? `These are comprehensive and reliable, but require more effort:
+
+${highConfidenceComplex.map(c => `- **${c.name}** (${Math.round((c.matchConfidence ?? 0) * 100)}%, ${c.manifest.migration.effort})`).join('\n')}` : 'No complex high-confidence components found.'}
+
+### Phase 4: Manual Review Required (Low Confidence)
+
+${lowConfidence.length > 0 ? `⚠️  These components need careful review before migration. See REVIEW_REQUIRED.md for details.
+
+${lowConfidence.map(c => `- **${c.name}** (${Math.round((c.matchConfidence ?? 0) * 100)}% confidence, ${c.manifest.migration.effort})`).join('\n')}` : 'All components have high confidence!'}
+
+## Per-Component Instructions
+
+For each component, follow these steps:
+
+1. **Review the manifest**
+   \`\`\`
+   cat components/{ComponentName}/manifest.json
+   \`\`\`
+
+2. **Check the extraction**
+   - Template: \`components/{ComponentName}/template.html\`
+   - Styles: \`components/{ComponentName}/style.css\`
+   - Logic: \`components/{ComponentName}/logic.original.json\` (if available)
+
+3. **Convert to your framework**
+   - Follow suggestions in the manifest
+   - Convert state variables to reactive references
+   - Map event handlers to component methods
+   - Integrate styles into your framework
+
+4. **Test and validate**
+   - Verify visual appearance
+   - Test event handlers and state updates
+   - Cross-reference with REVIEW_REQUIRED.md if confidence is low
+
+## Effort Estimation
+
+Each component shows estimated effort:
+- **Extraction review**: Time to verify the extracted boundaries and content are correct
+- **Conversion**: Time to convert to your target framework
+
+For low-confidence components, add extra time for manual corrections.
 
 ## Common Patterns
 
 ### Converting State Variables
 
-Look at \`components/{Name}/logic.original.json\` for identified state variables and convert them to your framework's reactive system.
+Extracted state variables are in \`logic.original.json\`. Each has:
+- \`type\`: The detected data type
+- \`initial\`: Initial value
+- \`bindings\`: Where it's used in the template
+- \`mutators\`: How it's modified in the logic
 
 ### Mapping Event Handlers
 
-Review the \`events\` section in each component's manifest to map event listeners to component methods.
+Check the \`events\` section in manifest.json. Each event has:
+- \`event\`: The event type (click, change, submit, etc.)
+- \`handler\`: The handler function name
+- \`selector\`: Where the handler is attached
 
 ### CSS Migration
 
-Check \`components/{Name}/style.css\` for component-specific styles and integrate them into your framework.
-
-## Next Steps
-
-1. Review each component's manifest.json for TODOs
-2. Convert identified state variables to framework-specific reactive references
-3. Map event handlers to component methods
-4. Test component interactions
+Component-specific styles are in \`style.css\`. You may need to:
+- Adjust CSS variable references to your framework
+- Update class names if migrating from BEM to another convention
+- Merge with your global CSS reset
 
 ---
 
-**Note**: This migration guide is generated automatically. Manual review is recommended for optimal results.
+**Note**: This migration guide is generated automatically. Review each component's confidence level before starting conversion. Manual verification is essential for optimal results.
 `;
 }
 

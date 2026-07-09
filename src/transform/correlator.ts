@@ -11,7 +11,13 @@ export function correlateComponents(
     const styles = matchStyles(root, css);
     const logic = matchLogic(root, js);
     const componentType = inferComponentType(logic);
-    const logicConfidence = calculateLogicConfidence(logic);
+
+    // Weighted confidence: HTML detection is most reliable (50%), CSS (30%), Logic (20%)
+    // This prevents weak signals from diluting strong extraction markers
+    const matchConfidence =
+      root.confidence * 0.5 +
+      Math.min(1, styles.confidence) * 0.3 +
+      (logic ? 0.2 : 0.1); // Penalize missing logic slightly, but not heavily
 
     const comp: CorrelatedComponent = {
       name: root.name,
@@ -19,7 +25,7 @@ export function correlateComponents(
       template: getOuterHtml(root.element),
       styles: styles.css,
       logic,
-      matchConfidence: (root.confidence + styles.confidence + logicConfidence) / 3
+      matchConfidence
     };
 
     components.set(root.name, comp);
@@ -40,39 +46,32 @@ function matchStyles(root: any, css: CssAnalysisResult) {
   const id = root.element.id;
   const tag = root.element.tagName?.toLowerCase() || '';
   const matched: any[] = [];
-  let confidence = 0;
+  const matchSignals: number[] = []; // Track individual signal strengths
 
-  // Match by class names (BEM support - enhanced)
+  // Match by class names (BEM support)
   classes.forEach(cls => {
     if (css.componentStyles[cls]) {
       matched.push(...css.componentStyles[cls]);
-      confidence += 0.3;
+      matchSignals.push(0.35); // Strong signal: direct class match
     }
-    // Check for BEM block-related classes (supports nested patterns)
+    // BEM block-related classes
     const blockName = cls.split('__')[0].split('--')[0];
     if (blockName !== cls && css.componentStyles[blockName]) {
       matched.push(...css.componentStyles[blockName]);
-      confidence += 0.2;
+      matchSignals.push(0.20); // Medium signal: BEM block match
     }
   });
 
-  // Match by ID (if present)
+  // Match by ID
   if (id && css.componentStyles[id]) {
     matched.push(...css.componentStyles[id]);
-    confidence += 0.2;
-  } else if (id) {
-    // Check ID-based CSS
-    const idStyles = Object.entries(css.componentStyles).find(([key]) => key === id);
-    if (idStyles) {
-      matched.push(...idStyles[1]);
-      confidence += 0.2;
-    }
+    matchSignals.push(0.25); // Medium-strong signal: ID match
   }
 
-  // Match by tag name
+  // Match by tag name (weakest signal)
   if (css.componentStyles[tag]) {
     matched.push(...css.componentStyles[tag]);
-    confidence += 0.1;
+    matchSignals.push(0.10); // Weak signal: tag-only match
   }
 
   // Match by CSS descendant/child combinators
@@ -80,7 +79,7 @@ function matchStyles(root: any, css: CssAnalysisResult) {
   selectors.forEach(sel => {
     if ((sel.includes(tag) || classes.some(c => sel.includes(c))) && !matched.includes(css.componentStyles[sel])) {
       matched.push(...css.componentStyles[sel]);
-      confidence += 0.15;
+      matchSignals.push(0.15); // Weak-medium signal: combinator match
     }
   });
 
@@ -92,7 +91,15 @@ function matchStyles(root: any, css: CssAnalysisResult) {
   }) || [];
 
   if (dynamicMatches.length > 0) {
-    confidence += 0.1;
+    matchSignals.push(0.12); // Weak signal: dynamic style hint
+  }
+
+  // Combine multiple signals using probability model
+  // Instead of sum (which can exceed 1), use: confidence = 1 - ∏(1 - signal)
+  // This is more realistic: multiple weak signals reinforce, but don't guarantee
+  let confidence = 0;
+  if (matchSignals.length > 0) {
+    confidence = 1 - matchSignals.reduce((product, signal) => product * (1 - signal), 1);
   }
 
   return {
@@ -148,26 +155,6 @@ function inferComponentType(logic: any): 'stateful' | 'presentational' | 'unknow
   if (hasState && (hasEvents || hasMethods)) return 'stateful';
   if (hasState || hasEvents || hasMethods) return 'presentational';
   return 'unknown';
-}
-
-function calculateLogicConfidence(logic: any): number {
-  if (!logic) return 0.3;
-
-  let confidence = 0.5;
-
-  // State variables increase confidence
-  const stateCount = logic.state?.length || 0;
-  confidence += Math.min(0.2, stateCount * 0.1);
-
-  // Methods increase confidence
-  const methodCount = logic.methods?.length || 0;
-  confidence += Math.min(0.15, methodCount * 0.075);
-
-  // Events increase confidence
-  const eventCount = logic.events?.length || 0;
-  confidence += Math.min(0.15, eventCount * 0.075);
-
-  return Math.min(1, confidence);
 }
 
 function getElementClasses(el: any): string[] {
