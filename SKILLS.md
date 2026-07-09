@@ -1,106 +1,106 @@
 # web-clone Skills Guide for AI Agents
 
-## 项目概述
+## Project Overview
 
-**web-clone** 是一个单次执行的网页快照工具，基于 MirrorKit 设计理念。它可以下载完整网页（HTML、CSS、JS、图片、字体、媒体），输出为单 HTML 文件或目录束，并可选择性地提取和分析组件结构，支持生成多框架代码（Vue/React/Angular/Svelte/jQuery）。
+**web-clone** is a single-execution webpage snapshot tool built on the MirrorKit design philosophy. It can download complete webpages (HTML, CSS, JS, images, fonts, media) and output them as a single HTML file or a directory bundle. Optionally, it can extract and analyze component structures, supporting multi-framework code generation (Vue/React/Angular/Svelte/jQuery).
 
-## 核心能力
+## Core Capabilities
 
-### 1. 网页快照（Snapshot）
+### 1. Webpage Snapshot
 
-- **抓取 HTML** — 使用 `fetchWithTimeout` 获取页面，带 User-Agent 和超时
-- **解析 HTML** — 提取 CSS/JS/图片/字体/媒体等资源引用（`linkedom` 解析）
-- **递归 CSS 提取** — 下载外部 CSS，提取深层 `@import` 和 `url()` 引用
-- **去重** — 基于 URL 去重
-- **下载资源** — 并发 workers，带重试和校验
-- **组装输出**:
-  - **Bundle 模式** — 资源保存到 `assets/{css,js,img,fonts,data}/`，HTML 路径重写
-  - **Single 模式** — CSS/JS 内联，图片/Font 转 base64 data URI
+- **Fetch HTML** — Uses `fetchWithTimeout` to retrieve pages with User-Agent and timeout settings
+- **Parse HTML** — Extracts references to CSS/JS/images/fonts/media and other resources (using `linkedom` parsing)
+- **Recursive CSS Extraction** — Downloads external CSS, extracts nested `@import` and `url()` references
+- **Deduplication** — URL-based deduplication
+- **Download Resources** — Concurrent workers with retry logic and validation
+- **Assemble Output**:
+  - **Bundle Mode** — Resources saved to `assets/{css,js,img,fonts,data}/`, HTML paths rewritten
+  - **Single Mode** — CSS/JS inlined, images/fonts converted to base64 data URIs
 
-### 2. 组件提取（Component Extraction）
+### 2. Component Extraction
 
-- **HTML 分析** — 识别组件边界（显式标记 → 语义标签 → 可选深度）
-- **CSS 分析** — 提取 CSS 变量，BEM 分组，标记动态样式
-- **JS 分析** — 提取状态变量、事件处理器、生命周期钩子、DOM 引用
-- **关联分析** — 匹配 HTML 组件与 CSS 规则和 JS 逻辑，计算置信度分数
-- **生成** — 生成组件规范、清单、迁移指南、审查报告
+- **HTML Analysis** — Identifies component boundaries (explicit markers → semantic tags → optional depth limits)
+- **CSS Analysis** — Extracts CSS variables, BEM grouping, marks dynamic styles
+- **JS Analysis** — Extracts state variables, event handlers, lifecycle hooks, DOM references
+- **Correlation Analysis** — Matches HTML components with CSS rules and JS logic, calculates confidence scores
+- **Generation** — Produces component specifications, manifests, migration guides, and review reports
 
-### 3. 框架代码生成（Framework CodeGen）
+### 3. Framework Code Generation
 
-- 支持 Vue 3、React 18、Angular 17、Svelte 4、jQuery 3.7
-- 可选 TypeScript、CSS Modules、完整项目模板（`__drafts__/`）
-- 共享逻辑提取（API 客户端、工具函数、常量）
+- Supports Vue 3, React 18, Angular 17, Svelte 4, jQuery 3.7
+- Optional TypeScript, CSS Modules, full project templates (`__drafts__/`)
+- Shared logic extraction (API clients, utilities, constants)
 
-### 4. 资源过滤（Resource Filtering）
+### 4. Resource Filtering
 
-- **扩展名过滤** — 默认跳过压缩包、安装包、文档、视频、音频等与网页渲染无关的资源
-- **大小限制** — 单文件大小硬上限，防止异常大文件浪费带宽
-- **早期拦截** — 下载前检查扩展名，响应头检查 `content-length`，超标立即中止
+- **Extension Filtering** — Skips archives, installers, documents, videos, audio, and other resources irrelevant to webpage rendering by default
+- **Size Limits** — Hard per-file size cap to prevent abnormally large files from wasting bandwidth
+- **Early Interception** — Checks extensions before download, checks `content-length` in response headers, aborts immediately if limits are exceeded
 
-## 输入
+## Input
 
 ```bash
 npm run dev -- <url> [options]
 npx tsx src/cli.ts <url> [options]
 ```
 
-### 必选参数
+### Required Parameter
 
-| 参数 | 说明 |
-|------|------|
-| `<url>` | 目标页面 URL |
+| Parameter | Description |
+|-----------|-------------|
+| `<url>` | Target page URL |
 
-### 输出模式选项
+### Output Mode Options
 
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `-o, --output <path>` | `./snapshot` | 输出路径 |
-| `-m, --mode <type>` | `bundle` | `single`（单 HTML 文件）或 `bundle`（目录束） |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output <path>` | `./snapshot` | Output path |
+| `-m, --mode <type>` | `bundle` | `single` (single HTML file) or `bundle` (directory bundle) |
 
-### 下载选项
+### Download Options
 
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `--max-assets <n>` | `100` | 最大下载资源数 |
-| `--concurrency <n>` | `6` | 并发数 |
-| `--timeout <ms>` | `15000` | 超时（毫秒） |
-| `--retry-count <n>` | `1` | 重试次数 |
-| `--no-inline` | — | 禁用 data URI 内联 |
-| `--pretty` | — | 美化 HTML |
-| `--skip-types <extensions>` | 完整默认列表 | 跳过指定扩展名的资源下载，逗号分隔；空字符串禁用过滤 |
-| `--max-file-size <size>` | `50MB` | 单文件大小硬上限，支持 `50MB`/`10m`/字节数；`0` 为不限制 |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--max-assets <n>` | `100` | Maximum number of resources to download |
+| `--concurrency <n>` | `6` | Concurrency level |
+| `--timeout <ms>` | `15000` | Timeout (milliseconds) |
+| `--retry-count <n>` | `1` | Number of retries |
+| `--no-inline` | — | Disable data URI inlining |
+| `--pretty` | — | Pretty-print HTML |
+| `--skip-types <extensions>` | Full default list | Skip downloading resources with specified extensions, comma-separated; empty string disables filtering |
+| `--max-file-size <size>` | `50MB` | Hard per-file size cap, supports `50MB`/`10m`/byte count; `0` means no limit |
 
-### 组件提取选项
+### Component Extraction Options
 
-| 选项 | 说明 |
-|------|------|
-| `--extract-components` | 启用组件提取 |
-| `--component-depth <n>` | 限制识别深度（默认无限制） |
-| `--framework <hint>` | 框架提示：`vue`/`react`/`svelte` |
-| `--extract-logic` | 是否提取 JS 逻辑（默认 true） |
+| Option | Description |
+|--------|-------------|
+| `--extract-components` | Enable component extraction |
+| `--component-depth <n>` | Limit identification depth (unlimited by default) |
+| `--framework <hint>` | Framework hint: `vue`/`react`/`svelte` |
+| `--extract-logic` | Whether to extract JS logic (default true) |
 
-### 框架代码生成选项
+### Framework Code Generation Options
 
-| 选项 | 说明 |
-|------|------|
-| `--codegen-framework <type>` | 生成框架代码：`vue`/`react`/`angular`/`svelte`/`jquery` |
-| `--codegen-typescript` | 使用 TypeScript（默认 true） |
-| `--codegen-css-modules` | 使用 CSS Modules（默认 false） |
-| `--codegen-generate-drafts` | 生成完整项目模板到 `__drafts__/` |
-| `--codegen-extract-shared` | 提取共享逻辑到 `shared/` |
+| Option | Description |
+|--------|-------------|
+| `--codegen-framework <type>` | Generate framework code: `vue`/`react`/`angular`/`svelte`/`jquery` |
+| `--codegen-typescript` | Use TypeScript (default true) |
+| `--codegen-css-modules` | Use CSS Modules (default false) |
+| `--codegen-generate-drafts` | Generate full project templates to `__drafts__/` |
+| `--codegen-extract-shared` | Extract shared logic to `shared/` |
 
-## 输出
+## Output
 
-### Bundle 模式输出结构
+### Bundle Mode Output Structure
 
 ```
 output/
-├── index.html                # 主快照 HTML
+├── index.html                # Main snapshot HTML
 ├── assets/
 │   ├── css/, js/, img/, fonts/, data/
-├── snapshot.json              # 资源清单与状态
-├── manifest.json              # 资源校验信息
-└── components/                # 组件提取结果（可选）
+├── snapshot.json              # Resource manifest and status
+├── manifest.json              # Resource validation information
+└── components/                # Component extraction results (optional)
     ├── components/
     │   ├── Header/
     │   │   ├── template.html
@@ -110,71 +110,71 @@ output/
     ├── index.json
     ├── README.md
     ├── MIGRATION.md
-    └── REVIEW_REQUIRED.md     # 低置信度组件审查清单
+    └── REVIEW_REQUIRED.md     # Low-confidence component review checklist
 ```
 
-### Single 模式输出
+### Single Mode Output
 
 ```
-snapshot.html                  # 完整自包含 HTML
-snapshot_components/           # 组件提取结果
+snapshot.html                  # Complete self-contained HTML
+snapshot_components/           # Component extraction results
 ```
 
-## 系统架构
+## System Architecture
 
-### 主流水线
-
-```
-URL → fetchHtml() → parseHtml() → 提取资源引用 → 递归CSS提取 → 去重 → downloadAllAssets() → 组装输出(bundle/single) → 可选: 组件提取
-```
-
-### 组件提取流水线
+### Main Pipeline
 
 ```
-HTML分析 → CSS分析 → JS分析 → 关联分析 → 生成组件规范 → 写入输出
+URL → fetchHtml() → parseHtml() → extract resource references → recursive CSS extraction → deduplication → downloadAllAssets() → assemble output (bundle/single) → optional: component extraction
 ```
 
-### 核心模块
+### Component Extraction Pipeline
 
-| 模块 | 功能 |
-|------|------|
-| `src/cli.ts` | Commander CLI，正交选项设计 |
-| `src/assembler.ts` | 主流水线编排 |
-| `src/fetcher.ts` | HTTP 抓取，AbortController 超时，并发池，重试 |
-| `src/converter.ts` | 组件提取流水线编排 |
-| `src/validators.ts` | MIME 校验，魔数检查，内容完整性 |
-| `src/parser/html-parser.ts` | HTML 解析，资源引用提取，`linkedom` |
-| `src/parser/css-parser.ts` | CSS 解析，`@import`/`url()` 提取，`css-tree` |
-| `src/parser/url-resolver.ts` | URL 解析（相对→绝对），srcset 解析 |
-| `src/output/bundle.ts` | Bundle 模式组装，路径重写，防路径穿越 |
-| `src/output/single-file.ts` | Single 模式组装，CSS/JS 内联，data URI |
-| `src/output/convert.ts` | 组件输出写入，含框架代码生成 |
-| `src/transform/component-analyzer.ts` | HTML 组件分析 |
-| `src/transform/css-analyzer.ts` | CSS 分析，BEM 分组 |
-| `src/transform/js-analyzer.ts` | JS 分析，Babel AST |
-| `src/transform/correlator.ts` | 关联匹配，置信度计算 |
-| `src/transform/generator.ts` | 组件规范生成 |
-| `src/transform/framework-codegen/` | 多框架代码生成器 |
+```
+HTML analysis → CSS analysis → JS analysis → correlation analysis → generate component specifications → write output
+```
 
-## 使用示例
+### Core Modules
 
-### 基础快照
+| Module | Function |
+|--------|----------|
+| `src/cli.ts` | Commander CLI with orthogonal option design |
+| `src/assembler.ts` | Main pipeline orchestration |
+| `src/fetcher.ts` | HTTP fetching, AbortController timeout, concurrency pool, retries |
+| `src/converter.ts` | Component extraction pipeline orchestration |
+| `src/validators.ts` | MIME validation, magic number checks, content integrity |
+| `src/parser/html-parser.ts` | HTML parsing, resource reference extraction, `linkedom` |
+| `src/parser/css-parser.ts` | CSS parsing, `@import`/`url()` extraction, `css-tree` |
+| `src/parser/url-resolver.ts` | URL resolution (relative→absolute), srcset parsing |
+| `src/output/bundle.ts` | Bundle mode assembly, path rewriting, path traversal protection |
+| `src/output/single-file.ts` | Single mode assembly, CSS/JS inlining, data URIs |
+| `src/output/convert.ts` | Component output writing, including framework code generation |
+| `src/transform/component-analyzer.ts` | HTML component analysis |
+| `src/transform/css-analyzer.ts` | CSS analysis, BEM grouping |
+| `src/transform/js-analyzer.ts` | JS analysis, Babel AST |
+| `src/transform/correlator.ts` | Correlation matching, confidence calculation |
+| `src/transform/generator.ts` | Component specification generation |
+| `src/transform/framework-codegen/` | Multi-framework code generators |
+
+## Usage Examples
+
+### Basic Snapshot
 
 ```bash
-# Bundle 模式（默认）
+# Bundle mode (default)
 npm run dev -- https://example.com -o ./site
 
-# Single 模式
+# Single mode
 npm run dev -- https://example.com -o snapshot.html -m single
 ```
 
-### 快照 + 组件提取
+### Snapshot + Component Extraction
 
 ```bash
 npm run dev -- https://example.com -o ./project -m bundle --extract-components
 ```
 
-### 快照 + 组件提取 + 框架代码生成
+### Snapshot + Component Extraction + Framework Code Generation
 
 ```bash
 npm run dev -- https://example.com -o ./project -m bundle \
@@ -184,11 +184,11 @@ npm run dev -- https://example.com -o ./project -m bundle \
   --codegen-generate-drafts
 ```
 
-## 注意事项
+## Important Notes
 
-1. **正交选项设计**：输出模式（`-m single/bundle`）和组件提取（`--extract-components`）是正交的，可以任意组合
-2. **组件深度限制**：`--component-depth` 默认无限制，启用后高深度组件置信度递减
-3. **置信度评分**：HTML 检测 50% + CSS 匹配 30% + JS 逻辑 20%，低于 0.6 的标为需审查
-4. **CSS/JS 来源合并**：优先使用内联 CSS/JS，回退到下载的资产
-5. **路径安全**：Bundle 模式有路径穿越防护
-6. **输出路径**：组件输出目录为 `{output}/components`（bundle 模式）或 `{output}_components`（single 模式）
+1. **Orthogonal Option Design**: Output mode (`-m single/bundle`) and component extraction (`--extract-components`) are orthogonal and can be combined freely
+2. **Component Depth Limits**: `--component-depth` is unlimited by default; when enabled, high-depth components receive decreasing confidence scores
+3. **Confidence Scoring**: HTML detection 50% + CSS matching 30% + JS logic 20%; scores below 0.6 are marked for review
+4. **CSS/JS Source Merging**: Prioritizes inline CSS/JS, falls back to downloaded assets
+5. **Path Safety**: Bundle mode includes path traversal protection
+6. **Output Path**: Component output directory is `{output}/components` (bundle mode) or `{output}_components` (single mode)
