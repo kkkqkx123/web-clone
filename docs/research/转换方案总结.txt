@@ -1,0 +1,597 @@
+# Bundle模式转Vue/React组件化方案设计
+
+## 一、项目目标
+
+将传统Bundle模式（HTML + CSS + JS混合）的Web项目，转换为**组件化、声明式**的现代前端项目结构，输出适合人工或AI辅助迁移的中间产物。
+
+### 核心原则
+- **不追求全自动转换**，追求"AI/人工友好的半成品"
+- **结构与样式可自动化**，状态逻辑半自动占位
+- **输出必须可理解、可验证、可渐进式迁移**
+
+---
+
+## 二、整体架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      输入层 (Input)                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │  HTML    │  │   CSS    │  │  Bundle  │               │
+│  │  String  │  │  String  │  │   JS     │               │
+│  └──────────┘  └──────────┘  └──────────┘               │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    解析层 (Parser)                         │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │  HTML Analyzer (cheerio)                        │     │
+│  │  - 识别组件边界                                  │     │
+│  │  - 提取动态绑定点 (data-binding)                 │     │
+│  │  - 提取事件点 (data-event)                      │     │
+│  │  - 提取条件渲染点 (data-condition)              │     │
+│  └──────────────────────────────────────────────────┘     │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │  CSS Analyzer (PostCSS)                         │     │
+│  │  - 提取CSS变量                                   │     │
+│  │  - 按组件归类样式                                │     │
+│  │  - 识别动态样式                                  │     │
+│  └──────────────────────────────────────────────────┘     │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │  JS Analyzer (@babel/parser + traverse)        │     │
+│  │  - 提取状态变量                                  │     │
+│  │  - 提取方法/事件处理函数                         │     │
+│  │  - 识别生命周期钩子                             │     │
+│  │  - 提取DOM引用                                   │     │
+│  │  - 识别第三方依赖                                │     │
+│  └──────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   关联层 (Correlation)                     │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │  组件关联引擎                                    │     │
+│  │  - 通过class/ID匹配HTML与CSS                    │     │
+│  │  - 通过DOM引用匹配HTML与JS                      │     │
+│  │  - 构建组件依赖树                                │     │
+│  │  - 生成交互清单 (Manifest)                      │     │
+│  └──────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   生成层 (Generator)                       │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │  多格式输出                                      │     │
+│  │  - 组件目录 (template.html + style.css)         │     │
+│  │  - 组件清单 (manifest.json)                     │     │
+│  │  - 全局索引 (index.json)                        │     │
+│  │  - 迁移指南 (MIGRATION.md)                      │     │
+│  │  - 半成品框架代码 (可选)                        │     │
+│  └──────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 三、核心模块设计
+
+### 3.1 技术选型
+
+| 层级 | 工具 | 用途 |
+|------|------|------|
+| **HTML解析** | `cheerio` | 类jQuery API，容错性强，易上手 |
+| **CSS解析** | `postcss` | 生态丰富，支持变量提取和规则遍历 |
+| **JS解析** | `@babel/parser` + `@babel/traverse` | 标准ESTree AST，工具链成熟 |
+| **代码生成** | `@babel/generator` + `prettier` | 格式化输出 |
+| **文件操作** | `fs-extra` | 增强的文件系统API |
+| **流程编排** | Node.js 原生 | 无需额外框架 |
+
+### 3.2 目录结构设计
+
+```
+output/
+├── index.json                    # 总索引（组件树、依赖关系、迁移计划）
+├── README.md                     # 项目概览和快速开始
+├── MIGRATION_GUIDE.md           # 详细迁移指南
+│
+├── components/                   # 组件目录
+│   ├── Header/
+│   │   ├── template.html        # 组件模板（带迁移注解）
+│   │   ├── style.css            # 组件专属样式
+│   │   ├── logic.original.js    # 原始逻辑（供参考）
+│   │   └── manifest.json        # 组件级交互清单
+│   ├── Counter/
+│   │   ├── template.html
+│   │   ├── style.css
+│   │   ├── logic.original.js
+│   │   └── manifest.json
+│   └── ...
+│
+├── styles/                       # 全局样式
+│   ├── variables.css            # CSS变量（主题色、间距等）
+│   ├── reset.css                # 样式重置
+│   └── global.css               # 全局通用样式
+│
+├── shared/                       # 共享逻辑
+│   ├── utils.js                 # 工具函数
+│   └── api.js                   # API调用封装
+│
+└── __drafts__/                   # 半成品框架代码（可选）
+    ├── vue/
+    │   └── App.vue
+    └── react/
+        └── App.jsx
+```
+
+---
+
+## 四、核心流程详解
+
+### 4.1 HTML分析流程
+
+```javascript
+// 输入: HTML字符串
+// 输出: 组件结构 + 动态点标记
+
+function analyzeHTML(html) {
+  const $ = cheerio.load(html);
+  
+  // 1. 识别组件边界
+  // 策略优先级:
+  //   a) data-component 显式标记
+  //   b) 语义标签 (header, footer, nav, main, section, article)
+  //   c) 深度切分 (DOM层级 > 4)
+  const roots = findComponentRoots($);
+  
+  // 2. 提取每个组件
+  return roots.map(root => ({
+    name: inferComponentName(root),
+    template: $.html(root),
+    // 提取三类动态点
+    bindings: extractBindings(root),   // data-binding
+    events: extractEvents(root),       // data-event
+    conditions: extractConditions(root),// data-condition
+    // DOM引用列表
+    refs: extractRefs(root),           // id, data-ref
+    // 样式类列表
+    classes: extractClasses(root)
+  }));
+}
+```
+
+**组件切分策略**：
+- **显式标记优先**：`data-component="Counter"`
+- **语义标签次之**：`<header>`, `<footer>`, `<nav>`, `<main>`, `<section>`, `<article>`
+- **深度兜底**：层级超过4层自动切分
+
+### 4.2 CSS分析流程
+
+```javascript
+// 输入: CSS字符串
+// 输出: 全局变量 + 组件样式映射 + 动态样式标记
+
+function analyzeCSS(css) {
+  const root = postcss.parse(css);
+  
+  return {
+    // 提取所有CSS变量
+    variables: extractVariables(root),
+    
+    // 按组件归类样式 (通过BEM命名或嵌套结构)
+    componentStyles: groupByComponent(root),
+    
+    // 提取全局样式
+    globalStyles: extractGlobal(root),
+    
+    // 标记动态样式 (会被JS修改的属性)
+    dynamicStyles: markDynamicStyles(root)
+  };
+}
+
+// 组件名推断: .counter__display → Counter
+function inferComponent(selector) {
+  const match = selector.match(/\.([a-z]+)__/i);
+  return match ? match[1] : null;
+}
+```
+
+### 4.3 JavaScript分析流程
+
+```javascript
+// 输入: Bundle JS字符串
+// 输出: 状态、方法、生命周期、DOM引用、依赖
+
+function analyzeJS(js) {
+  const ast = parser.parse(js, {
+    sourceType: 'unambiguous',
+    errorRecovery: true  // 容错处理
+  });
+  
+  const result = {
+    state: [],        // 状态变量
+    methods: [],      // 方法/事件处理
+    events: [],       // 事件监听
+    refs: [],         // DOM引用
+    lifecycles: {},   // 生命周期
+    dependencies: [], // 第三方依赖
+    todos: []         // 无法自动转换的标记
+  };
+  
+  traverse(ast, {
+    // 1. 识别状态变量 (被修改且绑定到DOM)
+    VariableDeclarator(path) {
+      if (isStateVariable(path)) {
+        result.state.push(extractState(path));
+      }
+    },
+    
+    // 2. 识别方法
+    FunctionDeclaration(path) {
+      if (isHandlerFunction(path)) {
+        result.methods.push(extractMethod(path));
+      }
+    },
+    
+    // 3. 识别事件监听
+    CallExpression(path) {
+      if (isAddEventListener(path)) {
+        result.events.push(extractEvent(path));
+      }
+      if (isDOMContentLoaded(path)) {
+        result.lifecycles.mount = extractLifecycle(path);
+      }
+      if (isTimer(path)) {
+        result.lifecycles.timers = extractTimer(path);
+      }
+    },
+    
+    // 4. 识别DOM引用 (需要转为ref)
+    CallExpression(path) {
+      if (isDOMQuery(path)) {
+        result.refs.push(extractDOMRef(path));
+        // 标记TODO
+        result.todos.push({
+          type: 'dom_ref',
+          description: `将DOM查询 '${path.node.arguments[0].value}' 转为ref`,
+          location: path.node.loc
+        });
+      }
+    }
+  });
+  
+  return result;
+}
+```
+
+**启发式判断规则**：
+
+| 判断 | 规则 |
+|------|------|
+| 状态变量 | 被赋值且值被用于DOM更新 (`innerText`, `textContent`) |
+| 事件处理 | 函数名包含 `handle`, `on`, `click`, `submit` 等 |
+| DOMContentLoaded | `addEventListener('DOMContentLoaded', ...)` |
+| 定时器 | `setInterval`, `setTimeout` 调用 |
+
+### 4.4 关联引擎
+
+```javascript
+// 核心: 将HTML、CSS、JS的分析结果关联成完整组件
+
+function correlate(htmlComponents, cssResult, jsResult) {
+  return htmlComponents.map(comp => {
+    // 1. 关联样式: 通过class名称匹配
+    const styles = matchStyles(comp.classes, cssResult.componentStyles);
+    
+    // 2. 关联逻辑: 通过DOM引用和事件匹配
+    const logic = matchLogic(comp.refs, comp.events, jsResult);
+    
+    // 3. 构建依赖关系
+    const dependencies = {
+      styles: findStyleDependencies(styles),
+      components: findChildComponents(comp, htmlComponents),
+      shared: findSharedLogic(logic, jsResult)
+    };
+    
+    // 4. 生成清单
+    return {
+      ...comp,
+      styles,
+      logic,
+      dependencies,
+      // 标注未匹配的部分
+      unmatched: {
+        styles: findUnmatchedStyles(comp.classes, styles),
+        refs: findUnmatchedRefs(comp.refs, logic)
+      },
+      // 迁移建议
+      migration: {
+        priority: calculatePriority(comp),
+        effort: estimateEffort(comp, styles, logic),
+        suggestions: generateSuggestions(comp, logic)
+      }
+    };
+  });
+}
+```
+
+---
+
+## 五、输出规范
+
+### 5.1 组件清单格式 (manifest.json)
+
+```json
+{
+  "name": "Counter",
+  "type": "stateful",
+  "parent": "App",
+  "children": [],
+  
+  "state": {
+    "count": {
+      "type": "number",
+      "initial": 0,
+      "bindings": [".counter__display"],
+      "mutators": ["increment", "decrement"]
+    }
+  },
+  
+  "events": {
+    "increment": {
+      "trigger": "click on .counter__btn--plus",
+      "effect": "count++",
+      "sideEffects": ["更新显示"]
+    }
+  },
+  
+  "lifecycles": {
+    "mount": null,
+    "unmount": null
+  },
+  
+  "domRefs": {
+    ".counter__display": "显示计数值"
+  },
+  
+  "dependencies": {
+    "styles": ["variables.css", "global.css"],
+    "components": [],
+    "shared": ["utils/format.js"]
+  },
+  
+  "migration": {
+    "priority": "high",
+    "effort": "2h",
+    "suggestions": [
+      "将 count 转为 ref(0)",
+      "将 increment 转为 @click 或 onClick",
+      "移除手动 DOM 更新，使用响应式绑定"
+    ]
+  },
+  
+  "todos": [
+    {
+      "type": "dom_ref",
+      "description": "将 document.getElementById('counterDisplay') 转为 ref",
+      "originalCode": "const el = document.getElementById('counterDisplay')"
+    }
+  ]
+}
+```
+
+### 5.2 全局索引格式 (index.json)
+
+```json
+{
+  "project": {
+    "name": "Original App",
+    "capturedAt": "2026-07-08T10:30:00Z"
+  },
+  
+  "componentTree": {
+    "App": {
+      "path": "components/App",
+      "type": "root",
+      "children": ["Header", "Main", "Footer"]
+    },
+    "Header": {
+      "path": "components/Header",
+      "type": "presentational",
+      "parent": "App",
+      "children": ["Logo", "Nav"]
+    }
+  },
+  
+  "globalStyles": {
+    "variables": "styles/variables.css",
+    "reset": "styles/reset.css",
+    "global": "styles/global.css"
+  },
+  
+  "sharedLogic": {
+    "api": "shared/api.js",
+    "utils": "shared/utils.js"
+  },
+  
+  "migrationPlan": {
+    "phase1": {
+      "name": "静态组件迁移",
+      "components": ["Header", "Logo", "Footer"],
+      "effort": "2h"
+    },
+    "phase2": {
+      "name": "交互组件迁移", 
+      "components": ["Counter", "Panel"],
+      "effort": "6h"
+    }
+  },
+  
+  "frameworkMappings": {
+    "vue": {
+      "state": "ref/computed",
+      "events": "@event",
+      "condition": "v-if"
+    },
+    "react": {
+      "state": "useState",
+      "events": "onEvent",
+      "condition": "&&"
+    }
+  }
+}
+```
+
+### 5.3 模板注解规范
+
+在 `template.html` 中使用统一注解：
+
+```html
+<!-- 
+  📌 组件: Counter
+  🎯 职责: 计数显示与操作
+  🔗 父组件: App
+-->
+
+<div class="counter">
+  <!-- ⚡ 数据绑定: count → 显示数值 -->
+  <!-- 原实现: document.getElementById('display').innerText = count -->
+  <!-- 建议: {{ count }} (Vue) 或 {count} (React) -->
+  <span class="counter__display" data-binding="count">0</span>
+  
+  <!-- ⚡ 事件绑定: click → increment -->
+  <!-- 建议: @click="increment" (Vue) 或 onClick={increment} (React) -->
+  <button class="counter__btn" data-event="click:increment">+</button>
+  
+  <!-- ⚡ 条件渲染: count > 0 时显示 -->
+  <!-- 原实现: if(count > 0) element.style.display = 'block' -->
+  <!-- 建议: v-if="count > 0" (Vue) 或 {count > 0 && ...} (React) -->
+  <button 
+    class="counter__btn--danger" 
+    data-condition="count > 0"
+    data-event="click:decrement"
+  >-</button>
+</div>
+```
+
+---
+
+## 六、实现要点
+
+### 6.1 容错策略
+
+```javascript
+// 1. HTML容错: cheerio默认处理不规范标签
+// 2. CSS容错: postcss跳过无法解析的规则
+// 3. JS容错: 
+parser.parse(js, {
+  errorRecovery: true,     // 语法错误时继续
+  allowImportExportEverywhere: true,
+  allowAwaitOutsideFunction: true
+});
+
+// 4. 未识别部分: 标记TODO而非报错
+result.todos.push({
+  type: 'unknown_pattern',
+  description: '无法识别的代码模式',
+  originalCode: path.node.toString()
+});
+```
+
+### 6.2 性能优化
+
+```javascript
+// 1. 并行解析
+const [htmlResult, cssResult, jsResult] = await Promise.all([
+  analyzeHTML(html),
+  analyzeCSS(css),
+  analyzeJS(js)
+]);
+
+// 2. 增量处理
+// 只处理有变更的文件，缓存AST结果
+
+// 3. 流式处理大文件
+// 对于超大bundle，使用流式解析
+```
+
+### 6.3 可扩展性
+
+```javascript
+// 1. 插件化解析器
+class ParserPlugin {
+  analyze($, component) { /* 自定义分析 */ }
+}
+
+// 2. 自定义组件识别规则
+const componentRules = [
+  { selector: '[data-component]', priority: 10 },
+  { selector: 'header, footer, nav', priority: 5 },
+  { selector: (el) => el.children.length > 10, priority: 1 }
+];
+
+// 3. 自定义框架映射
+const frameworkAdapters = {
+  vue: { /* Vue转换规则 */ },
+  react: { /* React转换规则 */ },
+  svelte: { /* Svelte转换规则 */ }
+};
+```
+
+---
+
+## 七、质量标准
+
+### 7.1 输出质量指标
+
+| 指标 | 目标 | 衡量方式 |
+|------|------|---------|
+| **组件识别准确率** | >80% | 人工抽查 |
+| **样式关联准确率** | >90% | class名称匹配 |
+| **动态点标记完整率** | >95% | 对比原始代码 |
+| **TODO标记合理性** | 100% | 无法转换的必须标记 |
+
+### 7.2 验收标准
+
+1. ✅ 每个组件有独立的目录和文件
+2. ✅ 所有动态交互点被 `data-*` 标记
+3. ✅ manifest.json 完整描述组件行为
+4. ✅ index.json 正确反映组件树
+5. ✅ 有明确的可执行迁移计划
+6. ✅ 无法自动转换的部分有TODO标记
+
+---
+
+## 八、使用流程
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 运行转换
+node index.js --input ./bundle --output ./output
+
+# 3. 查看结果
+open ./output/index.json  # 查看项目结构
+open ./output/README.md   # 查看迁移指南
+
+# 4. 开始迁移
+# 按 MIGRATION_GUIDE.md 逐步迁移每个组件
+# 从 phase1 (静态组件) 开始，逐步到 phase2 (交互组件)
+```
+
+---
+
+## 九、总结
+
+本方案的核心思想是：
+
+1. **用对工具**：cheerio + PostCSS + Babel 黄金组合
+2. **分而治之**：解析 → 关联 → 生成，职责清晰
+3. **标记优先**：所有动态点用 `data-*` 标记，便于后续处理
+4. **人机协作**：自动化处理结构与样式，逻辑部分通过 manifest + TODO 引导人工
+5. **渐进迁移**：按优先级分阶段，先静态后动态
+
+**最终交付物是一个结构清晰、注解完整、可立即开始迁移的工程化项目结构。**

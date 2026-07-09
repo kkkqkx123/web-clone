@@ -1,0 +1,45 @@
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Build output
+dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Coverage
+test-results/
+coverage/
+.nyc_output/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'snapshot' command
+snapshot/
