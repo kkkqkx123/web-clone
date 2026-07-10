@@ -42,13 +42,24 @@
 ```bash
 npm run dev -- <url> [options]
 npx tsx src/cli.ts <url> [options]
+
+# Local-only conversion (no URL fetch)
+npm run dev -- --convert-local <path> [options]
 ```
 
 ### Required Parameter
 
 | Parameter | Description |
 |-----------|-------------|
-| `<url>` | Target page URL |
+| `<url>` | Target page URL (optional when `--convert-local` is used) |
+
+### Basic Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-o, --output <path>` | `./snapshot` | Output path. Defaults to the local path when `--convert-local` is used and `-o` is not specified |
+| `-m, --mode <type>` | `bundle` | `single` (single HTML file) or `bundle` (directory structure) |
+| `--convert-local <path>` | — | Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch). Implies `--extract-components`.
 
 ### Output Mode Options
 
@@ -184,11 +195,22 @@ npm run dev -- https://example.com -o ./project -m bundle \
   --codegen-generate-drafts
 ```
 
+### Local-Only Conversion (Re-run conversion without fetching)
+
+```bash
+# Run conversion on existing bundle output
+npm run dev -- --convert-local ./project --codegen-framework vue
+
+# Run conversion on existing single output
+npm run dev -- --convert-local snapshot.html --codegen-framework react
+```
+
 ## Important Notes
 
 1. **Orthogonal Option Design**: Output mode (`-m single/bundle`) and component extraction (`--extract-components`) are orthogonal and can be combined freely
-2. **Component Depth Limits**: `--component-depth` is unlimited by default; when enabled, high-depth components receive decreasing confidence scores
-3. **Confidence Scoring**: HTML detection 50% + CSS matching 30% + JS logic 20%; scores below 0.6 are marked for review
-4. **CSS/JS Source Merging**: Prioritizes inline CSS/JS, falls back to downloaded assets
-5. **Path Safety**: Bundle mode includes path traversal protection
-6. **Output Path**: Component output directory is `{output}/components` (bundle mode) or `{output}_components` (single mode)
+2. **Local-Only Conversion**: Use `--convert-local <path>` to re-run component extraction and codegen on an existing snapshot without re-fetching the URL. This implies `--extract-components`.
+3. **Component Depth Limits**: `--component-depth` is unlimited by default; when enabled, high-depth components receive decreasing confidence scores
+4. **Confidence Scoring**: HTML detection 50% + CSS matching 30% + JS logic 20%; scores below 0.6 are marked for review
+5. **CSS/JS Source Merging**: Prioritizes inline CSS/JS, falls back to downloaded assets
+6. **Path Safety**: Bundle mode includes path traversal protection
+7. **Output Path**: Component output directory is `{output}/components` (bundle mode) or `{output}_components` (single mode)

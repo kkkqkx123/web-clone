@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from 'node:fs/promises';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, extname } from 'node:path';
 import { type SnapshotOptions, type SnapshotResult, type AssetRef } from './types.js';
 import { fetchWithTimeout } from './fetcher.js';
 import { parseHtml } from './parser/html-parser.js';
@@ -301,6 +301,139 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
   }
 
   return { sourceUrl: options.url, timestamp, html: '', assets, stats };
+}
+
+/**
+ * Run component extraction + codegen on an existing local bundle/single output
+ * without re-fetching the URL. Reads index.html, assets/css/*.css, and
+ * assets/js/*.js from the local directory, then runs the full conversion pipeline.
+ */
+export async function convertLocalSnapshot(options: SnapshotOptions): Promise<SnapshotResult> {
+  const localPath = options.convertLocal!;
+  const timestamp = new Date().toISOString();
+
+  if (!existsSync(localPath)) {
+    throw new Error(`Local path not found: ${localPath}`);
+  }
+
+  // Detect mode: directory = bundle, .html file = single
+  const isDir = statSync(localPath).isDirectory();
+  const htmlPath = isDir ? join(localPath, 'index.html') : localPath;
+
+  if (!existsSync(htmlPath)) {
+    throw new Error(`No index.html found in ${localPath}`);
+  }
+
+  process.stdout.write(`Reading HTML from ${htmlPath}...\n`);
+  const html = readFileSync(htmlPath, 'utf8');
+
+  // Collect CSS
+  let css = extractInlineCss(html);
+  if (isDir) {
+    const cssDir = join(localPath, 'assets', 'css');
+    const cssContent = readFilesRecursively(cssDir, '.css');
+    if (cssContent) {
+      css += cssContent;
+      // Count files for reporting
+      const count = (cssContent.match(/\n/g) || []).length + 1;
+      process.stdout.write(`  Loaded CSS from ${count} blocks\n`);
+    }
+  }
+
+  // Collect JS
+  let js = extractInlineJs(html);
+  if (isDir) {
+    const jsDir = join(localPath, 'assets', 'js');
+    const jsContent = readFilesRecursively(jsDir, '.js');
+    if (jsContent) {
+      js += jsContent;
+      const count = (jsContent.match(/\n/g) || []).length + 1;
+      process.stdout.write(`  Loaded JS from ${count} blocks\n`);
+    }
+  }
+
+  // Memory budget assessment
+  const budget = assessMemoryBudget(html, css, js);
+  const degradations = formatDegradationSummary(budget);
+
+  if (degradations.length > 0) {
+    process.stdout.write(`⚠ Memory budget: ${degradations.join(', ')} — results may be partial\n`);
+  }
+
+  if (budget.htmlStrategy === 'skip') {
+    throw new Error(`HTML too large (${(html.length / 1024 / 1024).toFixed(1)}MB), cannot extract components`);
+  }
+
+  process.stdout.write(`Converting to component structure...\n`);
+  const convertOptions = {
+    ...options,
+    memoryBudget: budget,
+  };
+  const converted = await convert(html, css, js, convertOptions as any);
+
+  process.stdout.write(`Writing component output...\n`);
+  const componentOutputDir = isDir
+    ? join(options.output, 'components')
+    : options.output.replace(/(\.html?)?$/i, '_components');
+
+  const componentOptions = {
+    ...options,
+    output: componentOutputDir,
+  };
+
+  assembleConvert(converted, componentOptions);
+
+  // Build stats from conversion result
+  const componentList = Array.from(converted.components.values());
+  const stats = {
+    total: componentList.length,
+    fetched: 0,
+    failed: 0,
+    skipped: 0,
+    validationWarnings: 0,
+    totalBytes: 0,
+    stateful: componentList.filter(c => c.type === 'stateful').length,
+    presentational: componentList.filter(c => c.type === 'presentational').length,
+  };
+
+  // Use dummy assets to satisfy SnapshotResult type
+  const assets: any[] = [];
+
+  return {
+    sourceUrl: localPath,
+    timestamp,
+    html,
+    assets,
+    stats: {
+      total: componentList.length,
+      fetched: 0,
+      failed: 0,
+      skipped: 0,
+      validationWarnings: 0,
+      totalBytes: 0,
+      stateful: componentList.filter(c => c.type === 'stateful').length,
+      presentational: componentList.filter(c => c.type === 'presentational').length,
+    },
+  } as SnapshotResult;
+}
+
+function readFilesRecursively(dir: string, ext: string): string {
+  let result = '';
+  if (!existsSync(dir)) return result;
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      result += readFilesRecursively(fullPath, ext);
+    } else if (entry.isFile() && extname(entry.name) === ext) {
+      try {
+        result += '\n' + readFileSync(fullPath, 'utf8');
+      } catch {
+        // Skip unreadable files
+      }
+    }
+  }
+  return result;
 }
 
 function fmt(bytes: number): string {

@@ -32,6 +32,8 @@ export interface SnapshotOptions {
   // Resource filtering
   skipExtensions?: string[];
   maxFileSize?: number;
+  // Local conversion: skip fetch, run component extraction on existing bundle/single output
+  convertLocal?: string;
 }
 
 export interface StateVariable {
@@ -135,6 +137,9 @@ export interface SnapshotResult {
     skipped: number;
     validationWarnings: number;
     totalBytes: number;
+    // Local conversion only
+    stateful?: number;
+    presentational?: number;
   };
 }
 

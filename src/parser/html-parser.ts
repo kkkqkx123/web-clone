@@ -56,9 +56,12 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
         const raw = el.getAttribute(attr);
         if (!raw) continue;
         const resolved = resolveUrl(raw, baseUrl);
-        if (!resolved || seen.has(resolved)) continue;
-        seen.add(resolved);
+        if (!resolved) continue;
+        // Always add snapshot attrs so assembler can locate the element,
+        // even if asset is a duplicate (same URL referenced multiple times in the page)
         addSnapshotAttrs(el, resolved);
+        if (seen.has(resolved)) continue;
+        seen.add(resolved);
         assets.push({ url: resolved, type, origin: sel, attribute: attr });
       }
     }
@@ -68,10 +71,11 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
     const raw = el.getAttribute('srcset');
     if (!raw) continue;
     for (const url of parseSrcset(raw, baseUrl)) {
-      if (seen.has(url)) continue;
-      seen.add(url);
+      if (!seen.has(url)) {
+        seen.add(url);
+        assets.push({ url, type: 'img', origin: 'img[srcset]', attribute: 'srcset' });
+      }
       addSnapshotAttrs(el, url);
-      assets.push({ url, type: 'img', origin: 'img[srcset]', attribute: 'srcset' });
     }
   }
 
@@ -79,10 +83,11 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
     const raw = el.getAttribute('srcset');
     if (!raw) continue;
     for (const url of parseSrcset(raw, baseUrl)) {
-      if (seen.has(url)) continue;
-      seen.add(url);
+      if (!seen.has(url)) {
+        seen.add(url);
+        assets.push({ url, type: 'img', origin: 'source[srcset]', attribute: 'srcset' });
+      }
       addSnapshotAttrs(el, url);
-      assets.push({ url, type: 'img', origin: 'source[srcset]', attribute: 'srcset' });
     }
   }
 

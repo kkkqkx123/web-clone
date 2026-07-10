@@ -80,16 +80,25 @@ function analyzeCssStreaming(css: string): CssAnalysisResult {
   let state: 'SELECTOR' | 'BODY' = 'SELECTOR';
   let currentSelector = '';
   let currentBlock = '';
+  let selectorAccumulator = ''; // Accumulates multi-line selectors
   let braceDepth = 0;
 
   for (const line of css.split('\n')) {
     const trimmed = line.trim();
+    if (!trimmed) continue; // Skip empty lines
 
     if (state === 'SELECTOR') {
       if (trimmed.includes('{')) {
         const braceIdx = trimmed.indexOf('{');
-        currentSelector = trimmed.slice(0, braceIdx).trim();
-        currentBlock = trimmed + '\n';
+        // Merge accumulated selector lines with the current line's selector part
+        const selectorLines = (selectorAccumulator + trimmed.slice(0, braceIdx).trim())
+          .replace(/\n/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        currentSelector = selectorLines || trimmed.slice(0, braceIdx).trim();
+        currentBlock = (selectorAccumulator + trimmed + '\n');
+        selectorAccumulator = '';
+
         state = 'BODY';
         braceDepth = 1;
         // There may be more than one `{` in a line (e.g. nested)
@@ -105,6 +114,9 @@ function analyzeCssStreaming(css: string): CssAnalysisResult {
           currentSelector = '';
           currentBlock = '';
         }
+      } else {
+        // Accumulate multi-line selector (e.g. ".el-table--border:after,")
+        selectorAccumulator += trimmed + ' ';
       }
     } else if (state === 'BODY') {
       currentBlock += line + '\n';
@@ -139,14 +151,23 @@ function processRule(
   rules: CssRule[],
   componentStyles: Record<string, string[]>,
 ): void {
-  // Extracting CSS variables
-  const varMatches = block.match(/--[\w-]+\s*:\s*[^;{]+/g);
+  // Only scan the declaration body (after first '{') for CSS variables
+  // This avoids falsely matching BEM modifier selectors like .el-table--border:not(...)
+  const bodyStart = block.indexOf('{');
+  const body = bodyStart >= 0 ? block.slice(bodyStart + 1) : block;
+
+  // Extracting CSS variables. Require a trailing ';' to distinguish real CSS variable
+  // declarations (e.g. "--color-primary: #409eff;") from BEM modifier selectors
+  // (e.g. ".el-button--default:after {") which also contain --name:pattern.
+  const varMatches = body.match(/--[\w-]+\s*:\s*[^;{]+;/g);
   if (varMatches) {
     varMatches.forEach(v => {
-      const colonIdx = v.indexOf(':');
+      // Strip the trailing ';'
+      const decl = v.endsWith(';') ? v.slice(0, -1) : v;
+      const colonIdx = decl.indexOf(':');
       if (colonIdx > 0) {
-        const key = v.slice(0, colonIdx).trim();
-        const value = v.slice(colonIdx + 1).trim();
+        const key = decl.slice(0, colonIdx).trim();
+        const value = decl.slice(colonIdx + 1).trim();
         variables[key] = value;
       }
     });
@@ -170,15 +191,24 @@ function processRule(
 function analyzeCssVariablesOnly(css: string): CssAnalysisResult {
   const variables: Record<string, string> = {};
 
-  // Extract all CSS variables using regularity
-  const varRegex = /--[\w-]+\s*:\s*[^;{]+/g;
-  let match: RegExpExecArray | null;
-  while ((match = varRegex.exec(css)) !== null) {
-    const colonIdx = match[0].indexOf(':');
-    if (colonIdx > 0) {
-      const key = match[0].slice(0, colonIdx).trim();
-      const value = match[0].slice(colonIdx + 1).trim();
-      variables[key] = value;
+  // Extract all CSS variables using regex, but only inside { ... } blocks
+  // This avoids falsely matching BEM modifier selectors (e.g. .el-table--border:not(...))
+  const blockRegex = /\{([^}]*)\}/g;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = blockRegex.exec(css)) !== null) {
+    const body = blockMatch[1];
+    // Require trailing ';' to distinguish real CSS variable declarations from
+    // BEM modifier selectors that happen to contain --name:pattern
+    const varRegex = /--[\w-]+\s*:\s*[^;]+;/g;
+    let match: RegExpExecArray | null;
+    while ((match = varRegex.exec(body)) !== null) {
+      const decl = match[0].endsWith(';') ? match[0].slice(0, -1) : match[0];
+      const colonIdx = decl.indexOf(':');
+      if (colonIdx > 0) {
+        const key = decl.slice(0, colonIdx).trim();
+        const value = decl.slice(colonIdx + 1).trim();
+        variables[key] = value;
+      }
     }
   }
 
@@ -262,16 +292,35 @@ function detectDynamicStyles(rules: CssRule[]): Array<{ selector: string; proper
   const dynamic: Array<{ selector: string; properties: string[] }> = [];
 
   rules.forEach(rule => {
-    // Extract property names from source
-    const propMatches = rule.source.match(/[\w-]+(?=\s*:)/g);
-    if (propMatches) {
-      const matchingProps = propMatches.filter(p => dynamicProperties.has(p));
-      if (matchingProps.length > 0) {
-        dynamic.push({
-          selector: rule.selector,
-          properties: matchingProps,
-        });
-      }
+    // Only scan the declaration body (after '{'), not the selector
+    // This avoids falsely matching pseudo-class selectors like :not(:first-child)
+    const bodyStart = rule.source.indexOf('{');
+    const body = bodyStart >= 0 ? rule.source.slice(bodyStart + 1) : '';
+
+    // Match "property: value" pairs inside the declaration body
+    // Stop at ';', '{', or '}' to avoid crossing block boundaries
+    const declMatches = body.match(/[\w-]+\s*:\s*[^;{}]+/g);
+    if (!declMatches) return;
+
+    const seen = new Set<string>();
+    const matchingProps: string[] = [];
+
+    for (const decl of declMatches) {
+      const colonIdx = decl.indexOf(':');
+      if (colonIdx < 0) continue;
+      const propName = decl.slice(0, colonIdx).trim();
+      if (!dynamicProperties.has(propName)) continue;
+      if (seen.has(propName)) continue; // Deduplicate property names within a rule
+      seen.add(propName);
+      // Include value for meaningful output: "color: #333" not just "color"
+      matchingProps.push(decl.trim());
+    }
+
+    if (matchingProps.length > 0) {
+      dynamic.push({
+        selector: rule.selector,
+        properties: matchingProps,
+      });
     }
   });
 

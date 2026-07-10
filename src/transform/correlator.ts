@@ -6,8 +6,10 @@ export function correlateComponents(
   js: JsAnalysisResult
 ): Map<string, CorrelatedComponent> {
   const components = new Map<string, CorrelatedComponent>();
+  // Counter to generate unique keys for children with duplicate names
+  let childIndex = 0;
 
-  function processRoot(root: any) {
+  function processRoot(root: any, parentDepth: number = -1) {
     const styles = matchStyles(root, css);
     const logic = matchLogic(root, js);
     const componentType = inferComponentType(logic);
@@ -28,11 +30,17 @@ export function correlateComponents(
       matchConfidence
     };
 
-    components.set(root.name, comp);
+    // Use a unique key to prevent overwriting when sibling components share the same name.
+    // Top-level components use their name directly; children use name + depth + index.
+    const isTopLevel = parentDepth === -1;
+    const key = isTopLevel
+      ? root.name
+      : `${root.name}_d${root.depth}_${childIndex++}`;
+    components.set(key, comp);
 
     // Process nested children
     if (root.children && Array.isArray(root.children)) {
-      root.children.forEach((child: any) => processRoot(child));
+      root.children.forEach((child: any) => processRoot(child, root.depth));
     }
   }
 

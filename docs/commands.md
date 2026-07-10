@@ -28,9 +28,10 @@ node dist/cli.js <url> [options]
 
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
-| `<url>` | (必填) | 目标页面 URL |
-| `-o, --output <path>` | `./snapshot` | 输出路径 |
+| `<url>` | (必填) | 目标页面 URL，`--convert-local` 时可选 |
+| `-o, --output <path>` | `./snapshot` | 输出路径。`--convert-local` 且未指定此选项时，默认使用本地路径 |
 | `-m, --mode <type>` | `bundle` | 输出格式：`single`（单HTML文件）或 `bundle`（目录结构） |
+| `--convert-local <path>` | - | 对已有本地 bundle/single 输出运行组件提取和代码生成，跳过 URL 拉取
 
 ### 下载和资源选项
 
@@ -95,6 +96,26 @@ npm run dev -- https://example.com --extract-components --framework vue --compon
 
 # 禁用逻辑提取（仅提取模板和样式）
 npm run dev -- https://example.com --extract-components --extract-logic false
+```
+
+### 本地转换（无需重新拉取）
+
+```bash
+# 对已有 bundle 输出运行组件提取 + Vue 代码生成
+npm run dev -- --convert-local ./output --codegen-framework vue
+
+# 指定不同的输出目录
+npm run dev -- --convert-local ./output -o ./alt --codegen-framework react
+
+# 对 single 模式输出运行
+npm run dev -- --convert-local snapshot.html --codegen-framework vue
+
+# 完整选项：本地转换 + 组件深度 + 生成项目模板
+npm run dev -- --convert-local ./output \
+  --codegen-framework vue \
+  --component-depth 4 \
+  --codegen-generate-drafts \
+  --codegen-extract-shared
 ```
 
 ### 高级选项
@@ -263,6 +284,16 @@ npm run dev -- https://example.com \
 
 ### 场景 3：仅提取组件（不生成快照）
 
-> 暂不支持。如需仅组件提取，建议用 `bundle --extract-components` 后删除 assets/ 目录。
+> 支持。使用 `--convert-local` 对已有快照运行组件提取和代码生成，无需重新拉取页面。
 
+```bash
+# 对已有 bundle 输出运行组件提取 + Vue 代码生成
+npm run dev -- --convert-local ./snapshot --codegen-framework vue
+
+# 对已有 bundle 输出运行组件提取，指定输出到其他路径
+npm run dev -- --convert-local ./snapshot -o ./alt --codegen-framework react
+
+# 对已有 single 输出运行组件提取
+npm run dev -- --convert-local snapshot.html --codegen-framework vue
+```
 

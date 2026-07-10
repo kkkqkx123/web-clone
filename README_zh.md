@@ -42,6 +42,7 @@ node dist/cli.js <url> [options]  # 编译后
 | `-o, --output <path>` | `./snapshot` | 输出路径 |
 | `-m, --mode <type>` | `bundle` | 输出格式：`single`（单 HTML 文件）或 `bundle`（目录） |
 | `--extract-components` | — | 提取组件结构（可与任何模式组合） |
+| `--convert-local <path>` | — | 对已有本地 bundle/single 输出运行组件提取和代码生成（跳过 URL 拉取。隐含 `--extract-components`） |
 
 ### 下载选项
 
@@ -108,6 +109,20 @@ npm run dev -- https://example.com -o snapshot.html -m single --extract-componen
 
 # 指定框架和深度限制
 npm run dev -- https://example.com --extract-components --framework vue --component-depth 5
+```
+
+### 本地转换（无需重新拉取）
+
+```bash
+# 对已有 bundle 输出运行组件提取 + 代码生成
+npm run dev -- --convert-local ./project --codegen-framework vue
+
+# 对 single 模式输出运行
+npm run dev -- --convert-local snapshot.html --codegen-framework react
+
+# 指定不同的输出目录
+npm run dev -- --convert-local ./project -o ./alt --codegen-framework vue \
+  --codegen-generate-drafts
 ```
 
 ### 高级用法

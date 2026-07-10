@@ -71,10 +71,16 @@ class StreamingHtmlAnalyzer {
   private candidates: ComponentRootCandidate[] = [];
   private tagCount = 0;
 
+  // Track Vue/Nuxt scoped-style IDs to only register the outermost element per scoped ID
+  private seenDataV = new Set<string>();
+
   // Dynamic point collection
   private bindings: DynamicPoints['bindings'] = [];
   private events: DynamicPoints['events'] = [];
   private conditions: DynamicPoints['conditions'] = [];
+
+  // Depth threshold for heuristic class-based detection (undefined = no limit)
+  private depthThreshold: number | undefined;
 
   // Regular: matches HTML tags
   private readonly TAG_REGEX = /<(\/?)(\w[\w-]*)((?:\s[^>]*?)?)>/g;
@@ -85,6 +91,7 @@ class StreamingHtmlAnalyzer {
   feed(html: string, options?: { maxTagScan?: number; maxDepth?: number }): void {
     let match: RegExpExecArray | null;
     const maxTag = options?.maxTagScan ?? Infinity;
+    this.depthThreshold = options?.maxDepth;
 
     while ((match = this.TAG_REGEX.exec(html)) !== null) {
       if (this.tagCount >= maxTag) break;
@@ -194,7 +201,78 @@ class StreamingHtmlAnalyzer {
       }
     }
 
+    // P3: Vue/Nuxt scoped style attribute (data-v-xxxxxxxx)
+    // In SSR output, each component's root element carries a unique data-v-* hash.
+    // Only register the first (outermost) occurrence of each hash.
+    // Some elements carry MULTIPLE data-v-* attributes (nested Vue components),
+    // so we must iterate ALL keys, not just the first one found by .find().
+    const dataVKeys = Object.keys(attrs).filter(k => k.startsWith('data-v-'));
+    for (const dataVKey of dataVKeys) {
+      // The hash is in the attribute KEY, not its value.
+      // Vue SSR renders: data-v-85b37b74="" (attribute with empty value).
+      const hash = dataVKey.replace('data-v-', '');
+      if (hash && !this.seenDataV.has(hash)) {
+        this.seenDataV.add(hash);
+        return {
+          name: this.inferComponentName(attrs, tagName, `VueComp_${hash.slice(0, 7)}`),
+          tagName,
+          attrs,
+          depth,
+          startOffset,
+          type: 'semantic',
+          confidence: 0.80,
+          children: [],
+          parent: null,
+        };
+      }
+    }
+
+    // P4: Depth-based heuristic for SSR pages without explicit markers
+    // Treat <div>/<span> elements with meaningful class/id and significant depth as components
+    if ((tagName === 'div' || tagName === 'section') && (attrs['class'] || attrs['id'])) {
+      // If a depth threshold is set, only detect components at or below that depth
+      if (this.depthThreshold === undefined || depth >= this.depthThreshold) {
+        // Avoid creating components for trivial wrappers with no nested content
+        const isNested = this.candidates.some(c =>
+          c.startOffset < startOffset && this.isCandidateContaining(c, startOffset)
+        );
+        if (!isNested) {
+          const name = this.inferComponentName(attrs, tagName, tagName);
+          return {
+            name,
+            tagName,
+            attrs,
+            depth,
+            startOffset,
+            type: 'implicit',
+            confidence: 0.50,
+            children: [],
+            parent: null,
+          };
+        }
+      }
+    }
+
     return null;
+  }
+
+  /**
+   * Infer a readable component name from element attributes, with a fallback.
+   */
+  private inferComponentName(attrs: Record<string, string>, tagName: string, fallback: string): string {
+    if (attrs['id']) {
+      // Convert kebab-case id to PascalCase
+      return attrs['id'].replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/^[a-z]/, c => c.toUpperCase());
+    }
+    if (attrs['class']) {
+      const classes = attrs['class'].split(/\s+/);
+      // Pick the most descriptive class (longest, non-utility)
+      const mainClass = classes
+        .filter(c => !/^(el-|nuxt-|layout-|page-|is-)/.test(c))
+        .sort((a, b) => b.length - a.length)[0] || classes[0];
+      return mainClass.split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+    }
+    return fallback;
   }
 
   private isCandidateContaining(candidate: ComponentRootCandidate, targetOffset: number): boolean {
@@ -403,6 +481,28 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
     const filtered = filterComponentRoots(topLevel);
 
     // Stage 4: Conversion to ComponentRoot format (with lightweight element proxies)
+    // Recursively map children to preserve the full component tree
+    function mapChildren(children: ComponentRootCandidate[]): any[] {
+      return children.map(child => {
+        const childOuterHTML = analyzer.extractOuterHTML(html, child);
+        const childEl = new LightweightElement(
+          child.tagName,
+          child.attrs['class'] || '',
+          child.attrs['id'] || '',
+          childOuterHTML,
+        );
+        return {
+          name: child.name,
+          element: childEl,
+          depth: child.depth,
+          type: child.type,
+          confidence: child.confidence,
+          parent: null,
+          children: mapChildren(child.children), // recursive
+        };
+      });
+    }
+
     const componentRoots = filtered.map(c => {
       const outerHTML = analyzer.extractOuterHTML(html, c);
       const el = new LightweightElement(
@@ -419,24 +519,7 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
         type: c.type,
         confidence: c.confidence,
         parent: null,
-        children: c.children.map(child => {
-          const childOuterHTML = analyzer.extractOuterHTML(html, child);
-          const childEl = new LightweightElement(
-            child.tagName,
-            child.attrs['class'] || '',
-            child.attrs['id'] || '',
-            childOuterHTML,
-          );
-          return {
-            name: child.name,
-            element: childEl,
-            depth: child.depth,
-            type: child.type,
-            confidence: child.confidence,
-            parent: null,
-            children: [],
-          };
-        }),
+        children: mapChildren(c.children),
       };
     });
 

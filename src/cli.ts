@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { snapshot } from './assembler.js';
+import { snapshot, convertLocalSnapshot } from './assembler.js';
 import { type SnapshotOptions } from './types.js';
 import { DEFAULT_MAX_FILE_SIZE } from './validators.js';
 
@@ -11,7 +11,7 @@ const program = new Command();
 program
   .name('snapshot')
   .description('Single-execution web page snapshot tool')
-  .argument('<url>', 'Target page URL')
+  .argument('[url]', 'Target page URL (optional when using --convert-local)')
   .option('-o, --output <path>', 'Output path', './snapshot')
   .option('-m, --mode <type>', 'Output mode: single | bundle', 'bundle')
   .option('--max-assets <number>', 'Maximum number of assets to download', '100')
@@ -32,10 +32,18 @@ program
   .option('--codegen-extract-shared', 'Extract shared logic to shared/ directory (requires --extract-components)')
   .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4,.ts"); empty to disable filtering')
   .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
+  .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
   .action(async (url: string, opts: Record<string, any>) => {
+    const isLocal = !!opts.convertLocal;
+
+    // When --convert-local is used, default output to the same directory
+    const outputPath = isLocal && opts.output === './snapshot'
+      ? opts.convertLocal
+      : opts.output;
+
     const options: SnapshotOptions = {
-      url,
-      output: opts.output,
+      url: isLocal ? opts.convertLocal : url,
+      output: outputPath,
       mode: opts.mode,
       maxAssets: parseInt(opts.maxAssets, 10),
       concurrency: parseInt(opts.concurrency, 10),
@@ -43,10 +51,11 @@ program
       retryCount: parseInt(opts.retryCount, 10),
       inline: opts.inline !== false,
       pretty: opts.pretty || false,
-      extractComponents: opts.extractComponents || false,
+      extractComponents: isLocal ? true : (opts.extractComponents || false),
+      convertLocal: opts.convertLocal || undefined,
     };
 
-    // Component extraction options only apply if --extract-components is specified
+    // Component extraction options apply when --extract-components or --convert-local is specified
     if (options.extractComponents) {
       options.componentDepth = opts.componentDepth ? parseInt(opts.componentDepth, 10) : undefined;
       options.frameworkHint = opts.framework as any;
@@ -64,40 +73,55 @@ program
       }
     }
 
-    // Resource filtering options
-    if (opts.skipTypes !== undefined) {
-      options.skipExtensions = opts.skipTypes
-        ? opts.skipTypes.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [];
+    // Resource filtering options (only relevant for fetch mode)
+    if (!isLocal) {
+      if (opts.skipTypes !== undefined) {
+        options.skipExtensions = opts.skipTypes
+          ? opts.skipTypes.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [];
+      }
+      options.maxFileSize = opts.maxFileSize !== undefined
+        ? parseFileSize(opts.maxFileSize)
+        : DEFAULT_MAX_FILE_SIZE;
     }
-    options.maxFileSize = opts.maxFileSize !== undefined
-      ? parseFileSize(opts.maxFileSize)
-      : DEFAULT_MAX_FILE_SIZE;
 
-    console.log(chalk.cyan('\n◉ Web Snapshot\n'));
+    if (isLocal) {
+      console.log(chalk.cyan('\n◉ Local Conversion\n'));
+    } else {
+      console.log(chalk.cyan('\n◉ Web Snapshot\n'));
+    }
 
     const startTime = Date.now();
 
     try {
-      const result = await snapshot(options);
+      const result = isLocal
+        ? await convertLocalSnapshot(options)
+        : await snapshot(options);
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      console.log(chalk.green('\n✓ Snapshot complete!'));
+      console.log(chalk.green(`\n✓ ${isLocal ? 'Conversion' : 'Snapshot'} complete!`));
       console.log(`  Source: ${chalk.cyan(options.url)}`);
-      console.log(`  Mode:   ${chalk.yellow(options.mode)}`);
       console.log(`  Output: ${chalk.green(options.output)}`);
       console.log(`  Time:   ${chalk.white(`${elapsed}s`)}`);
       console.log('');
-      console.log(`  ${chalk.white('Stats:')}`);
-      console.log(`    Total:  ${result.stats.total}`);
-      console.log(`    ✓ ${chalk.green('Fetched')}: ${result.stats.fetched}`);
-      console.log(`    ✗ ${chalk.red('Failed')}:  ${result.stats.failed}`);
-      console.log(`    ⊘ ${chalk.yellow('Skipped')}: ${result.stats.skipped}`);
-      console.log(`    Size:   ${formatBytes(result.stats.totalBytes)}`);
 
-      if (result.stats.failed > 0) {
-        console.log(chalk.yellow(`\n  ⚠ ${result.stats.failed} asset(s) failed to download`));
+      if (isLocal) {
+        console.log(`  ${chalk.white('Components:')}`);
+        console.log(`    Total: ${result.stats.total}`);
+        console.log(`    Stateful:     ${result.stats.stateful}`);
+        console.log(`    Presentational: ${result.stats.presentational}`);
+      } else {
+        console.log(`  ${chalk.white('Stats:')}`);
+        console.log(`    Total:  ${result.stats.total}`);
+        console.log(`    ✓ ${chalk.green('Fetched')}: ${result.stats.fetched}`);
+        console.log(`    ✗ ${chalk.red('Failed')}:  ${result.stats.failed}`);
+        console.log(`    ⊘ ${chalk.yellow('Skipped')}: ${result.stats.skipped}`);
+        console.log(`    Size:   ${formatBytes(result.stats.totalBytes)}`);
+
+        if (result.stats.failed > 0) {
+          console.log(chalk.yellow(`\n  ⚠ ${result.stats.failed} asset(s) failed to download`));
+        }
       }
     } catch (err: any) {
       console.error(chalk.red(`\n✗ Error: ${err.message}`));

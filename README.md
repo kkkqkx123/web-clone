@@ -42,6 +42,7 @@ node dist/cli.js <url> [options]  # After build
 | `-o, --output <path>` | `./snapshot` | Output path |
 | `-m, --mode <type>` | `bundle` | Output format: `single` (HTML file) or `bundle` (directory) |
 | `--extract-components` | — | Extract component structure (works with any mode) |
+| `--convert-local <path>` | — | Run component extraction + codegen on an existing local bundle/single output (skips URL fetch. Implies `--extract-components`) |
 
 ### Download Options
 
@@ -108,6 +109,20 @@ npm run dev -- https://example.com -o snapshot.html -m single --extract-componen
 
 # With framework hint and depth limit
 npm run dev -- https://example.com --extract-components --framework vue --component-depth 5
+```
+
+### Local-Only Conversion
+
+```bash
+# Run conversion on existing bundle output (skips URL fetch)
+npm run dev -- --convert-local ./project --codegen-framework vue
+
+# Run on single-file output
+npm run dev -- --convert-local snapshot.html --codegen-framework react
+
+# Custom output directory
+npm run dev -- --convert-local ./project -o ./alt --codegen-framework vue \
+  --codegen-generate-drafts
 ```
 
 ### Advanced Usage

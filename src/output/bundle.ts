@@ -11,6 +11,11 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Escape a URL string for use in a regex — safe for literal URL matching in srcset replacement */
+function escRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function safeJoin(base: string, target: string): string | null {
   const resolvedBase = resolve(base);
   const resolved = resolve(resolvedBase, target);
@@ -164,23 +169,57 @@ export function assembleBundle(
     const relPath = assetMap.get(a.originUrl);
     if (!relPath) continue;
 
-    if (a.type === 'css') {
-      const q = `link[href="${esc(a.originUrl)}"][rel="stylesheet"]`;
-      const el = document.querySelector(q);
-      if (el) el.setAttribute('href', relPath);
-    } else if (a.type === 'js') {
-      const q = `script[src="${esc(a.originUrl)}"]`;
-      const el = document.querySelector(q);
-      if (el) el.setAttribute('src', relPath);
-    } else if (a.type === 'img') {
-      const els = [...document.querySelectorAll(`img[src="${esc(a.originUrl)}"]`)];
-      for (const el of els) el.setAttribute('src', relPath);
+    // Use data-origin-url (set by html-parser with resolved URL) to locate elements,
+    // because DOM attributes (src/href) still hold raw paths (e.g. "/_nuxt/...")
+    // while a.originUrl is the resolved absolute URL.
+    const els = [...document.querySelectorAll(`[data-origin-url="${esc(a.originUrl)}"]`)];
+    for (const el of els) {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'link') {
+        el.setAttribute('href', relPath);
+      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio') {
+        el.setAttribute('src', relPath);
+      }
+
+      // Rewrite URLs inside srcset attribute (responsive images, picture elements)
+      if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
+        const srcset = el.getAttribute('srcset')!;
+        // srcset format: "url descriptor, url descriptor, ..."
+        // e.g. "img/hero-1x.jpg 1x, img/hero-2x.jpg 2x"
+        const replaced = srcset.replace(
+          // Match the origin URL in any descriptor position
+          // The URL may have been percentage-encoded in srcset vs raw in originUrl
+          new RegExp(escRegex(a.originUrl), 'g'),
+          relPath,
+        );
+        el.setAttribute('srcset', replaced);
+      }
     }
 
     // Rewrite <a href> for route-to-index mapping
     if (isRoutePath(a.originUrl)) {
       const anchors = [...document.querySelectorAll(`a[href="${esc(a.originUrl)}"]`)];
       for (const el of anchors) el.setAttribute('href', relPath);
+    }
+  }
+
+  // Clean up failed/skipped assets: remove their src/href to avoid dangling
+  // external requests in offline mode and potential privacy leaks.
+  for (const a of assets) {
+    if (a.status === 'fetched') continue;
+    const els = [...document.querySelectorAll(`[data-origin-url="${esc(a.originUrl)}"]`)];
+    for (const el of els) {
+      const tag = el.tagName.toLowerCase();
+      // Remove the resource attribute so the browser doesn't attempt to load it
+      if (tag === 'link') {
+        el.removeAttribute('href');
+      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio') {
+        el.removeAttribute('src');
+      }
+      // For srcset, also clear it since all candidates would fail
+      if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
+        el.removeAttribute('srcset');
+      }
     }
   }
 

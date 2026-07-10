@@ -27,8 +27,32 @@ export function analyzeJavaScript(js: string, options?: any): JsAnalysisResult {
 
   // Hierarchical strategy: choose different parsing methods according to file size
   if (size <= FULL_PARSE_LIMIT) {
-    // < 100KB: Full Babel Explanation
-    return parseWithBabel(js, result);
+    // < 100KB: Quick scan first, then Babel. If Babel fails, regex fallback preserved.
+    const quick = quickScanJs(js);
+    result.state = quick.state.map(n => ({
+      name: n,
+      type: 'unknown',
+      initial: undefined,
+      bindings: [],
+      mutators: [],
+      confidence: 0.3
+    }));
+    result.methods = quick.handlers.map(n => ({
+      name: n,
+      kind: 'handler' as const,
+      code: '',
+      parameters: [],
+      sideEffects: []
+    }));
+    // Babel supplements (may fail on compressed bundles, quick scan results kept)
+    const babelResult = parseWithBabel(js, emptyResult());
+    result.state = mergeStateDeduped(result.state, babelResult.state);
+    result.methods = mergeMethodsDeduped(result.methods, babelResult.methods);
+    result.events = babelResult.events;
+    result.refs = babelResult.refs;
+    result.lifecycles = babelResult.lifecycles;
+    result.todos.push(...babelResult.todos);
+    return result;
   } else if (size <= FILTERED_PARSE_LIMIT) {
     // 100KB - 1MB: Quick Scan + Babel Parsing
     const quick = quickScanJs(js);
