@@ -20,7 +20,7 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
 
     result.components.forEach((comp) => {
       // Sanitize component name: reject path traversal characters
-      const safeName = comp.name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+      const safeName = comp.name.replace(/[^a-zA-Z0-9_-]/g, '_');
       const compDir = join(componentDir, safeName);
       mkdirSync(compDir, { recursive: true });
 

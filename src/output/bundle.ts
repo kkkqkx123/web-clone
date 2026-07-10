@@ -62,7 +62,7 @@ function extnameFromMime(mime: string): string | null {
 function classifyAssetFilename(url: string, mime: string, index: number): string {
   try {
     const u = new URL(url);
-    let pathname = u.pathname.replace(/^\/+/, '') || 'index';
+    const pathname = u.pathname.replace(/^\/+/, '') || 'index';
 
     // 1. Content-Type inference extension name
     const extFromMime = extnameFromMime(mime);

@@ -21,7 +21,7 @@ function validateUrlScheme(url: string): void {
       throw new Error(`Unsupported protocol: ${u.protocol}`);
     }
   } catch (err: any) {
-    throw new Error(`Invalid URL: ${err.message}`);
+    throw new Error(`Invalid URL: ${err.message}`, { cause: err });
   }
 }
 
@@ -93,7 +93,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
     };
   } catch (err: any) {
     if (err instanceof SizeLimitError) throw err;
-    throw new Error(err.name === 'AbortError' ? `Timeout after ${timeout}ms` : err.message);
+    throw new Error(err.name === 'AbortError' ? `Timeout after ${timeout}ms` : err.message, { cause: err });
   } finally {
     clearTimeout(timer);
   }

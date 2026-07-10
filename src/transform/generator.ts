@@ -62,8 +62,8 @@ function estimateEffort(comp: CorrelatedComponent): { effort: string; breakdown:
   const totalComplexity = logicComplexity * confidenceMultiplier;
 
   // Time bands: based on combined complexity
-  let effort = '0.5h';
-  let conversion = '15m';
+  let effort: string;
+  let conversion: string;
   let extraction = '10m';
 
   if (totalComplexity <= 0.5) {
