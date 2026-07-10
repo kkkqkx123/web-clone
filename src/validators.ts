@@ -154,15 +154,7 @@ export function postDownloadValidation(assets: Asset[]): Array<{url: string, err
   for (const a of assets) {
     if (a.status !== 'fetched') continue;
     
-    if (a.type === 'css' && a.textContent) {
-      try {
-        const hasMissingUrl = /url\(["']?[^)"']*\.(png|jpg|jpeg|gif|webp|woff|woff2|ttf|otf|svg)["']?\)/gi.test(a.textContent);
-        if (hasMissingUrl) {
-          failures.push({ url: a.originUrl, error: 'CSS contains missing font/image references' });
-        }
-      } catch {}
-    }
-    
+    // 检查是否为零长度或通用二进制响应
     if (a.size === 0 && a.mime === 'application/octet-stream') {
       failures.push({ url: a.originUrl, error: 'Zero-length or generic octet-stream response' });
     }

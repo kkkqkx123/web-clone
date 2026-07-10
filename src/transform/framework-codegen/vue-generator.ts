@@ -159,8 +159,9 @@ ${styles}`;
       imports.add('ref');
     }
 
-    // Add computed if there are complex state transformations
-    if (spec.logic?.methods?.some((m: any) => m.kind === 'lifecycle')) {
+    // Add lifecycle imports based on detected lifecycle method names
+    const lifecycleMethods = new Set(['mounted', 'unmounted', 'created', 'destroyed', 'init', 'destroy']);
+    if (spec.logic?.methods?.some((m: any) => lifecycleMethods.has(m.name))) {
       imports.add('onMounted');
       imports.add('onUnmounted');
     }

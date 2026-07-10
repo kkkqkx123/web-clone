@@ -106,14 +106,13 @@ export class SharedLogicExtractor {
         spec.logic.methods.forEach((method: any) => {
           const code = method.code || '';
 
-          // Find string/number literals that look like configuration
-          const stringMatches = code.match(/'[^']*'|"[^"]*"/g) || [];
-          stringMatches.forEach((match: string, idx: number) => {
-            if (match.length > 10 && !match.includes(' ')) {
-              const name = `CONFIG_${idx}`;
-              if (!constants.has(name)) {
-                constants.set(name, match);
-              }
+          // Find URL-like strings that look like API endpoints or configuration
+          const urlMatches = code.match(/['"`](https?:\/\/[^'"`]+)['"`]/g) || [];
+          urlMatches.forEach((match: string) => {
+            const url = match.slice(1, -1); // strip quotes
+            const name = `API_ENDPOINT_${constants.size + 1}`;
+            if (!Array.from(constants.values()).includes(url)) {
+              constants.set(name, url);
             }
           });
         });

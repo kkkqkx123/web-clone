@@ -83,11 +83,20 @@ ${template}
   ): string {
     let template = html;
 
-    // Step 1: Wrap elements with data-condition in {#if}...{/if} blocks
+    // Step 1: Handle self-closing elements with data-condition
     template = template.replace(
-      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>([\s\S]*?)<\/\1>/g,
+      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)\/>/g,
+      (_, tag, pre, condition, post) => {
+        return `{#if ${condition.trim()}}<${tag}${pre}${post} />{/if}`;
+      }
+    );
+
+    // Step 2: Wrap elements with data-condition in {#if}...{/if} blocks
+    // Use negative lookahead to avoid matching nested elements of the same tag
+    template = template.replace(
+      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>((?:(?!<\/\1>)[\s\S])*)<\/\1>/g,
       (_, tag, pre, condition, post, content) => {
-        return `{#if ${condition.trim()}}<${tag}${pre}${post}>${content}</${tag}> {/if}`;
+        return `{#if ${condition.trim()}}<${tag}${pre}${post}>${content}</${tag}>{/if}`;
       }
     );
 

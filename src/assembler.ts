@@ -12,10 +12,11 @@ import { assembleConvert } from './output/convert.js';
 import { postDownloadValidation, isHtmlLike } from './validators.js';
 import { convert } from './converter.js';
 import { assessMemoryBudget, MemoryWatchdog, formatDegradationSummary } from './memory-budget.js';
+import { runPool } from './worker/pool.js';
 
-async function fetchHtml(url: string, timeout: number): Promise<string | null> {
+async function fetchHtml(url: string, timeout: number, maxSize?: number): Promise<string | null> {
   try {
-    const result = await fetchWithTimeout(url, timeout);
+    const result = await fetchWithTimeout(url, timeout, undefined, maxSize);
     if (!result.ok) {
       process.stdout.write(`Warning: Origin returned HTTP ${result.status} for HTML page\n`);
       if (result.status >= 400 && (result.isHtmlLike || isHtmlLike(result.buffer))) {
@@ -51,7 +52,9 @@ function extractInlineCss(html: string): string {
 
 function extractInlineJs(html: string): string {
   let js = '';
-  const scriptRegex = /<script[^>]*(?!src=)(?:[^>]*)>([\s\S]*?)<\/script>/gi;
+  // 只匹配不带 src 属性的 <script> 标签
+  // 使用负向先行断言确保 src 不出现在标签属性中
+  const scriptRegex = /<script(?:\s+(?!src\b)[^>]*)*\s*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = scriptRegex.exec(html)) !== null) {
     js += match[1] + '\n';
@@ -121,10 +124,10 @@ function extractJsFromAssets(assets: any[]): string {
  */
 async function writeAssets(assets: any[], outDir: string): Promise<void> {
   const toWrite = assets.filter((a: any) => a.status === 'fetched' && a.localPath);
-  let written = 0;
   const total = toWrite.length;
+  if (total === 0) return;
 
-  const writeOne = async (a: any): Promise<void> => {
+  const tasks = toWrite.map(a => async (): Promise<void> => {
     const dir = dirname(a.localPath);
     await mkdir(dir, { recursive: true });
     const buf = a.dataUri
@@ -133,24 +136,20 @@ async function writeAssets(assets: any[], outDir: string): Promise<void> {
         ? Buffer.from(a.textContent, 'utf8')
         : Buffer.alloc(0);
     await writeFile(a.localPath, buf);
-    written++;
-    if (written % Math.max(1, Math.floor(total / 10)) === 0 || written === total) {
-      process.stdout.write(`  Writing assets: ${written}/${total}\n`);
-    }
-  };
+  });
 
-  // Batch concurrent writes to avoid file descriptor exhaustion
-  const batchSize = 5;
-  for (let i = 0; i < toWrite.length; i += batchSize) {
-    await Promise.all(toWrite.slice(i, i + batchSize).map(writeOne));
-  }
+  await runPool(tasks, { concurrency: 5 }, (_result, _idx, completedCount) => {
+    if (completedCount % Math.max(1, Math.floor(total / 10)) === 0 || completedCount === total) {
+      process.stdout.write(`  Writing assets: ${completedCount}/${total}\n`);
+    }
+  });
 }
 
 export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult> {
   const timestamp = new Date().toISOString();
 
   process.stdout.write(`Fetching HTML from ${options.url}...\n`);
-  const html = await fetchHtml(options.url, options.timeout);
+  const html = await fetchHtml(options.url, options.timeout, options.maxFileSize);
   if (!html) {
     throw new Error('Failed to retrieve page content');
   }
@@ -176,24 +175,44 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
   const cssRefs = allRefs.filter(r => r.type === 'css');
   const cssContentMap = new Map<string, string>();
 
-  for (const ref of cssRefs) {
-    try {
-      const result = await fetchWithTimeout(ref.url, options.timeout, options.url);
-      if (result.ok) {
-        const cssText = result.buffer.toString('utf8');
-        cssContentMap.set(ref.url, cssText);
+  // Parallel CSS fetch + recursive @import extraction
+  if (cssRefs.length > 0) {
+    interface CssFetchResult {
+      url: string;
+      ok: boolean;
+      cssText?: string;
+      childRefs?: import('./parser/css-parser.js').CssAssetRef[];
+    }
 
-        const childRefs = extractCssAssets(cssText, ref.url);
-        for (const r of childRefs) {
+    const cssTasks = cssRefs.map(ref => async (): Promise<CssFetchResult> => {
+      try {
+        const result = await fetchWithTimeout(ref.url, options.timeout, options.url, options.maxFileSize);
+        if (result.ok) {
+          const cssText = result.buffer.toString('utf8');
+          const childRefs = extractCssAssets(cssText, ref.url);
+          return { url: ref.url, ok: true, cssText, childRefs };
+        }
+        return { url: ref.url, ok: false };
+      } catch (e: any) {
+        process.stdout.write(`  CSS fetch skipped: ${ref.url} — ${e.message}\n`);
+        return { url: ref.url, ok: false };
+      }
+    });
+
+    const cssResults = await runPool(cssTasks, { concurrency: 5 });
+
+    // Collect child refs sequentially (safe: no race conditions on allRefs)
+    for (const r of cssResults) {
+      if (r.ok && r.cssText && r.childRefs) {
+        cssContentMap.set(r.url, r.cssText);
+        for (const child of r.childRefs) {
           allRefs.push({
-            url: r.url,
-            type: r.type === 'css' ? 'css' : r.type === 'font' ? 'font' : 'img',
-            origin: `css:${ref.url}`,
+            url: child.url,
+            type: child.type === 'css' ? 'css' : child.type === 'font' ? 'font' : 'img',
+            origin: `css:${r.url}`,
           });
         }
       }
-    } catch {
-      // skip failed CSS fetches for recursive discovery
     }
   }
 

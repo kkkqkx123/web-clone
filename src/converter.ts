@@ -14,45 +14,41 @@ export async function convert(
   // Memory budget downgrade strategy
   const budget = (options as any).memoryBudget;
 
-  // Phase 1: Parallel analysis (with memory budget degradation)
+  // Phase 1: Parallel analysis (CPU-bound, wrapped in microtasks to yield event loop)
   const htmlOptions: any = {
-    depth: options.componentDepth,  // undefined when not specified (no limit)
+    depth: options.componentDepth,
   };
   if (budget) {
     if (budget.htmlStrategy === 'streaming') {
-      htmlOptions.maxTagScan = 50000;  // Limit the number of tags scanned
+      htmlOptions.maxTagScan = 50000;
     }
   }
 
-  const htmlAnalysis = analyzeHtml(html, htmlOptions);
+  const [htmlAnalysis, cssAnalysis, jsAnalysis] = await Promise.all([
+    Promise.resolve().then(() => analyzeHtml(html, htmlOptions)),
 
-  // CSS analysis: executed according to downgrade policy
-  let cssAnalysis;
-  if (budget?.cssStrategy === 'skip') {
-    cssAnalysis = { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
-  } else if (budget?.cssStrategy === 'head') {
-    // Analyze only the first 500KB of CSS
-    const headCss = css.slice(0, 500 * 1024);
-    cssAnalysis = analyzeCss(headCss);
-  } else {
-    cssAnalysis = analyzeCss(css);
-  }
+    // CSS analysis: executed according to downgrade policy
+    Promise.resolve().then(() => {
+      if (budget?.cssStrategy === 'skip') {
+        return { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
+      }
+      if (budget?.cssStrategy === 'head') {
+        return analyzeCss(css.slice(0, 500 * 1024));
+      }
+      return analyzeCss(css);
+    }),
 
-  // JS analysis: executed according to downgrade policy
-  let jsAnalysis;
-  if (budget?.jsStrategy === 'skip') {
-    jsAnalysis = { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
-  } else if (budget?.jsStrategy === 'head') {
-    // Analyze only the top 1MB of JS
-    const headJs = js.slice(0, 1024 * 1024);
-    jsAnalysis = analyzeJavaScript(headJs, {
-      extractLogic: options.extractLogic !== false
-    });
-  } else {
-    jsAnalysis = analyzeJavaScript(js, {
-      extractLogic: options.extractLogic !== false
-    });
-  }
+    // JS analysis: executed according to downgrade policy
+    Promise.resolve().then(() => {
+      if (budget?.jsStrategy === 'skip') {
+        return { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
+      }
+      if (budget?.jsStrategy === 'head') {
+        return analyzeJavaScript(js.slice(0, 1024 * 1024), { extractLogic: options.extractLogic !== false });
+      }
+      return analyzeJavaScript(js, { extractLogic: options.extractLogic !== false });
+    }),
+  ]);
 
   // Phase 2: Correlation
   const correlated = correlateComponents(htmlAnalysis, cssAnalysis, jsAnalysis);

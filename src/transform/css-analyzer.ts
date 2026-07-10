@@ -175,8 +175,9 @@ function processRule(
 
   rules.push({ selector, source: block });
 
-  // BEM grouping
-  const bemMatch = selector.match(/\.([a-z0-9][a-z0-9-]*?)(?:__|--|[^\w-]|$)/i);
+  // BEM grouping: only match actual BEM separators (__ for element, -- for modifier)
+  // Skip pseudo-classes, combinators, and other non-BEM class patterns
+  const bemMatch = selector.match(/\.([a-z0-9][a-z0-9-]*?)(?:__|--)/i);
   if (bemMatch) {
     const name = bemMatch[1];
     if (!componentStyles[name]) componentStyles[name] = [];
@@ -245,8 +246,8 @@ function groupStylesByComponent(rules: CssRule[]): {
       return;
     }
 
-    // Extract component name from BEM pattern
-    const match = selector.match(/\.([a-z0-9][a-z0-9-]*?)(?:__|--|[^\w-]|$)/i);
+    // Extract component name from BEM pattern (only __ and -- separators)
+    const match = selector.match(/\.([a-z0-9][a-z0-9-]*?)(?:__|--)/i);
     if (match) {
       const componentName = match[1];
       if (!componentGroups[componentName]) {

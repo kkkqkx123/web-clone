@@ -416,13 +416,23 @@ function tryExtractDomRef(path: any, js: string): DomRef | null {
 }
 
 function isLikelyState(name: string): boolean {
-  const patterns = ['state', 'data', 'model', 'form', 'count', 'value', 'visible', 'show', 'active', 'open', 'current', 'items', 'list', 'selected'];
-  return patterns.some(p => name.toLowerCase().includes(p));
+  // Use word-boundary matching to reduce false positives from substring matches.
+  // Prefixes: is*, has*, should*, current*, selected*
+  // Suffixes: *Count, *List, *Items, *Value, *Data, *State, *Model, *Name, *Type, *Key, *Id, *Index, *Status, *Error, *Message, *Visible, *Active, *Loading
+  // Whole words: state, data, model, form, visible, active, loading, error, result
+  if (/^(is|has|should|current|selected)/i.test(name)) return true;
+  if (/(Count|List|Items|Value|Data|State|Model|Name|Type|Key|Id|Index|Status|Error|Message|Visible|Active|Loading)$/i.test(name)) return true;
+  return /^(state|data|model|form|visible|active|loading|error|result)$/i.test(name);
 }
 
 function isLikelyHandler(name: string): boolean {
-  const patterns = ['handle', 'on', 'click', 'submit', 'change', 'toggle', 'update', 'delete', 'add', 'remove', 'fetch', 'load', 'close', 'open'];
-  return patterns.some(p => name.toLowerCase().includes(p));
+  // Use word-boundary matching to reduce false positives.
+  // Prefixes: handle*, on*
+  // Suffixes: *Click, *Submit, *Change, *Toggle, *Handler, *Callback, *Action, *Request, *Response
+  // Whole words: click, submit, change, toggle, fetch, load, close, open, add, remove, delete, update, save, cancel, reset, search, filter, sort, init, setup, render, refresh, retry, cleanup
+  if (/^(handle|on)/i.test(name)) return true;
+  if (/(Click|Submit|Change|Toggle|Handler|Callback|Action|Request|Response)$/i.test(name)) return true;
+  return /^(click|submit|change|toggle|fetch|load|close|open|add|remove|delete|update|save|cancel|reset|search|filter|sort|init|setup|render|refresh|retry|cleanup)$/i.test(name);
 }
 
 function isLifecycleMethod(name: string): boolean {
@@ -432,9 +442,10 @@ function isLifecycleMethod(name: string): boolean {
 
 function scoreAsState(name: string): number {
   let score = 0.3;
-  const patterns = [/state/i, /data/i, /model/i, /form/i, /value/i, /count/i, /items/i, /list/i];
-  const matches = patterns.filter(p => p.test(name)).length;
-  score += Math.min(0.5, matches * 0.2);
+  // Boost score for strong prefix/suffix indicators
+  if (/^(is|has|should)/i.test(name)) score += 0.2;
+  if (/(Data|State|Model|List|Items|Count|Value|Status|Error|Visible|Active|Loading)$/i.test(name)) score += 0.2;
+  if (/(Id|Name|Type|Key|Index)$/i.test(name)) score += 0.1;
   return Math.min(1, score);
 }
 

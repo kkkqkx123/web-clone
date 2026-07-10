@@ -276,18 +276,51 @@ function mapEventToReact(event: string): string {
 }
 
 function convertCssToObject(css: string): string {
-  // Simple CSS to JavaScript object converter
-  // This is a placeholder - real implementation would be more robust
-  return `/* CSS Rules (convert to inline styles as needed) */\n${css}`;
+  // Simple CSS-to-JS-object converter for inline styles
+  // Converts "property: value" pairs to JS object format
+  const lines = css.split('\n');
+  const jsLines: string[] = [];
+  let inBlock = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip at-rules, comments, and empty lines
+    if (!trimmed || trimmed.startsWith('@') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+      continue;
+    }
+    // Skip selectors (lines ending with { or containing {)
+    if (trimmed.includes('{')) {
+      inBlock = true;
+      continue;
+    }
+    if (trimmed.includes('}')) {
+      inBlock = false;
+      continue;
+    }
+    // Convert CSS declaration to JS object property
+    if (inBlock && trimmed.includes(':')) {
+      const colonIdx = trimmed.indexOf(':');
+      const prop = trimmed.slice(0, colonIdx).trim()
+        .replace(/-([a-z])/g, (_, c) => c.toUpperCase()); // camelCase
+      const value = trimmed.slice(colonIdx + 1).trim().replace(/;$/, '');
+      jsLines.push(`  ${prop}: '${value}',`);
+    }
+  }
+
+  if (jsLines.length === 0) {
+    return `/* CSS Rules (inline styles) */\n${css}`;
+  }
+
+  return `const styles: Record<string, string> = {\n${jsLines.join('\n')}\n};`;
 }
 
 /**
  * Template transformation rules
  */
 export const templateRules = {
-  // Remove data-* attributes from final output
+  // Remove all data-* snapshot attributes from final output
   cleanAttributes: (html: string): string => {
-    return html.replace(/\s*(data-binding|data-event|data-condition)="[^"]*"/g, '');
+    return html.replace(/\s*data-[\w-]+(?:="[^"]*")?/g, '');
   },
 
   // Convert HTML class attribute to className for React

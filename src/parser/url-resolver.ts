@@ -4,27 +4,16 @@ export function resolveUrl(raw: string, baseUrl: string): string | null {
   }
 
   try {
-    if (raw.startsWith('//')) {
-      const base = new URL(baseUrl);
-      return new URL(raw, `${base.protocol}${raw}`).href;
+    // new URL() handles protocol-relative URLs (//example.com/path) natively
+    const resolved = new URL(raw, baseUrl);
+    // 安全校验：只允许 http 和 https 协议
+    if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
+      return null;
     }
-    
-    // Check if it's a path that looks like a mirrored remote host (e.g., /cdn.example.com/path)
-    if (raw.startsWith('/')) {
-      const parts = raw.split('/').filter(Boolean);
-      if (parts.length > 1 && looksLikeMirroredRemoteHost(parts[0])) {
-        return `https://${parts[0]}/${parts.slice(1).join('/')}`;
-      }
-    }
-    
-    return new URL(raw, baseUrl).href;
+    return resolved.href;
   } catch {
     return null;
   }
-}
-
-export function looksLikeMirroredRemoteHost(segment: string): boolean {
-  return /^[a-z0-9-]+(\\.[a-z0-9-]+){2,}$/i.test(segment);
 }
 
 export function normalizeUrl(url: string): string {

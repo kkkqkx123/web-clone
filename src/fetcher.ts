@@ -1,6 +1,7 @@
 import { extname } from 'node:path';
 import { isValidCachedResponse, mimeFromExt, checkResourceFilter } from './validators.js';
 import { type AssetType, type Asset, type AssetRef, type SnapshotOptions, MAX_INLINE_SIZE } from './types.js';
+import { runPool } from './worker/pool.js';
 
 export interface FetchResult {
   buffer: Buffer;
@@ -10,7 +11,23 @@ export interface FetchResult {
   isHtmlLike: boolean;
 }
 
+/**
+ * Validate that a URL uses http or https protocol.
+ */
+function validateUrlScheme(url: string): void {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+      throw new Error(`Unsupported protocol: ${u.protocol}`);
+    }
+  } catch (err: any) {
+    throw new Error(`Invalid URL: ${err.message}`);
+  }
+}
+
 export async function fetchWithTimeout(url: string, timeout: number, referer?: string, maxSize?: number): Promise<FetchResult> {
+  validateUrlScheme(url);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -23,6 +40,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       },
     });
 
+    // 先检查 Content-Length 头，避免不必要的下载
     if (maxSize && maxSize > 0) {
       const cl = response.headers.get('content-length');
       if (cl) {
@@ -33,12 +51,38 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       }
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    if (maxSize && maxSize > 0 && buffer.length > maxSize) {
-      throw new SizeLimitError(buffer.length, maxSize);
+    // 流式读取，边下载边检查大小，超过限制立即中断
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body');
     }
+
+    const chunks: Uint8Array[] = [];
+    let totalLength = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      if (value) {
+        totalLength += value.length;
+        // 每次收到数据块都检查大小，超限立即中断
+        if (maxSize && maxSize > 0 && totalLength > maxSize) {
+          controller.abort();
+          throw new SizeLimitError(totalLength, maxSize);
+        }
+        chunks.push(value);
+      }
+    }
+
+    // 合并所有数据块为单一 Buffer
+    const totalBuffer = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      totalBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+    const buffer = Buffer.from(totalBuffer);
 
     return {
       buffer,
@@ -106,7 +150,12 @@ export async function downloadSingleAsset(
 
       if (!result.ok) {
         asset.error = `HTTP ${result.status}`;
-        if (attempt < maxAttempts) continue;
+        if (attempt < maxAttempts) {
+          // 指数退避：第 1 次重试等 200ms，第 2 次等 400ms，第 3 次等 800ms，最大 2s
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
         asset.status = 'failed';
         return asset;
       }
@@ -116,7 +165,11 @@ export async function downloadSingleAsset(
 
       if (!isValidCachedResponse(filePath, result.mime, result.buffer)) {
         asset.error = 'Content validation failed';
-        if (attempt < maxAttempts) continue;
+        if (attempt < maxAttempts) {
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
         asset.status = 'failed';
         return asset;
       }
@@ -143,7 +196,11 @@ export async function downloadSingleAsset(
         return asset;
       }
       asset.error = err.message;
-      if (attempt < maxAttempts) continue;
+      if (attempt < maxAttempts) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
       asset.status = 'failed';
       return asset;
     }
@@ -158,32 +215,18 @@ export async function downloadAllAssets(
   options: SnapshotOptions,
   onProgress?: (asset: Asset, index: number, total: number) => void,
 ): Promise<Asset[]> {
-  const results: Asset[] = [];
-  const queue = [...refs];
-  const total = queue.length;
-  const maxConcurrent = Math.max(1, Math.min(options.concurrency, queue.length));
+  const total = refs.length;
 
-  // Semaphore pattern: Use Promise.race to control concurrency
-  const inFlight = new Set<Promise<void>>();
+  // 将每个下载操作包装为独立的任务工厂函数
+  const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url));
 
-  while (queue.length > 0 || inFlight.size > 0) {
-    // Fill concurrent slots
-    while (queue.length > 0 && inFlight.size < maxConcurrent && results.length < options.maxAssets) {
-      const ref = queue.shift()!;
-      const promise = downloadSingleAsset(ref, options, options.url)
-        .then(asset => {
-          results.push(asset);
-          onProgress?.(asset, results.length, total);
-        })
-        .finally(() => inFlight.delete(promise));
-      inFlight.add(promise);
-    }
+  const results = await runPool(tasks, {
+    concurrency: options.concurrency,
+    maxTasks: options.maxAssets,
+    timeoutMs: options.timeout * 2,
+  }, (asset, _idx, completedCount) => {
+    onProgress?.(asset, completedCount, total);
+  });
 
-    // Wait for any one to complete
-    if (inFlight.size > 0) {
-      await Promise.race(inFlight);
-    }
-  }
-
-  return results;
+  return results.filter(Boolean);
 }

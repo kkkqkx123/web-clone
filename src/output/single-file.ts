@@ -1,13 +1,21 @@
 import { type Asset, type SnapshotOptions } from '../types.js';
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/** Escape a string for use as a CSS attribute selector value (inside `[attr="..."]) */
+function escCssAttr(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 
 function rewriteUrls(text: string, urlMap: Map<string, string>): string {
   let result = text;
-  for (const [original, replacement] of urlMap) {
+  // Sort by URL length descending to avoid substring pollution
+  // (e.g. "icon.png" must not be replaced before "icon.png?v=2")
+  const sorted = [...urlMap.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [original, replacement] of sorted) {
     result = result.split(original).join(replacement);
   }
   return result;
@@ -34,29 +42,28 @@ export function assembleSingleFile(
     }
   }
 
-  const linkSelectors = [...document.querySelectorAll('link[rel="stylesheet"][href]')];
+  // 使用 data-origin-url（绝对 URL）匹配 CSS/JS 内容，避免 href/src 相对路径不匹配的问题
+  const linkSelectors = [...document.querySelectorAll('link[rel="stylesheet"][data-origin-url]')];
   for (const link of linkSelectors) {
-    const href = link.getAttribute('href');
-    if (!href) continue;
-    const cssText = cssContentMap.get(href) || cssContentMap.get(href.split('?')[0]) || '';
+    const originUrl = link.getAttribute('data-origin-url');
+    if (!originUrl) continue;
+    const cssText = cssContentMap.get(originUrl) || '';
     if (!cssText) continue;
 
     const style = document.createElement('style');
-    style.setAttribute('data-origin-url', href);
     const rewritten = rewriteUrls(cssText, urlMap);
-    style.textContent = `/* Source: ${esc(href)} */\n${rewritten}`;
+    style.textContent = `/* Source: ${esc(originUrl)} */\n${rewritten}`;
     link.replaceWith(style);
   }
 
-  const scriptSelectors = [...document.querySelectorAll('script[src]')];
+  const scriptSelectors = [...document.querySelectorAll('script[data-origin-url]')];
   for (const script of scriptSelectors) {
-    const src = script.getAttribute('src');
-    if (!src) continue;
-    const jsText = jsContentMap.get(src) || '';
+    const originUrl = script.getAttribute('data-origin-url');
+    if (!originUrl) continue;
+    const jsText = jsContentMap.get(originUrl) || '';
     if (!jsText) continue;
 
     script.removeAttribute('src');
-    script.setAttribute('data-origin-url', src);
     script.textContent = jsText;
   }
 
@@ -64,14 +71,16 @@ export function assembleSingleFile(
     if (a.status !== 'fetched' || !a.dataUri) continue;
     const uri = a.dataUri;
 
-    const imgs = [...document.querySelectorAll(`img[src="${esc(a.originUrl)}"]`)];
+    const imgs = [...document.querySelectorAll(`img[src="${escCssAttr(a.originUrl)}"]`)];
     for (const img of imgs) img.setAttribute('src', uri);
 
     const srcsetImgs = [...document.querySelectorAll('img[srcset]')];
     for (const img of srcsetImgs) {
       const val = img.getAttribute('srcset');
       if (val && val.includes(a.originUrl)) {
-        img.setAttribute('srcset', val.split(a.originUrl).join(uri));
+        // Use regex with lookahead to avoid substring pollution (e.g. "icon.png" vs "icon.png?v=2")
+        const escaped = a.originUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        img.setAttribute('srcset', val.replace(new RegExp(escaped + '(?=[\\s,]|$)', 'g'), uri));
       }
     }
 
@@ -79,7 +88,8 @@ export function assembleSingleFile(
     for (const src of sourceSrcset) {
       const val = src.getAttribute('srcset');
       if (val && val.includes(a.originUrl)) {
-        src.setAttribute('srcset', val.split(a.originUrl).join(uri));
+        const escaped = a.originUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        src.setAttribute('srcset', val.replace(new RegExp(escaped + '(?=[\\s,]|$)', 'g'), uri));
       }
     }
   }
@@ -102,10 +112,16 @@ export function assembleSingleFile(
     const metaTime = document.createElement('meta');
     metaTime.setAttribute('name', 'snapshot:time');
     metaTime.setAttribute('content', new Date().toISOString());
-    head.insertBefore(metaTime, metaSource.nextSibling!);
+    head.insertBefore(metaTime, metaSource.nextSibling ?? null);
   }
 
-  const body = document.querySelector('body');
+  // 清理快照辅助属性，避免在输出中泄露完整 URL
+  for (const el of document.querySelectorAll('[data-snapshot-id]')) {
+    el.removeAttribute('data-snapshot-id');
+  }
+  for (const el of document.querySelectorAll('[data-origin-url]')) {
+    el.removeAttribute('data-origin-url');
+  }
 
   let html = document.toString();
   if (!html.startsWith('<!')) {
@@ -113,7 +129,15 @@ export function assembleSingleFile(
   }
 
   if (options.pretty) {
-    html = html.replace(/>\s+</g, '>\n<');
+    // Only apply pretty-printing to structural HTML, skip script/style textContent
+    html = html.replace(
+      /(<script[^>]*>[\s\S]*?<\/script>)|(<style[^>]*>[\s\S]*?<\/style>)|(>)\s+(<)/gi,
+      (_match, script, style, gt, lt) => {
+        if (script) return script;
+        if (style) return style;
+        return gt + '\n' + lt;
+      }
+    );
   }
 
   return html;

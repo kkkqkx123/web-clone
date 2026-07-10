@@ -8,16 +8,23 @@ export interface CssAssetRef {
 }
 
 function classifyCssUrl(urlStr: string): CssAssetRef['type'] {
-  const ext = urlStr.split('?')[0].split('#')[0].toLowerCase();
-  if (ext.endsWith('.woff') || ext.endsWith('.woff2') || ext.endsWith('.ttf') || ext.endsWith('.otf') || ext.endsWith('.eot')) {
+  const cleanUrl = urlStr.split('?')[0].split('#')[0].toLowerCase();
+  if (cleanUrl.endsWith('.woff') || cleanUrl.endsWith('.woff2') || cleanUrl.endsWith('.ttf') || cleanUrl.endsWith('.otf') || cleanUrl.endsWith('.eot')) {
     return 'font';
   }
-  if (ext.endsWith('.css')) {
+  if (cleanUrl.endsWith('.css')) {
     return 'css';
   }
   const imgExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif', '.ico'];
-  if (imgExts.some(e => ext.endsWith(e))) {
+  if (imgExts.some(e => cleanUrl.endsWith(e))) {
     return 'img';
+  }
+  // Heuristic: check path segments for common keywords when URL has no extension
+  if (!cleanUrl.includes('.')) {
+    const segments = cleanUrl.split('/');
+    const last = segments[segments.length - 1] || '';
+    if (/font|icon|glyph/i.test(last)) return 'font';
+    if (/img|image|pict/i.test(last)) return 'img';
   }
   return 'other';
 }

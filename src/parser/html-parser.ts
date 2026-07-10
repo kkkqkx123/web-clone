@@ -44,11 +44,35 @@ function addSnapshotAttrs(el: Element, originUrl: string): void {
   }
 }
 
+function processSrcsetElements(
+  selector: string,
+  selectorLabel: string,
+  document: Document,
+  baseUrl: string,
+  seen: Set<string>,
+  assets: AssetRef[],
+): void {
+  for (const el of document.querySelectorAll(selector)) {
+    const raw = el.getAttribute('srcset');
+    if (!raw) continue;
+    for (const url of parseSrcset(raw, baseUrl)) {
+      if (!seen.has(url)) {
+        seen.add(url);
+        assets.push({ url, type: 'img', origin: selectorLabel, attribute: 'srcset' });
+      }
+      addSnapshotAttrs(el, url);
+    }
+  }
+}
+
 export function parseHtml(html: string, baseUrl: string): ParsedHtml {
   const { document } = parseHTML(html);
   const assets: AssetRef[] = [];
   const seen = new Set<string>();
   const inlineStyles: ParsedHtml['inlineStyles'] = [];
+
+  // Reset counter for each parse call to keep IDs stable
+  snapshotIdCounter = 0;
 
   for (const rules of Object.values(TAG_ATTR_MAP)) {
     for (const { sel, attr, type } of rules) {
@@ -67,29 +91,8 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
     }
   }
 
-  for (const el of document.querySelectorAll('img[srcset]')) {
-    const raw = el.getAttribute('srcset');
-    if (!raw) continue;
-    for (const url of parseSrcset(raw, baseUrl)) {
-      if (!seen.has(url)) {
-        seen.add(url);
-        assets.push({ url, type: 'img', origin: 'img[srcset]', attribute: 'srcset' });
-      }
-      addSnapshotAttrs(el, url);
-    }
-  }
-
-  for (const el of document.querySelectorAll('source[srcset]')) {
-    const raw = el.getAttribute('srcset');
-    if (!raw) continue;
-    for (const url of parseSrcset(raw, baseUrl)) {
-      if (!seen.has(url)) {
-        seen.add(url);
-        assets.push({ url, type: 'img', origin: 'source[srcset]', attribute: 'srcset' });
-      }
-      addSnapshotAttrs(el, url);
-    }
-  }
+  processSrcsetElements('img[srcset]', 'img[srcset]', document, baseUrl, seen, assets);
+  processSrcsetElements('source[srcset]', 'source[srcset]', document, baseUrl, seen, assets);
 
   for (const el of document.querySelectorAll('style')) {
     const text = el.textContent || '';

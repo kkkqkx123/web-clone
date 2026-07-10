@@ -67,12 +67,6 @@ ${styles ? `\n${styles}` : ''}`;
     if (imports.some((i) => i.includes('useState'))) {
       reactImports.add('useState');
     }
-    if (imports.some((i) => i.includes('useCallback'))) {
-      reactImports.add('useCallback');
-    }
-    if (imports.some((i) => i.includes('useMemo'))) {
-      reactImports.add('useMemo');
-    }
     if (imports.some((i) => i.includes('useEffect'))) {
       reactImports.add('useEffect');
     }

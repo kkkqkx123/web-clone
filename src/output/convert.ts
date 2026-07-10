@@ -1,11 +1,11 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ConvertResult } from '../types.js';
+import type { SnapshotOptions, ConvertResult } from '../types.js';
 import { codeGenerator } from '../transform/framework-codegen/index.js';
 import { ConfigGenerator } from '../transform/framework-codegen/config-generator.js';
 import { SharedLogicExtractor } from '../transform/framework-codegen/shared-logic-extractor.js';
 
-export function assembleConvert(result: ConvertResult, options: any): ConvertResult {
+export function assembleConvert(result: ConvertResult, options: SnapshotOptions): ConvertResult {
   const outputDir = options.output;
 
   try {
@@ -19,7 +19,9 @@ export function assembleConvert(result: ConvertResult, options: any): ConvertRes
     const lowConfidenceComponents: any[] = [];
 
     result.components.forEach((comp) => {
-      const compDir = join(componentDir, comp.name);
+      // Sanitize component name: reject path traversal characters
+      const safeName = comp.name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+      const compDir = join(componentDir, safeName);
       mkdirSync(compDir, { recursive: true });
 
       writeFileSync(join(compDir, 'template.html'), comp.template);
@@ -35,7 +37,7 @@ export function assembleConvert(result: ConvertResult, options: any): ConvertRes
       // Track low-confidence matches
       if ((comp.matchConfidence ?? 0) < 0.6) {
         lowConfidenceComponents.push({
-          name: comp.name,
+          name: safeName,
           confidence: Math.round((comp.matchConfidence ?? 0) * 100),
           type: comp.type,
           reason: (comp.matchConfidence ?? 0) < 0.3 ? 'Very low confidence - strong manual review recommended' : 'Low confidence - manual review suggested'
@@ -393,9 +395,17 @@ function writeSharedLogicFiles(
   const utilsContent = SharedLogicExtractor.extractUtilities(specs);
   const constantsContent = SharedLogicExtractor.extractConstants(specs);
 
-  writeFileSync(join(sharedDir, `api.${ext}`), apiContent);
-  writeFileSync(join(sharedDir, `utils.${ext}`), utilsContent);
-  writeFileSync(join(sharedDir, `constants.${ext}`), constantsContent);
+  // Only write files with meaningful content
+  const sharedFiles: [string, string][] = [
+    [`api.${ext}`, apiContent],
+    [`utils.${ext}`, utilsContent],
+    [`constants.${ext}`, constantsContent],
+  ];
+  for (const [filename, content] of sharedFiles) {
+    if (content.trim()) {
+      writeFileSync(join(sharedDir, filename), content);
+    }
+  }
 }
 
 function generateReadme(result: ConvertResult): string {

@@ -8,7 +8,16 @@ function assetCategory(type: string): string {
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+}
+
+/** Escape a string for use as a CSS attribute selector value (inside `[attr="..."]) */
+function escCssAttr(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /** Escape a URL string for use in a regex — safe for literal URL matching in srcset replacement */
@@ -172,7 +181,7 @@ export function assembleBundle(
     // Use data-origin-url (set by html-parser with resolved URL) to locate elements,
     // because DOM attributes (src/href) still hold raw paths (e.g. "/_nuxt/...")
     // while a.originUrl is the resolved absolute URL.
-    const els = [...document.querySelectorAll(`[data-origin-url="${esc(a.originUrl)}"]`)];
+    const els = [...document.querySelectorAll(`[data-origin-url="${escCssAttr(a.originUrl)}"]`)];
     for (const el of els) {
       const tag = el.tagName.toLowerCase();
       if (tag === 'link') {
@@ -198,7 +207,7 @@ export function assembleBundle(
 
     // Rewrite <a href> for route-to-index mapping
     if (isRoutePath(a.originUrl)) {
-      const anchors = [...document.querySelectorAll(`a[href="${esc(a.originUrl)}"]`)];
+      const anchors = [...document.querySelectorAll(`a[href="${escCssAttr(a.originUrl)}"]`)];
       for (const el of anchors) el.setAttribute('href', relPath);
     }
   }
@@ -207,7 +216,7 @@ export function assembleBundle(
   // external requests in offline mode and potential privacy leaks.
   for (const a of assets) {
     if (a.status === 'fetched') continue;
-    const els = [...document.querySelectorAll(`[data-origin-url="${esc(a.originUrl)}"]`)];
+    const els = [...document.querySelectorAll(`[data-origin-url="${escCssAttr(a.originUrl)}"]`)];
     for (const el of els) {
       const tag = el.tagName.toLowerCase();
       // Remove the resource attribute so the browser doesn't attempt to load it
@@ -236,10 +245,25 @@ export function assembleBundle(
     head.insertBefore(mt, ms.nextSibling!);
   }
 
+  // 清理快照辅助属性，避免在输出中泄露完整 URL
+  for (const el of document.querySelectorAll('[data-snapshot-id]')) {
+    el.removeAttribute('data-snapshot-id');
+  }
+  for (const el of document.querySelectorAll('[data-origin-url]')) {
+    el.removeAttribute('data-origin-url');
+  }
+
   let html = document.toString();
   if (!html.startsWith('<!')) html = '<!DOCTYPE html>\n' + html;
 
   writeFileSync(join(outDir, 'index.html'), html, 'utf8');
+
+  const manifest: Record<string, { size: number; mime: string }> = {};
+  for (const a of assets) {
+    if (a.status === 'fetched') {
+      manifest[a.originUrl] = { size: a.size, mime: a.mime };
+    }
+  }
 
   const meta = {
     sourceUrl: options.url,
@@ -260,15 +284,8 @@ export function assembleBundle(
       mime: a.mime,
       error: a.error || null,
     })),
+    manifest,
   };
 
   writeFileSync(join(outDir, 'snapshot.json'), JSON.stringify(meta, null, 2), 'utf8');
-
-  const manifest: Record<string, { size: number; mime: string }> = {};
-  for (const a of assets) {
-    if (a.status === 'fetched') {
-      manifest[a.originUrl] = { size: a.size, mime: a.mime };
-    }
-  }
-  writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }

@@ -98,12 +98,6 @@ export class ${componentName}Component {
       (_, condition) => `*ngIf="${condition.trim()}"`
     );
 
-    // Convert class to [ngClass] for dynamic classes
-    template = template.replace(
-      /class="([^"]*)"/g,
-      (_, classes) => `class="${classes}"`
-    );
-
     return templateRules.cleanAttributes(template);
   }
 
@@ -123,14 +117,9 @@ export class ${componentName}Component {
       "import { CommonModule } from '@angular/common';",
     ];
 
-    // Add FormsModule if there are data bindings
-    if (spec.template.includes('data-binding')) {
+    // Add FormsModule only if template contains ngModel pattern
+    if (spec.template.includes('[(ngModel)]')) {
       imports.push("import { FormsModule } from '@angular/forms';");
-    }
-
-    // Add other decorators as needed
-    if (spec.logic?.state?.length ?? 0 > 0) {
-      // State already declared as properties
     }
 
     return imports;

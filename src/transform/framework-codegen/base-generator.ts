@@ -40,16 +40,27 @@ export abstract class BaseFrameworkGenerator {
   ): string[];
 
   /**
-   * Lift to base: all 5 generators use identical pattern:
-   *   if (!css || css.trim() === '') return '';
-   *   return cssStrategies.X.wrapStyles(css, ...);
+   * Framework-specific CSS handling: routes to the correct strategy
+   * based on the framework type, avoiding `as any` type bypass.
    */
   protected mapStyles(css: string, options: FrameworkCodeGenOptions): string {
     if (!css || css.trim() === '') {
       return '';
     }
-    const strategy = (cssStrategies as any)[this.framework];
-    return strategy.wrapStyles(css, options.cssModules);
+    // Framework-specific CSS handling
+    if (this.framework === 'react') {
+      return cssStrategies.react.wrapStyles(css, options.cssModules);
+    }
+    if (this.framework === 'vue') {
+      return cssStrategies.vue.wrapStyles(css);
+    }
+    if (this.framework === 'angular') {
+      return cssStrategies.angular.wrapStyles(css);
+    }
+    if (this.framework === 'svelte') {
+      return cssStrategies.svelte.wrapStyles(css);
+    }
+    return cssStrategies.jquery.wrapStyles(css);
   }
 
   /**
