@@ -1,7 +1,7 @@
 import { BaseFrameworkGenerator } from './base-generator.js';
 import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
 import type { StateVariable, EventBinding } from '../../types.js';
-import { frameworkRules, cssStrategies, templateRules } from './framework-rules.js';
+import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * jQuery component code generator
@@ -65,7 +65,7 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
   protected mapState(
     state: StateVariable[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     if (state.length === 0) {
       return '';
@@ -80,7 +80,7 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
   protected mapEvents(
     events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     if (events.length === 0) {
       return '    // No event listeners configured';
@@ -96,8 +96,8 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
   protected mapTemplate(
     html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string {
     let template = html;
 
@@ -116,12 +116,11 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
   protected mapStyles(
     css: string,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     if (!css) {
       return '';
     }
-    const cssLines = css.split('\n').slice(0, 3);
     return `
 /* CSS (include via <link> tag or use inline styles) */
 ${css}`;

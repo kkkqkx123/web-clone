@@ -1,5 +1,5 @@
 import { writeFile, mkdir } from 'node:fs/promises';
-import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
 import { type SnapshotOptions, type SnapshotResult, type AssetRef } from './types.js';
 import { fetchWithTimeout } from './fetcher.js';
@@ -11,7 +11,7 @@ import { assembleBundle } from './output/bundle.js';
 import { assembleConvert } from './output/convert.js';
 import { postDownloadValidation, isHtmlLike } from './validators.js';
 import { convert } from './converter.js';
-import { assessMemoryBudget, MemoryWatchdog, formatDegradationSummary } from './memory-budget.js';
+import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js';
 import { runPool } from './worker/pool.js';
 
 async function fetchHtml(url: string, timeout: number, maxSize?: number): Promise<string | null> {
@@ -25,8 +25,9 @@ async function fetchHtml(url: string, timeout: number, maxSize?: number): Promis
       return null;
     }
     return result.buffer.toString('utf8');
-  } catch (err: any) {
-    process.stdout.write(`Warning: Failed to fetch HTML: ${err.message}\n`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    process.stdout.write(`Warning: Failed to fetch HTML: ${message}\n`);
     return null;
   }
 }
@@ -122,7 +123,7 @@ function extractJsFromAssets(assets: any[]): string {
 /**
  * Async write assets with concurrency control and progress reporting.
  */
-async function writeAssets(assets: any[], outDir: string): Promise<void> {
+async function writeAssets(assets: any[]): Promise<void> {
   const toWrite = assets.filter((a: any) => a.status === 'fetched' && a.localPath);
   const total = toWrite.length;
   if (total === 0) return;
@@ -260,7 +261,7 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
     mkdirSync(options.output, { recursive: true });
     assembleBundle(parsed.document, assets, options);
 
-    await writeAssets(assets, options.output);
+    await writeAssets(assets);
   } else {
     const outputHtml = assembleSingleFile(parsed.document, assets, options);
     await mkdir(dirname(options.output), { recursive: true });
@@ -404,16 +405,6 @@ export async function convertLocalSnapshot(options: SnapshotOptions): Promise<Sn
 
   // Build stats from conversion result
   const componentList = Array.from(converted.components.values());
-  const stats = {
-    total: componentList.length,
-    fetched: 0,
-    failed: 0,
-    skipped: 0,
-    validationWarnings: 0,
-    totalBytes: 0,
-    stateful: componentList.filter(c => c.type === 'stateful').length,
-    presentational: componentList.filter(c => c.type === 'presentational').length,
-  };
 
   // Use dummy assets to satisfy SnapshotResult type
   const assets: any[] = [];

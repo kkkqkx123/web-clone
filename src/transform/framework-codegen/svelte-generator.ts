@@ -1,7 +1,7 @@
 import { BaseFrameworkGenerator } from './base-generator.js';
 import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
 import type { StateVariable, EventBinding } from '../../types.js';
-import { frameworkRules, cssStrategies, templateRules } from './framework-rules.js';
+import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Svelte component code generator
@@ -44,8 +44,7 @@ ${template}
   }
 
   protected mapState(
-    state: StateVariable[],
-    options: FrameworkCodeGenOptions
+    state: StateVariable[]
   ): string {
     if (state.length === 0) {
       return '';
@@ -60,8 +59,7 @@ ${template}
   }
 
   protected mapEvents(
-    events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    events: EventBinding[]
   ): string {
     if (events.length === 0) {
       return '';
@@ -77,9 +75,7 @@ ${template}
   }
 
   protected mapTemplate(
-    html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    html: string
   ): string {
     let template = html;
 
@@ -94,7 +90,7 @@ ${template}
     // Step 2: Wrap elements with data-condition in {#if}...{/if} blocks
     // Use negative lookahead to avoid matching nested elements of the same tag
     template = template.replace(
-      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>((?:(?!<\/\1>)[\s\S])*)<\/\1>/g,
+      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>((?:(?:<\/\1>)[\s\S])*)<\/\1>/g,
       (_, tag, pre, condition, post, content) => {
         return `{#if ${condition.trim()}}<${tag}${pre}${post}>${content}</${tag}>{/if}`;
       }
@@ -126,15 +122,13 @@ ${template}
   }
 
   protected mapStyles(
-    css: string,
-    options: FrameworkCodeGenOptions
+    css: string
   ): string {
-    return super.mapStyles(css, options);
+    return super.mapStyles(css, {});
   }
 
   protected collectImports(
-    spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    _spec: ComponentSpec
   ): string[] {
     // Svelte doesn't require explicit imports in most cases
     // Dependencies are listed in package.json

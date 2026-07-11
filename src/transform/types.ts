@@ -7,7 +7,7 @@ export interface HtmlAnalysisResult {
 
 export interface ComponentRoot {
   name: string;
-  element: any;
+  element: Element;
   depth: number;
   type: 'explicit' | 'semantic' | 'implicit';
   confidence: number;
@@ -68,7 +68,27 @@ export interface CorrelatedComponent {
   type: 'stateful' | 'presentational' | 'unknown';
   template: string;
   styles: string;
-  logic?: any;
-  manifest?: any;
+  logic?: {
+    state: StateVariable[];
+    methods: MethodSpec[];
+    events: EventBinding[];
+  };
+  manifest?: {
+    name: string;
+    type: 'stateful' | 'presentational' | 'unknown';
+    path: string;
+    children: string[];
+    state: Record<string, StateVariable>;
+    events: Record<string, EventBinding>;
+    migration: {
+      effort: string;
+      effortBreakdown: {
+        extraction: string;
+        conversion: string;
+      };
+      suggestions: string[];
+      todos: MigrationTodo[];
+    };
+  };
   matchConfidence: number;
 }

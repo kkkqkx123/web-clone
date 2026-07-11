@@ -2,7 +2,7 @@ import type { ComponentSpec } from '../../types.js';
 import type { FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
 import type { StateVariable, EventBinding } from '../../types.js';
 import { BaseFrameworkGenerator } from './base-generator.js';
-import { frameworkRules, cssStrategies, templateRules } from './framework-rules.js';
+import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Vue 3 SFC Generator
@@ -85,8 +85,7 @@ ${styles}`;
   }
 
   protected mapState(
-    state: StateVariable[],
-    options: FrameworkCodeGenOptions
+    state: StateVariable[]
   ): string {
     return state
       .map((s) => frameworkRules.vue.stateDeclaration(s.name, s.type, s.initial))
@@ -94,16 +93,13 @@ ${styles}`;
   }
 
   protected mapEvents(
-    events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    events: EventBinding[]
   ): string {
     return this.generateEventHandlerStubs(events);
   }
 
   protected mapTemplate(
-    html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    html: string
   ): string {
     let template = html;
 
@@ -142,15 +138,13 @@ ${styles}`;
   }
 
   protected mapStyles(
-    css: string,
-    options: FrameworkCodeGenOptions
+    css: string
   ): string {
-    return super.mapStyles(css, options);
+    return super.mapStyles(css, {});
   }
 
   protected collectImports(
-    spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    spec: ComponentSpec
   ): string[] {
     const imports = new Set<string>();
 
@@ -161,7 +155,7 @@ ${styles}`;
 
     // Add lifecycle imports based on detected lifecycle method names
     const lifecycleMethods = new Set(['mounted', 'unmounted', 'created', 'destroyed', 'init', 'destroy']);
-    if (spec.logic?.methods?.some((m: any) => lifecycleMethods.has(m.name))) {
+    if (spec.logic?.methods?.some((m: { name: string }) => lifecycleMethods.has(m.name))) {
       imports.add('onMounted');
       imports.add('onUnmounted');
     }

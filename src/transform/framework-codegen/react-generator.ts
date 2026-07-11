@@ -2,7 +2,7 @@ import type { ComponentSpec } from '../../types.js';
 import type { FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
 import type { StateVariable, EventBinding } from '../../types.js';
 import { BaseFrameworkGenerator } from './base-generator.js';
-import { frameworkRules, cssStrategies, templateRules } from './framework-rules.js';
+import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * React Component Generator
@@ -60,7 +60,7 @@ ${styles ? `\n${styles}` : ''}`;
 
   private generateImports(
     imports: string[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     const reactImports = new Set<string>();
 
@@ -135,15 +135,15 @@ ${styles ? `\n${styles}` : ''}`;
 
   protected mapEvents(
     events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     return this.generateEventHandlerStubs(events);
   }
 
   protected mapTemplate(
     html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string {
     let jsx = html;
 
@@ -196,7 +196,7 @@ ${styles ? `\n${styles}` : ''}`;
 
   protected collectImports(
     spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string[] {
     const imports = new Set<string>(['React']);
 
@@ -218,7 +218,7 @@ ${styles ? `\n${styles}` : ''}`;
 
     // Need useMemo for complex computations
     if (
-      spec.logic?.methods?.some((m: any) =>
+      spec.logic?.methods?.some((m: { code?: string; kind?: string }) =>
         m.code?.includes('computed') || m.code?.includes('useMemo')
       )
     ) {
