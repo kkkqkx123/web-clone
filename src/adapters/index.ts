@@ -1,12 +1,12 @@
 /**
- * 适配器层导出（公开API）
- *
- * 注意：FetcherAdapter和HttpFetcherAdapter是内部实现细节，
- * 不在这里导出。只导出PlaywrightFetcherAdapter给高级用户。
- *
- * 内部模块会直接import FetcherAdapter等接口。
+ * Adapter layer export (public API)
+ * 
+ * Note: FetcherAdapter and HttpFetcherAdapter are internal implementation details that
+ * Not exported here. Only export PlaywrightFetcherAdapter for advanced users.
+ * 
+ * Internal modules will directly import FetcherAdapter and other interfaces.
  */
 
-// 仅导出Playwright适配器给公开API使用
+// Only export Playwright adapters for use with the public API.
 export { PlaywrightFetcherAdapter } from './playwright-fetcher-adapter.js';
 export type { PlaywrightAdapterOptions } from './playwright-fetcher-adapter.js';

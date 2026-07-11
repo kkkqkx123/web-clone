@@ -1,14 +1,14 @@
 /**
- * HTTP 适配器单元测试
- *
- * 测试 HttpFetcherAdapter 的所有方法和边界情况
+ * HTTP Adapter Unit Tests
+ * 
+ * Tests all methods and boundaries of the HttpFetcherAdapter.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HttpFetcherAdapter } from '../http-fetcher-adapter.js';
 import * as fetcherModule from '../../fetcher.js';
 
-// Mock fetchWithTimeout 函数
+// Mock fetchWithTimeout function
 vi.mock('../../fetcher.js', () => ({
   fetchWithTimeout: vi.fn(),
 }));

@@ -6,7 +6,7 @@ export function resolveUrl(raw: string, baseUrl: string): string | null {
   try {
     // new URL() handles protocol-relative URLs (//example.com/path) natively
     const resolved = new URL(raw, baseUrl);
-    // 安全校验：只允许 http 和 https 协议
+    // Security checks: only http and https protocols are allowed
     if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
       return null;
     }

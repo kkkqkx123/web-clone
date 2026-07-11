@@ -40,7 +40,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       },
     });
 
-    // 先检查 Content-Length 头，避免不必要的下载
+    // Avoid unnecessary downloads by checking the Content-Length header first!
     if (maxSize && maxSize > 0) {
       const cl = response.headers.get('content-length');
       if (cl) {
@@ -51,7 +51,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       }
     }
 
-    // 流式读取，边下载边检查大小，超过限制立即中断
+    // Streaming reads, checking size as it downloads and breaking immediately when it exceeds the limit
     const reader = response.body?.getReader();
     if (!reader) {
       throw new Error('No response body');
@@ -66,7 +66,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
 
       if (value) {
         totalLength += value.length;
-        // 每次收到数据块都检查大小，超限立即中断
+        // Check the size of the data block each time it is received and interrupt immediately if it exceeds the limit
         if (maxSize && maxSize > 0 && totalLength > maxSize) {
           controller.abort();
           throw new SizeLimitError(totalLength, maxSize);
@@ -75,7 +75,7 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       }
     }
 
-    // 合并所有数据块为单一 Buffer
+    // Merge all data blocks into a single Buffer
     const totalBuffer = new Uint8Array(totalLength);
     let offset = 0;
     for (const chunk of chunks) {
@@ -227,7 +227,7 @@ export async function downloadAllAssets(
 ): Promise<Asset[]> {
   const total = refs.length;
 
-  // 将每个下载操作包装为独立的任务工厂函数
+  // Wrap each download operation as a separate task factory function
   const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url));
 
   // Calculate pool timeout more accurately

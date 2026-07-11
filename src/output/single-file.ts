@@ -42,7 +42,7 @@ export function assembleSingleFile(
     }
   }
 
-  // 使用 data-origin-url（绝对 URL）匹配 CSS/JS 内容，避免 href/src 相对路径不匹配的问题
+  // Use data-origin-url (absolute URL) to match CSS/JS content, avoiding href/src relative path mismatches
   const linkSelectors = [...document.querySelectorAll('link[rel="stylesheet"][data-origin-url]')];
   for (const link of linkSelectors) {
     const originUrl = link.getAttribute('data-origin-url');
@@ -115,7 +115,7 @@ export function assembleSingleFile(
     head.insertBefore(metaTime, metaSource.nextSibling ?? null);
   }
 
-  // 清理快照辅助属性，避免在输出中泄露完整 URL
+  // Clean up the snapshot helper attribute to avoid leaking the full URL in the output
   for (const el of document.querySelectorAll('[data-snapshot-id]')) {
     el.removeAttribute('data-snapshot-id');
   }

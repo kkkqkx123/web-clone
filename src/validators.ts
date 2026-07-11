@@ -163,7 +163,7 @@ export function postDownloadValidation(assets: Asset[]): Array<{url: string, err
   for (const a of assets) {
     if (a.status !== 'fetched') continue;
     
-    // 检查是否为零长度或通用二进制响应
+    // Check for zero-length or generic binary responses
     if (a.size === 0 && a.mime === 'application/octet-stream') {
       failures.push({ url: a.originUrl, error: 'Zero-length or generic octet-stream response' });
     }

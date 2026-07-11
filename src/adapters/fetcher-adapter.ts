@@ -1,109 +1,109 @@
 /**
- * 统一的资源获取适配器接口
- * 支持多种后端：HTTP、Playwright、缓存等
- *
- * 设计原理：
- * - 抽象资源获取逻辑，解耦快照核心与具体的HTTP实现
- * - 支持多种身份验证和资源来源（HTTP、浏览器上下文、缓存等）
- * - 允许Playwright和其他自动化工具集成
+ * Unified resource acquisition adapter interface
+ * Support for multiple backends: HTTP, Playwright, caching, etc.
+ * 
+ * Design Principle:
+ * - Abstract resource fetching logic, decouple the snapshot core from the specific HTTP implementation
+ * - Supports multiple authentication and resource sources (HTTP, browser context, cache, etc.)
+ * - Allow Playwright to integrate with other automation tools.
  */
 
 /**
- * 获取资源时的选项
+ * Options when fetching resources
  */
 export interface FetchOptions {
   /**
-   * 请求超时（毫秒）
+   * Request timeout (milliseconds)
    * @default 15000
    */
   timeout?: number;
 
   /**
-   * Referer 请求头
+   * Referer request header
    */
   referer?: string;
 
   /**
-   * 自定义请求头
+   * Customized request headers
    */
   headers?: Record<string, string>;
 
   /**
-   * 最大文件大小（字节）
-   * @default 0 (无限制)
+   * Maximum file size (bytes)
+   * @default 0 (unlimited)
    */
   maxSize?: number;
 
   /**
-   * 是否验证 SSL 证书
+   * Whether to validate the SSL certificate
    * @default true
    */
   validateSSL?: boolean;
 
   /**
-   * 是否跟随重定向
+   * Whether to follow redirects
    * @default true
    */
   followRedirects?: boolean;
 }
 
 /**
- * 资源获取的结果
+ * Results of resource acquisition
  */
 export interface FetchResult {
   /**
-   * 资源内容二进制数据
+   * Resource content binary data
    */
   buffer: Buffer;
 
   /**
-   * MIME 类型
+   * MIME Type
    */
   mime: string;
 
   /**
-   * HTTP 状态码
+   * HTTP Status Code
    */
   status: number;
 
   /**
-   * 是否成功（2xx）
+   * Success or failure (2xx)
    */
   ok: boolean;
 
   /**
-   * 是否类似 HTML 的文本内容（text/html, application/xhtml+xml 等）
+   * Whether the text content is HTML-like (text/html, application/xhtml+xml, etc.)
    */
   isHtmlLike: boolean;
 
   /**
-   * 响应头
+   * response header
    */
   headers?: Record<string, string>;
 
   /**
-   * 最终 URL（重定向后）
+   * Final URL (after redirection)
    */
   url?: string;
 }
 
 /**
- * 认证上下文
- * 用于在适配器间传递认证信息
+ * Authentication Context
+ * Used to pass authentication information between adapters
  */
 export interface AuthContext {
   /**
-   * 浏览器 Cookie 列表
+   * Browser Cookie List
    */
   cookies?: Array<{ name: string; value: string }>;
 
   /**
-   * 自定义请求头（如 Authorization）
+   * Custom request headers (e.g. Authorization)
    */
   headers?: Record<string, string>;
 
   /**
-   * 认证令牌（JWT、OAuth 等）
+   * Authentication tokens (JWT, OAuth, etc.)
    */
   token?: string;
 }
@@ -134,53 +134,53 @@ export interface AuthContext {
  */
 export interface FetcherAdapter {
   /**
-   * 获取资源（HTML、CSS、JS、图片等）
-   *
-   * @param url 资源的完整 URL
-   * @param options 获取选项
-   * @returns 获取结果，包含缓冲区、MIME 类型、状态码等
-   * @throws 在网络错误、超时等异常情况下抛出异常
+   * Getting resources (HTML, CSS, JS, images, etc.)
+   * 
+   * @param url The full URL of the resource
+   * @param options Get options
+   * @returns Get results, including buffers, MIME types, status codes, etc.
+   * @throws Throw exceptions in case of network errors, timeouts, etc.
    */
   fetch(url: string, options: FetchOptions): Promise<FetchResult>;
 
   /**
-   * 检查资源是否可访问
-   *
-   * 可选方法。用于提前过滤无法访问的资源。
-   * 实现时应该高效快速（如使用 HEAD 请求或简单的 canAccess 检查）。
-   *
-   * @param url 资源的完整 URL
-   * @returns true 表示资源可访问，false 表示无法访问
-   * @default 如果未实现，调用方应该假设资源可以尝试获取
+   * Checking if a resource is accessible
+   * 
+   * Optional method. Used to pre-filter inaccessible resources.
+   * Should be implemented efficiently and quickly (e.g. using HEAD requests or a simple canAccess check).
+   * 
+   * @param url The full URL of the resource.
+   * @returns true means the resource is accessible, false means it is not.
+   * @default If not implemented, the caller should assume that the resource can be attempted to be accessed.
    */
   canAccess?(url: string): Promise<boolean>;
 
   /**
-   * 获取当前的认证上下文
-   *
-   * 可选方法。返回当前适配器中的认证信息，包括 Cookie、令牌等。
-   * 用于在快照后提取认证状态以便后续使用。
-   *
-   * 实现说明：
-   * - HTTP 适配器：返回空对象或自定义请求头
-   * - Playwright 适配器：返回浏览器 Cookie 和 localStorage 令牌
-   *
-   * @returns 认证上下文，包含 Cookie、请求头、令牌等
-   * @default 如果未实现，假设没有特殊认证信息
+   * Get the current authentication context
+   * 
+   * Optional method. Returns the authentication information in the current adapter, including cookies, tokens, etc.
+   * Used to extract the authentication state after a snapshot for subsequent use.
+   * 
+   * Implementation Notes:
+   * - HTTP adapter: returns an empty object or a custom request header
+   * - Playwright adapter: Returns browser cookies and localStorage tokens.
+   * 
+   * @returns Authentication context, including cookies, request headers, tokens, etc.
+   * @default If not implemented, assumes no special authentication information.
    */
   getAuthContext?(): Promise<AuthContext>;
 
   /**
-   * 清理资源
-   *
-   * 可选方法。在适配器不再使用时调用，用于释放资源。
-   * 例如：关闭浏览器连接、清理临时文件等。
-   *
-   * 实现说明：
-   * - HTTP 适配器：通常无需实现
-   * - Playwright 适配器：关闭页面（但不关闭浏览器，由调用者管理）
-   *
-   * @default 如果未实现，假设不需要特殊清理
+   * Liquidation of resources
+   * 
+   * Optional method. Called when the adapter is no longer in use to free up resources.
+   * For example, closing browser connections, cleaning up temporary files, etc.
+   * 
+   * Implementation Notes:
+   * - HTTP adapter: usually no need to implement
+   * - Playwright adapter: closes the page (but does not close the browser, managed by the caller)
+   * 
+   * @default if not implemented, assuming no special cleanup is needed
    */
   dispose?(): Promise<void>;
 }

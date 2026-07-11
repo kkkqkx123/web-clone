@@ -1,12 +1,12 @@
 /**
- * HTTP 适配器实现
- *
- * 包装现有的 fetchWithTimeout 逻辑，实现 FetcherAdapter 接口。
- * 这是默认的适配器，用于标准的 HTTP 请求。
- *
- * 使用场景：
- * - CLI 模式：快照公开网站
- * - 库模式：用户没有特殊认证需求时的默认选择
+ * HTTP Adapter Implementation
+ * 
+ * Wraps the existing fetchWithTimeout logic and implements the FetcherAdapter interface.
+ * This is the default adapter for standard HTTP requests.
+ * 
+ * Usage Scenarios:
+ * - CLI mode: snapshotting public websites
+ * - Library mode: default choice when the user has no special authentication requirements
  */
 
 import { type FetchOptions, type FetchResult, type AuthContext, type FetcherAdapter } from './fetcher-adapter.js';
@@ -31,13 +31,13 @@ import { fetchWithTimeout } from '../fetcher.js';
  */
 export class HttpFetcherAdapter implements FetcherAdapter {
   /**
-   * 获取 HTTP 资源
-   *
-   * 调用现有的 fetchWithTimeout 函数，并将其结果转换为统一的 FetchResult 格式。
-   *
-   * @param url 资源的完整 URL
-   * @param options 获取选项（timeout、referer、maxSize 等）
-   * @returns FetchResult 包含缓冲区、MIME 类型、状态码等
+   * Getting HTTP Resources
+   * 
+   * Calls the existing fetchWithTimeout function and converts the result into a uniform FetchResult format.
+   * 
+   * @param url The full URL of the resource
+   * @param options Fetch options (timeout, referer, maxSize, etc.)
+   * @returns FetchResult with buffer, MIME type, status code, etc.
    */
   async fetch(url: string, options: FetchOptions): Promise<FetchResult> {
     const result = await fetchWithTimeout(
@@ -59,13 +59,13 @@ export class HttpFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 检查资源是否可访问
-   *
-   * 快速检查：发送带较短超时的请求。
-   * 如果请求成功且状态码为 2xx，返回 true。
-   *
-   * @param url 资源的完整 URL
-   * @returns true 表示 HTTP 请求成功（2xx），false 表示失败
+   * Checking if a resource is accessible
+   * 
+   * Quick check: sends a request with a short timeout.
+   * Returns true if the request was successful and the status code is 2xx.
+   * 
+   * @param url The full URL of the resource
+   * @returns true for a successful HTTP request (2xx), false for a failed request.
    */
   async canAccess(url: string): Promise<boolean> {
     try {
@@ -77,12 +77,12 @@ export class HttpFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 获取认证上下文
-   *
-   * HTTP 适配器不处理认证，返回空的认证上下文。
-   * 如果需要自定义请求头，可以在 fetch() 调用时通过 options.headers 传入。
-   *
-   * @returns 空的认证上下文
+   * Get Authentication Context
+   * 
+   * The HTTP adapter does not handle authentication and returns an empty authentication context.
+   * If you need to customize the request headers, you can pass them in via options.headers during the fetch() call.
+   * 
+   * @returns empty authentication context
    */
   async getAuthContext(): Promise<AuthContext> {
     return {
@@ -92,11 +92,11 @@ export class HttpFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 清理资源
-   *
-   * HTTP 适配器无需特殊清理，该方法为空实现。
+   * Liquidation of resources
+   * 
+   * No special cleanup is required for HTTP adapters; this method is implemented as null.
    */
   async dispose(): Promise<void> {
-    // HTTP 适配器无状态，无需清理
+    // HTTP adapters are stateless and do not require cleanup
   }
 }

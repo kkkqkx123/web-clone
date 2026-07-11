@@ -1,7 +1,7 @@
 /**
- * Playwright 适配器单元测试
- *
- * 测试 PlaywrightFetcherAdapter 的所有方法和边界情况
+ * Playwright Adapter Unit Tests
+ * 
+ * Tests all methods and boundary cases of the PlaywrightFetcherAdapter
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -9,7 +9,7 @@ import type { Page, BrowserContext } from 'playwright';
 import { PlaywrightFetcherAdapter } from '../playwright-fetcher-adapter.js';
 
 /**
- * 创建模拟的 Playwright 页面对象
+ * Create a simulated Playwright page object
  */
 function createMockPage(): Page {
   return {
@@ -24,7 +24,7 @@ function createMockPage(): Page {
 }
 
 /**
- * 创建模拟的 Playwright 浏览器上下文
+ * Creating a Simulated Playwright Browser Context
  */
 function createMockContext(): BrowserContext {
   return {
@@ -187,7 +187,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
   describe('fetch() - 子资源获取', () => {
     it('should fetch CSS via context.request when not main document', async () => {
-      // 设置页面已加载
+      // Settings page loaded
       vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
 
       const cssContent = 'body { color: red; }';
@@ -484,7 +484,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
   describe('integration scenarios', () => {
     it('should handle complete authenticated workflow', async () => {
-      // Step 1: 页面已登录，获取主文档
+      // Step 1: Page is logged in, get the main document
       vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -495,7 +495,7 @@ describe('PlaywrightFetcherAdapter', () => {
       const pageResult = await adapter.fetch('https://example.com', {});
       expect(pageResult.ok).toBe(true);
 
-      // Step 2: 获取子资源（CSS）
+      // Step 2: Getting Sub-resources (CSS)
       vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
       vi.mocked(
         (mockContext.request as any).fetch
@@ -510,7 +510,7 @@ describe('PlaywrightFetcherAdapter', () => {
       const cssResult = await adapter.fetch('https://example.com/style.css', {});
       expect(cssResult.ok).toBe(true);
 
-      // Step 3: 检查资源访问
+      // Step 3: Check Resource Access
       vi.mocked(
         (mockContext.request as any).head
       ).mockResolvedValueOnce({
@@ -520,12 +520,12 @@ describe('PlaywrightFetcherAdapter', () => {
       const accessible = await adapter.canAccess('https://example.com/api');
       expect(accessible).toBe(true);
 
-      // Step 4: 获取认证上下文
+      // Step 4: Obtaining the Authentication Context
       const authCtx = await adapter.getAuthContext();
       expect(authCtx.cookies).toBeDefined();
       expect(authCtx.token).toBeDefined();
 
-      // Step 5: 清理
+      // Step 5: Cleanup
       vi.mocked(mockPage.isClosed as any).mockReturnValue(false);
       await adapter.dispose();
       expect(mockPage.close).toHaveBeenCalled();
@@ -550,7 +550,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
       await adapter2.fetch('https://example.com', {});
 
-      // 验证所有选项都被正确使用
+      // Verify that all options are used correctly
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ waitUntil: 'load' })
@@ -591,7 +591,7 @@ describe('PlaywrightFetcherAdapter', () => {
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
-        headers: () => ({}), // 无 content-type
+        headers: () => ({}), // No content-type
         body: async () => Buffer.from('data'),
         url: () => 'https://example.com/unknown',
       });

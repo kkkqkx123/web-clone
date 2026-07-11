@@ -21,27 +21,27 @@ import type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-ada
 import type { Page, BrowserContext, LaunchOptions, BrowserContextOptions } from 'playwright';
 
 /**
- * Playwright快照选项
+ * Playwright Snapshot Options
  */
 interface PlaywrightSnapshotOptions {
   /**
-   * Playwright浏览器启动选项
+   * Playwright Browser Launch Options
    */
   browserLaunchOptions?: LaunchOptions;
 
   /**
-   * 浏览器上下文选项（Cookie、权限、用户代理等）
+   * Browser context options (cookies, permissions, user agents, etc.)
    */
   contextOptions?: BrowserContextOptions;
 
   /**
-   * 自定义认证设置函数
-   * 在快照前执行，用于登录、设置Token等
+   * Custom Authentication Setup Functions
+   * Executed before the snapshot for logging in, setting Token, etc.
    */
   setupAuth?: (page: Page, context: BrowserContext) => Promise<void>;
 
   /**
-   * Playwright适配器选项
+   * Playwright Adapter Options
    */
   adapterOptions?: PlaywrightAdapterOptions;
 }
@@ -90,8 +90,8 @@ function extractInlineCss(html: string): string {
 
 function extractInlineJs(html: string): string {
   let js = '';
-  // 只匹配不带 src 属性的 <script> 标签
-  // 使用负向先行断言确保 src 不出现在标签属性中
+  // Only matches <script> tags without the src attribute.
+  // Ensure that src does not appear in tag attributes using negative first assertion
   const scriptRegex = /<script(?:\s+(?!src\b)[^>]*)*\s*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = scriptRegex.exec(html)) !== null) {
@@ -187,7 +187,7 @@ async function writeAssets(assets: Asset[], concurrency: number = 5): Promise<vo
 }
 
 /**
- * 基础快照函数 - 使用HTTP直接拉取
+ * Basic Snapshot Functions - Pulling Directly Using HTTP
  * @public
  */
 export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOptions, 'url'>): Promise<SnapshotResult> {
@@ -197,7 +197,7 @@ export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOpti
 }
 
 /**
- * 使用Playwright进行快照 - 支持认证、Cookie、JS执行
+ * Snapshots with Playwright - Support for Authentication, Cookies, JS Execution
  * @public
  */
 export async function snapshotWithPlaywright(
@@ -220,7 +220,7 @@ export async function snapshotWithPlaywright(
     const context = await browser.newContext(contextOptions);
 
     try {
-      // 可选：执行自定义认证
+      // Optional: perform customized authentication
       if (setupAuth) {
         const page = await context.newPage();
         await setupAuth(page, context);
@@ -252,8 +252,8 @@ export async function snapshotWithPlaywright(
 }
 
 /**
- * 使用自己的浏览器上下文进行快照
- * 适合需要对浏览器生命周期完全控制的场景
+ * Snapshots using your own browser context
+ * Ideal for scenarios where you need full control over the browser lifecycle
  * @public
  */
 export async function snapshotWithBrowserContext(
@@ -273,7 +273,7 @@ export async function snapshotWithBrowserContext(
 }
 
 /**
- * 内部核心管道 - 由三个公开API共享
+ * Internal Core Pipeline - shared by three public APIs
  * @internal
  */
 async function snapshotInternal(

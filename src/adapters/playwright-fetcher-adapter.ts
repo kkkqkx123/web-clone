@@ -1,22 +1,22 @@
 /**
- * Playwright 浏览器适配器
- *
- * 使用 Playwright 浏览器上下文进行资源获取，支持：
- * - Cookie 自动继承
- * - 身份验证令牌管理
- * - JavaScript 动态执行
- * - 页面加载状态控制
- *
- * 使用场景：
- * - 需要登录的网站快照
- * - 需要执行 JavaScript 的 SPA 快照
- * - 需要自定义请求头的 API 集成
- *
- * 架构：
- * - 主文档（HTML）：使用 page.goto() + page.content()
- *   原因：需要执行 JavaScript、等待动态内容加载
- * - 子资源（CSS/JS/图片）：使用 context.request.fetch()
- *   原因：自动继承 Cookie、认证信息
+ * Playwright Browser Adapter
+ * 
+ * Resource fetching using the Playwright browser context is supported:
+ * - Cookie auto-inheritance
+ * - Authentication token management
+ * - JavaScript dynamic execution
+ * - Page load state control
+ * 
+ * Usage Scenarios:
+ * - Snapshots of websites that require login
+ * - SPA snapshots that require JavaScript execution
+ * - API integrations that require custom request headers
+ * 
+ * Architecture:
+ * - Main document (HTML): use page.goto() + page.content()
+ * Reason: need to execute JavaScript, wait for dynamic content to load
+ * - Sub-resources (CSS/JS/images): use context.request.fetch()
+ * Reason: automatically inherits cookies, authentication information
  */
 
 import type { Page, BrowserContext } from 'playwright';
@@ -28,45 +28,45 @@ import {
 } from './fetcher-adapter.js';
 
 /**
- * Playwright 适配器的配置选项
+ * Configuration options for Playwright adapters
  */
 export interface PlaywrightAdapterOptions {
   /**
-   * 是否等待页面导航完成
+   * Whether to wait for page navigation to complete
    * @default true
    */
   waitForNavigation?: boolean;
 
   /**
-   * 是否执行页面 JavaScript
+   * Whether or not to execute the page JavaScript
    * @default true
    */
   executeJs?: boolean;
 
   /**
-   * 等待的加载状态
-   * - 'load': 等待 load 事件
-   * - 'domcontentloaded': 等待 DOMContentLoaded 事件
-   * - 'networkidle': 等待网络空闲（推荐）
+   * Waiting for the load state
+   * - 'load': waiting for load event
+   * - 'domcontentloaded': wait for DOMContentLoaded event
+   * - 'networkidle': wait for network idle (recommended)
    * @default 'networkidle'
    */
   waitForLoadState?: 'load' | 'domcontentloaded' | 'networkidle';
 
   /**
-   * 自定义请求头
-   * 这些头会在所有请求中包含，与 Cookie 一起发送
-   * 用于 API 认证：Authorization: Bearer token
+   * Customized Request Headers
+   * These headers are included in all requests and are sent with the cookie
+   * For API authentication: Authorization: Bearer token
    */
   customHeaders?: Record<string, string>;
 
   /**
-   * 调试模式：保存页面截图
-   * 如果设置，会在导航后保存截图到该路径
+   * Debug Mode: Save Page Screenshot
+   * If set, screenshots will be saved to this path after navigation
    */
   debugScreenshot?: string;
 
   /**
-   * 是否验证 SSL 证书
+   * Whether to validate the SSL certificate
    * @default true
    */
   validateSSL?: boolean;
@@ -119,16 +119,16 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   ) {}
 
   /**
-   * 获取资源
-   *
-   * 根据资源类型选择不同的获取策略：
-   * - 主 HTML 文档：使用 fetchWithPage()
-   * - 子资源：使用 fetchWithContext()
-   *
-   * @param url 资源的完整 URL
-   * @param options 获取选项
-   * @returns FetchResult 包含资源内容、MIME 类型、状态码等
-   * @throws 在网络错误、超时等异常情况下抛出异常
+   * Access to resources
+   * 
+   * Choose a different fetch strategy depending on the type of resource:
+   * - Main HTML document: use fetchWithPage()
+   * - Sub-resources: use fetchWithContext()
+   * 
+   * @param url The full URL of the resource
+   * @param options Fetch options
+   * @returns FetchResult with resource content, MIME type, status code, etc.
+   * @throws Throws exceptions on network errors, timeouts, etc.
    */
   async fetch(url: string, options: FetchOptions): Promise<FetchResult> {
     const mergedOptions: PlaywrightAdapterOptions = {
@@ -140,8 +140,8 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     };
 
     try {
-      // 判断是否为主文档请求
-      // 如果当前页面还未加载过或正在请求主页面，使用 page.goto()
+      // Determine if the request is for a master document
+      // If the current page hasn't been loaded yet or the master page is being requested, use page.goto()
       const currentUrl = (this.page as any).url || '';
       const isMainDocument =
         !currentUrl ||
@@ -164,20 +164,20 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 使用 page.goto() 获取主 HTML 文档
-   *
-   * 策略：
-   * 1. 导航到 URL，等待加载完成
-   * 2. 等待指定的加载状态
-   * 3. 可选：执行调试截图
-   * 4. 获取最终的页面内容
-   *
-   * 特点：
-   * - 执行页面 JavaScript（如果启用）
-   * - 自动处理重定向
-   * - 维护 Cookie 和会话状态
-   * - 返回渲染后的 HTML
-   *
+   * Use page.goto() to get the main HTML document.
+   * 
+   * Strategy:
+   * 1. navigate to the URL and wait for loading to complete
+   * 2. Wait for the specified loading state
+   * 3. Optional: perform debug screenshot
+   * 4. Get the final page content
+   * 
+   * Feature:
+   * - Execute page JavaScript (if enabled)
+   * - Automatically handles redirects
+   * - Maintains cookies and session state
+   * - Returns rendered HTML
+   * 
    * @private
    */
   private async fetchWithPage(
@@ -185,7 +185,7 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     options: FetchOptions,
     pwOptions: PlaywrightAdapterOptions
   ): Promise<FetchResult> {
-    // 导航到页面
+    // Navigate to page
     const response = await this.page.goto(url, {
       timeout: options.timeout ?? 30000,
       waitUntil: pwOptions.waitForLoadState,
@@ -195,12 +195,12 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
       throw new Error(`Failed to navigate to ${url}`);
     }
 
-    // 等待加载完成（如果启用）
+    // Wait for loading to complete (if enabled)
     if (pwOptions.waitForNavigation && pwOptions.waitForLoadState) {
       await this.page.waitForLoadState(pwOptions.waitForLoadState);
     }
 
-    // 可选：调试截图
+    // Optional: debug screenshot
     if (pwOptions.debugScreenshot) {
       try {
         await this.page.screenshot({
@@ -211,11 +211,11 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
       }
     }
 
-    // 获取最终的 HTML 内容（已渲染）
+    // Get the final HTML content (rendered)
     const html = await this.page.content();
     const buffer = Buffer.from(html, 'utf-8');
 
-    // 构建返回值
+    // Constructing the return value
     const allHeaders = await response.allHeaders();
     return {
       buffer,
@@ -229,20 +229,20 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 使用 context.request.fetch() 获取子资源
-   *
-   * 策略：
-   * 1. 使用浏览器上下文的 API 进行请求
-   * 2. 自动继承 Cookie 和认证信息
-   * 3. 合并自定义请求头
-   * 4. 读取响应正文
-   *
-   * 特点：
-   * - 自动继承浏览器 Cookie
-   * - 支持自定义请求头
-   * - 不执行 JavaScript（更快）
-   * - 直接访问原始响应
-   *
+   * Use context.request.fetch() to get the child resources
+   * 
+   * strategy:
+   * 1. use the browser context's API for the request
+   * 2. automatically inherit cookies and authentication information
+   * 3. merge custom request headers
+   * 4. Read the body of the response
+   * 
+   * Features:
+   * - Inherit browser cookies automatically
+   * - Supports customized request headers
+   * - Does not execute JavaScript (faster)
+   * - Direct access to the original response
+   * 
    * @private
    */
   private async fetchWithContext(
@@ -250,7 +250,7 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     options: FetchOptions,
     pwOptions: PlaywrightAdapterOptions
   ): Promise<FetchResult> {
-    // 使用浏览器上下文进行请求，自动继承 Cookie
+    // Requests are made using the browser context, automatically inheriting cookies
     const response = await (this.context.request!).fetch(url, {
       timeout: options.timeout ?? 15000,
       headers: {
@@ -259,15 +259,15 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
       },
     });
 
-    // 读取响应正文为 Buffer
+    // Read response body as Buffer
     const buffer = await (response as any).body();
 
-    // 获取 Content-Type
+    // Get Content-Type
     const contentType =
       (response as any).headers()['content-type'] ||
       'application/octet-stream';
 
-    // 构建返回值
+    // Constructing the return value
     return {
       buffer,
       mime: contentType,
@@ -280,12 +280,12 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 检查资源是否可访问
-   *
-   * 使用 HEAD 请求进行快速检查，无需下载完整内容。
-   *
-   * @param url 资源的完整 URL
-   * @returns true 表示资源可访问（2xx），false 表示不可访问
+   * Checking if a resource is accessible
+   * 
+   * Use HEAD requests for a quick check without having to download the full content.
+   * 
+   * @param url The full URL of the resource
+   * @returns true means the resource is accessible (2xx), false means it is not accessible
    */
   async canAccess(url: string): Promise<boolean> {
     try {
@@ -299,33 +299,33 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 获取认证上下文
-   *
-   * 提取当前浏览器上下文中的认证信息，包括：
-   * - Cookie：从浏览器上下文中提取
-   * - 自定义请求头：从适配器配置中提取
-   * - 令牌：从 localStorage 中查找
-   *
-   * 这些信息可以用于：
-   * - 后续快照请求的认证复用
-   * - 认证状态导出
-   * - 日志记录
-   *
-   * @returns AuthContext 包含 Cookie、请求头、令牌等
+   * Get Authentication Context
+   * 
+   * Extracts authentication information from the current browser context, including:
+   * - Cookies: extracted from the browser context
+   * - Custom request headers: extracted from the adapter configuration
+   * - Token: lookup from localStorage
+   * 
+   * This information can be used for:
+   * - Authentication reuse for subsequent snapshot requests
+   * - Authentication status export
+   * - Logging
+   * 
+   * @returns AuthContext contains cookies, request headers, tokens, etc.
    */
   async getAuthContext(): Promise<AuthContext> {
-    // 获取浏览器 Cookie
+    // Getting Browser Cookies
     const cookies = await this.context.cookies();
 
-    // 获取存储状态（包括 localStorage、sessionStorage）
+    // Get storage state (including localStorage, sessionStorage)
     const storageState = await this.context.storageState();
 
-    // 尝试从第一个源的 localStorage 中查找令牌
+    // Try to find the token from the first source's localStorage
     let token: string | undefined;
     if (storageState?.origins && storageState.origins.length > 0) {
       const localStorage = storageState.origins[0].localStorage;
       if (localStorage) {
-        // 常见的令牌名称
+        // Common Token Names
         for (const item of localStorage) {
           if (
             item.name.toLowerCase().includes('token') ||
@@ -349,25 +349,25 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
-   * 清理资源
-   *
-   * 关闭此适配器管理的页面。
-   * 浏览器上下文和浏览器实例由调用者管理，不在此释放。
-   *
-   * 说明：
-   * - 页面对象：适配器创建和管理，dispose() 关闭
-   * - 浏览器上下文：调用者管理，适配器仅使用
-   * - 浏览器实例：调用者管理，适配器不涉及
+   * Liquidation of resources
+   * 
+   * Closes the pages managed by this adapter.
+   * Browser contexts and browser instances are managed by the caller and are not released here.
+   * 
+   * Description:
+   * - Page object: created and managed by the adapter, dispose() closes the
+   * - Browser context: managed by the caller, adapter only used
+   * - Browser instances: caller-managed, adapter not involved
    */
   async dispose(): Promise<void> {
     try {
-      // 关闭页面，但保留浏览器上下文和浏览器
-      // 由调用者在不再需要时关闭
+      // Close the page, but keep the browser context and browser
+      // Closed by the caller when no longer needed
       if (!this.page.isClosed()) {
         await this.page.close();
       }
     } catch (err) {
-      // 忽略已关闭的页面错误
+      // Ignore closed page errors
       console.warn(`Error closing page in dispose: ${err}`);
     }
   }

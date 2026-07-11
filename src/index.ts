@@ -1,15 +1,15 @@
 /**
- * web-clone 库入口
- *
- * 提供三个主要API：
- * 1. snapshot() - 基础快照（HTTP直接拉取）
- * 2. snapshotWithPlaywright() - Playwright快照（支持认证）
- * 3. snapshotWithBrowserContext() - 细粒度控制（自己管理浏览器）
- *
- * 还提供 convertLocalSnapshot() 用于本地转换
+ * web-clone library entry
+ * 
+ * Provides three main APIs:
+ * 1. snapshot() - basic snapshot (HTTP direct pull)
+ * 2. snapshotWithPlaywright() - Playwright snapshots (supports authentication)
+ * 3. snapshotWithBrowserContext() - fine-grained control (manage your own browser)
+ * 
+ * also provides convertLocalSnapshot() for local conversion
  */
 
-// 核心快照API
+// Core Snapshot API
 export {
   snapshot,
   snapshotWithPlaywright,
@@ -17,7 +17,7 @@ export {
   convertLocalSnapshot,
 } from './assembler.js';
 
-// 核心类型
+// Core type
 export type {
   SnapshotOptions,
   SnapshotResult,
@@ -38,9 +38,9 @@ export type {
   GeneratedFramework,
 } from './types.js';
 
-// Playwright相关导出（高级功能）
+// Playwright-related exports (advanced features)
 export { PlaywrightFetcherAdapter } from './adapters/index.js';
 export type { PlaywrightAdapterOptions } from './adapters/index.js';
 
-// 可选工具函数导出
+// Optional tool function export
 export { parseHtml } from './parser/html-parser.js';

@@ -274,7 +274,7 @@ export function assembleBundle(
     }
   }
 
-  // 清理快照辅助属性，避免在输出中泄露完整 URL
+  // Clean up the snapshot helper attribute to avoid leaking the full URL in the output
   for (const el of document.querySelectorAll('[data-snapshot-id]')) {
     el.removeAttribute('data-snapshot-id');
   }
