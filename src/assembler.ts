@@ -13,10 +13,48 @@ import { postDownloadValidation, isHtmlLike } from './validators.js';
 import { convert } from './converter.js';
 import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js';
 import { runPool } from './worker/pool.js';
+import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
+import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
+import { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
+import type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-adapter.js';
+// Playwright types - imported as type-only to avoid module resolution errors at compile time
+// Runtime import is handled dynamically in snapshotWithPlaywright()
+import type { Page, BrowserContext, LaunchOptions, BrowserContextOptions } from 'playwright';
 
-async function fetchHtml(url: string, timeout: number, maxSize?: number): Promise<string | null> {
+/**
+ * Playwright快照选项
+ */
+interface PlaywrightSnapshotOptions {
+  /**
+   * Playwright浏览器启动选项
+   */
+  browserLaunchOptions?: LaunchOptions;
+
+  /**
+   * 浏览器上下文选项（Cookie、权限、用户代理等）
+   */
+  contextOptions?: BrowserContextOptions;
+
+  /**
+   * 自定义认证设置函数
+   * 在快照前执行，用于登录、设置Token等
+   */
+  setupAuth?: (page: Page, context: BrowserContext) => Promise<void>;
+
+  /**
+   * Playwright适配器选项
+   */
+  adapterOptions?: PlaywrightAdapterOptions;
+}
+
+async function fetchHtml(
+  url: string,
+  timeout: number,
+  maxSize: number | undefined,
+  adapter: FetcherAdapter
+): Promise<string | null> {
   try {
-    const result = await fetchWithTimeout(url, timeout, undefined, maxSize);
+    const result = await adapter.fetch(url, { timeout, maxSize });
     if (!result.ok) {
       process.stdout.write(`Warning: Origin returned HTTP ${result.status} for HTML page\n`);
       if (result.status >= 400 && (result.isHtmlLike || isHtmlLike(result.buffer))) {
@@ -129,7 +167,9 @@ async function writeAssets(assets: Asset[]): Promise<void> {
   if (total === 0) return;
 
   const tasks = toWrite.map(a => async (): Promise<void> => {
-    const dir = dirname(a.localPath);
+    const localPath = a.localPath;
+    if (!localPath) return; // Safety check
+    const dir = dirname(localPath);
     await mkdir(dir, { recursive: true });
     const dataUriContent = a.dataUri?.split(',')[1];
     const buf = dataUriContent
@@ -137,7 +177,7 @@ async function writeAssets(assets: Asset[]): Promise<void> {
       : a.textContent
         ? Buffer.from(a.textContent, 'utf8')
         : Buffer.alloc(0);
-    await writeFile(a.localPath, buf);
+    await writeFile(localPath, buf);
   });
 
   await runPool(tasks, { concurrency: 5 }, (_result, _idx, completedCount) => {
@@ -147,11 +187,104 @@ async function writeAssets(assets: Asset[]): Promise<void> {
   });
 }
 
-export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult> {
+/**
+ * 基础快照函数 - 使用HTTP直接拉取
+ * @public
+ */
+export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOptions, 'url'>): Promise<SnapshotResult> {
+  const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
+  const httpAdapter = new HttpFetcherAdapter();
+  return snapshotInternal(options, httpAdapter);
+}
+
+/**
+ * 使用Playwright进行快照 - 支持认证、Cookie、JS执行
+ * @public
+ */
+export async function snapshotWithPlaywright(
+  url: string,
+  optionsWithoutUrl: Omit<SnapshotOptions, 'url'>,
+  playwrightOptions?: PlaywrightSnapshotOptions
+): Promise<SnapshotResult> {
+  try {
+    const { chromium } = await import('playwright');
+
+    const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
+    const {
+      browserLaunchOptions,
+      contextOptions,
+      setupAuth,
+      adapterOptions,
+    } = playwrightOptions || {};
+
+    const browser = await chromium.launch(browserLaunchOptions);
+    const context = await browser.newContext(contextOptions);
+
+    try {
+      // 可选：执行自定义认证
+      if (setupAuth) {
+        const page = await context.newPage();
+        await setupAuth(page, context);
+        await page.close();
+      }
+
+      const page = await context.newPage();
+      const adapter = new PlaywrightFetcherAdapter(page, context, adapterOptions);
+
+      try {
+        return await snapshotInternal(options, adapter);
+      } finally {
+        await adapter.dispose();
+      }
+    } finally {
+      await context.close();
+      await browser.close();
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Cannot find module')) {
+      throw new Error(
+        'Playwright adapter requires "playwright" to be installed. ' +
+        'Run: npm install playwright',
+        { cause: error }
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * 使用自己的浏览器上下文进行快照
+ * 适合需要对浏览器生命周期完全控制的场景
+ * @public
+ */
+export async function snapshotWithBrowserContext(
+  url: string,
+  optionsWithoutUrl: Omit<SnapshotOptions, 'url'>,
+  browserContext: BrowserContext
+): Promise<SnapshotResult> {
+  const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
+  const page = await browserContext.newPage();
+  const adapter = new PlaywrightFetcherAdapter(page, browserContext);
+
+  try {
+    return await snapshotInternal(options, adapter);
+  } finally {
+    await adapter.dispose();
+  }
+}
+
+/**
+ * 内部核心管道 - 由三个公开API共享
+ * @internal
+ */
+async function snapshotInternal(
+  options: SnapshotOptions,
+  adapter: FetcherAdapter
+): Promise<SnapshotResult> {
   const timestamp = new Date().toISOString();
 
   process.stdout.write(`Fetching HTML from ${options.url}...\n`);
-  const html = await fetchHtml(options.url, options.timeout, options.maxFileSize);
+  const html = await fetchHtml(options.url, options.timeout, options.maxFileSize, adapter);
   if (!html) {
     throw new Error('Failed to retrieve page content');
   }
@@ -188,7 +321,7 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
 
     const cssTasks = cssRefs.map(ref => async (): Promise<CssFetchResult> => {
       try {
-        const result = await fetchWithTimeout(ref.url, options.timeout, options.url, options.maxFileSize);
+        const result = await adapter.fetch(ref.url, { timeout: options.timeout, maxSize: options.maxFileSize, referer: options.url });
         if (result.ok) {
           const cssText = result.buffer.toString('utf8');
           const childRefs = extractCssAssets(cssText, ref.url);

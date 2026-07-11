@@ -169,3 +169,10 @@ export interface GeneratedFramework {
     utils?: string;
   };
 }
+
+// Playwright adapter re-exports (高级功能)
+export { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
+export type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-adapter.js';
+
+// 注：FetcherAdapter等内部接口不导出
+// 它们只在assembler内部使用

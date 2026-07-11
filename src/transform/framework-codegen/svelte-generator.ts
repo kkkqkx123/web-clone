@@ -44,7 +44,8 @@ ${template}
   }
 
   protected mapState(
-    state: StateVariable[]
+    state: StateVariable[],
+    options: FrameworkCodeGenOptions
   ): string {
     if (state.length === 0) {
       return '';
@@ -59,7 +60,8 @@ ${template}
   }
 
   protected mapEvents(
-    events: EventBinding[]
+    events: EventBinding[],
+    options: FrameworkCodeGenOptions
   ): string {
     if (events.length === 0) {
       return '';
@@ -75,7 +77,9 @@ ${template}
   }
 
   protected mapTemplate(
-    html: string
+    html: string,
+    logic: unknown,
+    options: FrameworkCodeGenOptions
   ): string {
     let template = html;
 
@@ -122,13 +126,15 @@ ${template}
   }
 
   protected mapStyles(
-    css: string
+    css: string,
+    options: FrameworkCodeGenOptions
   ): string {
-    return super.mapStyles(css, {});
+    return super.mapStyles(css, options);
   }
 
   protected collectImports(
-    _spec: ComponentSpec
+    _spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
   ): string[] {
     // Svelte doesn't require explicit imports in most cases
     // Dependencies are listed in package.json

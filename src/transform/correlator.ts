@@ -22,7 +22,7 @@ export function correlateComponents(
   function processRoot(root: ComponentRoot) {
     const styles = matchStyles(root, css);
     const logic = matchLogic(root, js);
-    const componentType = inferComponentType(logic);
+    const componentType = inferComponentType(logic ?? null);
 
     // Weighted confidence: HTML detection is most reliable (50%), CSS (30%), Logic (20%)
     // This prevents weak signals from diluting strong extraction markers

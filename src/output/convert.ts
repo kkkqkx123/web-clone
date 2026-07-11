@@ -92,14 +92,15 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
 
     // NEW: Generate application template if requested
     if (options.frameworkCodegen?.framework && options.frameworkCodegen?.generateDrafts) {
-      writeApplicationDrafts(result, outputDir, options.frameworkCodegen);
+      writeApplicationDrafts(result, outputDir, options.frameworkCodegen as FrameworkCodegenOptions);
     }
 
     console.log(`\n  ✓ Conversion complete`);
     console.log(`    Components: ${result.components.size}`);
-    if (result.index?.stats) {
-      console.log(`    Stateful:   ${result.index.stats.stateful}`);
-      console.log(`    Presentational: ${result.index.stats.presentational}`);
+    const stats = result.index?.stats as { stateful?: number; presentational?: number } | undefined;
+    if (stats) {
+      console.log(`    Stateful:   ${stats.stateful}`);
+      console.log(`    Presentational: ${stats.presentational}`);
     }
     if (lowConfidenceComponents.length > 0) {
       console.log(`    ⚠️  Low confidence: ${lowConfidenceComponents.length} (see REVIEW_REQUIRED.md)`);
@@ -214,24 +215,24 @@ function writeApplicationDrafts(result: ConvertResult, outputDir: string, framew
         styleSize: 0,
       },
     })),
-    frameworkOptions
+    { framework: framework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery', typescript: (frameworkOptions.typescript as boolean) ?? true, cssModules: (frameworkOptions.cssModules as boolean) ?? false, generateDrafts: (frameworkOptions.generateDrafts as boolean) ?? false, extractSharedLogic: (frameworkOptions.extractSharedLogic as boolean) ?? false }
   );
 
   if (framework === 'vue') {
     writeFileSync(join(frameworkDir, 'src', 'App.vue'), appTemplate);
   } else {
-    const ext = frameworkOptions.typescript ? '.tsx' : '.jsx';
+    const ext = (frameworkOptions.typescript as boolean) ? '.tsx' : '.jsx';
     writeFileSync(join(frameworkDir, 'src', `App${ext}`), appTemplate);
   }
 
   // 8. Generate main entry point
-  const mainEntry = codeGenerator.generateMainEntry(frameworkOptions);
+  const mainEntry = codeGenerator.generateMainEntry({ framework: framework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery', typescript: frameworkOptions.typescript as boolean | undefined });
   writeFileSync(join(frameworkDir, 'src', mainEntry.filename), mainEntry.code);
 
   // 9. Generate package.json (framework only, no forced dependencies)
   const packageJson = codeGenerator.generatePackageJson(
     'migrated-app',
-    frameworkOptions,
+    { framework: framework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery', typescript: frameworkOptions.typescript as boolean | undefined },
     []
   );
   writeFileSync(join(frameworkDir, 'package.json'), JSON.stringify(packageJson, null, 2));

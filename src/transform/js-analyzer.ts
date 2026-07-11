@@ -17,7 +17,7 @@ interface BabelPath {
   parent?: Node & Record<string, unknown>;
 }
 
-export function analyzeJavaScript(js: string): JsAnalysisResult {
+export function analyzeJavaScript(js: string, options?: { extractLogic?: boolean }): JsAnalysisResult {
   const result: JsAnalysisResult = {
     state: [],
     methods: [],
@@ -287,7 +287,8 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
 }
 
 function extractStateVariable(path: BabelPath): StateVariable | null {
-  const { id, init } = path.node as Record<string, unknown> & { id?: Node; init?: Node };
+  const node = path.node as unknown;
+  const { id, init } = node as { id?: unknown; init?: unknown };
   if (!id || (id as Record<string, unknown>).type !== 'Identifier') return null;
 
   const name = (id as Record<string, unknown>).name as string;
@@ -304,7 +305,8 @@ function extractStateVariable(path: BabelPath): StateVariable | null {
 }
 
 function extractObjectPropertyState(path: BabelPath): StateVariable | null {
-  const { key, value } = path.node as Record<string, unknown> & { key?: Node; value?: Node };
+  const node = path.node as unknown;
+  const { key, value } = node as { key?: unknown; value?: unknown };
   if (!key || (key as Record<string, unknown>).type !== 'Identifier') return null;
 
   const name = (key as Record<string, unknown>).name as string;
@@ -321,7 +323,10 @@ function extractObjectPropertyState(path: BabelPath): StateVariable | null {
 }
 
 function extractMethod(path: BabelPath): MethodSpec | null {
-  const name = (path.node as Record<string, unknown>).id && ((path.node as Record<string, unknown>).id as Record<string, unknown>).name as string | undefined;
+  const node = path.node as unknown;
+  const nodeObj = node as Record<string, unknown>;
+  const idObj = nodeObj.id as Record<string, unknown> | undefined;
+  const name = (idObj?.name as string | undefined) || undefined;
   if (!name) return null;
 
   const isHandler = isLikelyHandler(name);
@@ -329,12 +334,12 @@ function extractMethod(path: BabelPath): MethodSpec | null {
 
   if (!isHandler && !isLifecycle) return null;
 
-  const params = (path.node as Record<string, unknown>).params as Array<Record<string, unknown>> || [];
+  const params = (nodeObj.params as unknown[] | undefined) || [];
   return {
     name,
     kind: isLifecycle ? 'lifecycle' : 'handler',
     code: '', // Simplified
-    parameters: params.map((p) => (p.name || 'arg') as string),
+    parameters: params.map((p) => ((p as Record<string, unknown>).name || 'arg') as string),
     sideEffects: []
   };
 }
@@ -476,7 +481,7 @@ function scoreAsState(name: string): number {
   return Math.min(1, score);
 }
 
-function inferType(init: Node | undefined): string {
+function inferType(init: unknown): string {
   if (!init) return 'unknown';
   const initObj = init as Record<string, unknown>;
   if (initObj.type === 'NumericLiteral') return 'number';
@@ -488,7 +493,7 @@ function inferType(init: Node | undefined): string {
   return 'unknown';
 }
 
-function inferInitialValue(init: Node | undefined): unknown {
+function inferInitialValue(init: unknown): unknown {
   if (!init) return undefined;
   const initObj = init as Record<string, unknown>;
   if (initObj.type === 'NumericLiteral') return initObj.value;

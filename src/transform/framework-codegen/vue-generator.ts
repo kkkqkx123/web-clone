@@ -85,7 +85,8 @@ ${styles}`;
   }
 
   protected mapState(
-    state: StateVariable[]
+    state: StateVariable[],
+    options: FrameworkCodeGenOptions
   ): string {
     return state
       .map((s) => frameworkRules.vue.stateDeclaration(s.name, s.type, s.initial))
@@ -99,7 +100,9 @@ ${styles}`;
   }
 
   protected mapTemplate(
-    html: string
+    html: string,
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string {
     let template = html;
 
@@ -138,13 +141,15 @@ ${styles}`;
   }
 
   protected mapStyles(
-    css: string
+    css: string,
+    options: FrameworkCodeGenOptions
   ): string {
-    return super.mapStyles(css, {});
+    return super.mapStyles(css, options);
   }
 
   protected collectImports(
-    spec: ComponentSpec
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
   ): string[] {
     const imports = new Set<string>();
 

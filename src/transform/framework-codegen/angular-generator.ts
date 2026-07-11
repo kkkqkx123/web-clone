@@ -13,16 +13,17 @@ export class AngularGenerator extends BaseFrameworkGenerator {
   }
 
   generate(
-    spec: ComponentSpec
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
   ): GeneratedComponent {
-    const imports = this.collectImports(spec);
+    const imports = this.collectImports(spec, options);
     const componentName = this.pascalCase(spec.name);
     const selector = `app-${this.camelCase(spec.name)}`;
 
-    const stateDeclarations = this.mapState(spec.logic?.state || []);
-    const eventMethods = this.mapEvents(spec.logic?.events || []);
-    const template = this.mapTemplate(spec.template, spec.logic);
-    const styles = this.mapStyles(spec.styles);
+    const stateDeclarations = this.mapState(spec.logic?.state || [], options);
+    const eventMethods = this.mapEvents(spec.logic?.events || [], options);
+    const template = this.mapTemplate(spec.template, spec.logic, options);
+    const styles = this.mapStyles(spec.styles, options);
 
     const code = `${imports.join('\n')}
 
@@ -43,13 +44,14 @@ export class ${componentName}Component {
       code,
       language: 'ts',
       imports,
-      dependencies: this.resolveDependencies(spec),
+      dependencies: this.resolveDependencies(spec, options),
       metadata: this.buildMetadata(spec)
     };
   }
 
   protected mapState(
-    state: StateVariable[]
+    state: StateVariable[],
+    options: FrameworkCodeGenOptions
   ): string {
     if (state.length === 0) {
       return '';
@@ -64,14 +66,16 @@ export class ${componentName}Component {
   }
 
   protected mapEvents(
-    events: EventBinding[]
+    events: EventBinding[],
+    options: FrameworkCodeGenOptions
   ): string {
     return this.deduplicateEvents(events);
   }
 
   protected mapTemplate(
     html: string,
-    _logic: unknown
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string {
     let template = html;
 
@@ -98,13 +102,15 @@ export class ${componentName}Component {
   }
 
   protected mapStyles(
-    css: string
+    css: string,
+    options: FrameworkCodeGenOptions
   ): string {
-    return super.mapStyles(css, {} as FrameworkCodeGenOptions);
+    return super.mapStyles(css, options);
   }
 
   protected collectImports(
-    spec: ComponentSpec
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
   ): string[] {
     const imports = [
       "import { Component } from '@angular/core';",

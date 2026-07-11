@@ -66,9 +66,9 @@ program
       : opts.output;
 
     const options: SnapshotOptions = {
-      url: isLocal ? opts.convertLocal : url,
-      output: outputPath,
-      mode: opts.mode,
+      url: isLocal ? (opts.convertLocal ?? '') : (url ?? ''),
+      output: outputPath || './snapshot',
+      mode: (opts.mode as 'single' | 'bundle') || 'bundle',
       maxAssets: parseInt(opts.maxAssets, 10),
       concurrency: parseInt(opts.concurrency, 10),
       timeout: parseInt(opts.timeout, 10),
@@ -120,7 +120,23 @@ program
     try {
       const result = isLocal
         ? await convertLocalSnapshot(options)
-        : await snapshot(options);
+        : await snapshot(options.url, {
+            output: options.output,
+            mode: options.mode,
+            maxAssets: options.maxAssets,
+            concurrency: options.concurrency,
+            timeout: options.timeout,
+            retryCount: options.retryCount,
+            inline: options.inline,
+            pretty: options.pretty,
+            extractComponents: options.extractComponents,
+            componentDepth: options.componentDepth,
+            frameworkHint: options.frameworkHint,
+            extractLogic: options.extractLogic,
+            frameworkCodegen: options.frameworkCodegen,
+            skipExtensions: options.skipExtensions,
+            maxFileSize: options.maxFileSize,
+          });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 

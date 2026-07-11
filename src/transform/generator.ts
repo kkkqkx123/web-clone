@@ -115,10 +115,11 @@ function estimateEffort(comp: CorrelatedComponent): { effort: string; breakdown:
   };
 }
 
-function buildStateMap(stateVars: StateVariable[]): Record<string, StateMapEntry> {
-  const map: Record<string, StateMapEntry> = {};
+function buildStateMap(stateVars: StateVariable[]): Record<string, StateVariable> {
+  const map: Record<string, StateVariable> = {};
   stateVars.forEach(sv => {
     map[sv.name] = {
+      name: sv.name,
       type: sv.type,
       initial: sv.initial,
       bindings: sv.bindings || [],
@@ -145,16 +146,12 @@ function buildEventMap(events: EventBinding[]): Record<string, EventMapEntry> {
 }
 
 function enrichTodos(comp: CorrelatedComponent): (MigrationTodo & { context: string })[] {
-  const todos = comp.logic?.todos || [];
-  const enriched = todos.map((t: MigrationTodo) => ({
-    ...t,
-    context: `In ${comp.type} component '${comp.name}'`
-  }));
+  const enriched: (MigrationTodo & { context: string })[] = [];
 
   // Add confidence-based TODOs
   if (comp.matchConfidence < 0.6) {
     enriched.push({
-      type: 'low_confidence',
+      type: 'dom_ref' as const,
       description: `Low match confidence (${Math.round(comp.matchConfidence * 100)}%) - manual review recommended`,
       severity: 'warning',
       context: `Component '${comp.name}' matching`
@@ -184,10 +181,6 @@ function generateSuggestions(comp: CorrelatedComponent): string[] {
   const eventCount = comp.logic?.events?.length || 0;
   if (eventCount > 3) {
     suggestions.push(`Consolidate ${eventCount} event handlers into fewer methods`);
-  }
-
-  if (comp.logic?.todos && comp.logic.todos.length > 0) {
-    suggestions.push(`Address ${comp.logic.todos.length} migration TODO(s) before finalizing`);
   }
 
   return suggestions;
