@@ -6,7 +6,7 @@
 export const frameworkRules = {
   vue: {
     // State binding: StateVariable => ref/reactive declaration
-    stateDeclaration: (name: string, type: string, initial: any): string => {
+    stateDeclaration: (name: string, type: string, initial: unknown): string => {
       const initialValue = JSON.stringify(initial);
       return `const ${name} = ref<${type}>(${initialValue})`;
     },
@@ -33,17 +33,17 @@ export const frameworkRules = {
       `const ${name} = computed(() => {\n  ${code}\n})`,
 
     // Imports required for stateful component
-    requiredImports: (hasState: boolean, hasComputed: boolean): string[] => {
+    requiredImports: (_hasState: boolean, _hasComputed: boolean): string[] => {
       const imports = ['vue'];
-      if (hasState) imports.push('ref');
-      if (hasComputed) imports.push('computed');
+      if (_hasState) imports.push('ref');
+      if (_hasComputed) imports.push('computed');
       return imports;
     },
   },
 
   react: {
     // State binding: StateVariable => useState hook
-    stateDeclaration: (name: string, type: string, initial: any): string => {
+    stateDeclaration: (name: string, type: string, initial: unknown): string => {
       const initialValue = JSON.stringify(initial);
       const setter = `set${capitalize(name)}`;
       return `const [${name}, ${setter}] = useState<${type}>(${initialValue})`;
@@ -75,17 +75,17 @@ export const frameworkRules = {
       `const ${name} = useCallback(() => {\n  ${code}\n}, [])`,
 
     // Imports required for stateful component
-    requiredImports: (hasState: boolean, hasCallback: boolean): string[] => {
+    requiredImports: (_hasState: boolean, _hasCallback: boolean): string[] => {
       const imports = ['react'];
-      if (hasState) imports.push('useState');
-      if (hasCallback) imports.push('useCallback');
+      if (_hasState) imports.push('useState');
+      if (_hasCallback) imports.push('useCallback');
       return imports;
     },
   },
 
   angular: {
     // State binding: StateVariable => class property
-    stateDeclaration: (name: string, type: string, initial: any): string => {
+    stateDeclaration: (name: string, type: string, initial: unknown): string => {
       const initialValue = JSON.stringify(initial);
       return `${name}: ${type} = ${initialValue};`;
     },
@@ -112,14 +112,14 @@ export const frameworkRules = {
       `${name}() {\n  ${code}\n}`,
 
     // Imports for Angular component
-    requiredImports: (hasState: boolean): string[] => {
+    requiredImports: (_hasState: boolean): string[] => {
       return ['@angular/core', 'Component'];
     },
   },
 
   svelte: {
     // State binding: StateVariable => let variable
-    stateDeclaration: (name: string, type: string, initial: any): string => {
+    stateDeclaration: (name: string, type: string, initial: unknown): string => {
       const initialValue = JSON.stringify(initial);
       return `let ${name}: ${type} = ${initialValue};`;
     },
@@ -153,7 +153,7 @@ export const frameworkRules = {
 
   jquery: {
     // State binding: StateVariable => class property
-    stateDeclaration: (name: string, type: string, initial: any): string => {
+    stateDeclaration: (name: string, type: string, initial: unknown): string => {
       const initialValue = JSON.stringify(initial);
       return `private ${name}: ${type} = ${initialValue};`;
     },

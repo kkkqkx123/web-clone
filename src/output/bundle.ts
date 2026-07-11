@@ -1,18 +1,10 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { join, extname, relative, dirname, resolve } from 'node:path';
+import { join, extname, relative, resolve } from 'node:path';
 import { type Asset, type SnapshotOptions } from '../types.js';
 
 function assetCategory(type: string): string {
   const map: Record<string, string> = { css: 'css', js: 'js', img: 'img', font: 'fonts', media: 'data' };
   return map[type] || 'data';
-}
-
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
 }
 
 /** Escape a string for use as a CSS attribute selector value (inside `[attr="..."]) */
@@ -156,8 +148,6 @@ export function assembleBundle(
     } else {
       fn = classifyAssetFilename(a.originUrl, a.mime, i);
     }
-    
-    const localPath = join(catDir, fn);
     
     // Path traversal protection
     const safeLocalPath = safeJoin(catDir, fn);

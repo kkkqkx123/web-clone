@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ComponentSpec, FrameworkCodeGenOptions } from '../types.js';
+import type { ComponentSpec } from '../types.js';
 import { FrameworkCodeGenerator } from '../transform/framework-codegen/index.js';
 
 const mockComponent: ComponentSpec = {
@@ -287,7 +287,8 @@ describe('FrameworkCodeGenerator - Phase 2', () => {
     it('should handle invalid framework gracefully', () => {
       const gen = new FrameworkCodeGenerator();
       const result = gen.generateComponent(mockComponent, {
-        framework: 'invalid' as any,
+        // @ts-expect-error testing invalid framework
+        framework: 'invalid',
       });
 
       expect(result).toBeNull();
@@ -296,7 +297,8 @@ describe('FrameworkCodeGenerator - Phase 2', () => {
     it('should return empty string for invalid app template', () => {
       const gen = new FrameworkCodeGenerator();
       const appTemplate = gen.generateAppTemplate([], {
-        framework: 'invalid' as any,
+        // @ts-expect-error testing invalid framework
+        framework: 'invalid',
       });
 
       expect(appTemplate).toBe('');
@@ -305,7 +307,8 @@ describe('FrameworkCodeGenerator - Phase 2', () => {
     it('should return empty string for invalid main entry', () => {
       const gen = new FrameworkCodeGenerator();
       const result = gen.generateMainEntry({
-        framework: 'invalid' as any,
+        // @ts-expect-error testing invalid framework
+        framework: 'invalid',
       });
 
       expect(result.filename).toBe('');

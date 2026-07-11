@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import * as parser from '@babel/parser';
 import type { JsAnalysisResult, DomRef } from './types.js';
-import type { StateVariable, MethodSpec, EventBinding, MigrationTodo } from '../types.js';
+import type { StateVariable, MethodSpec, EventBinding } from '../types.js';
 
 const require = createRequire(import.meta.url);
 const traverse = require('@babel/traverse').default;
@@ -11,7 +11,7 @@ const FULL_PARSE_LIMIT = 100 * 1024;        // < 100KB: Full Babel Explanation
 const FILTERED_PARSE_LIMIT = 1024 * 1024;   // < 1MB: Babel parsing after prefiltering
 const TRUNCATED_PARSE_LIMIT = 5 * 1024 * 1024; // < 5MB: Babel parsing after truncation
 
-export function analyzeJavaScript(js: string, options?: any): JsAnalysisResult {
+export function analyzeJavaScript(js: string): JsAnalysisResult {
   const result: JsAnalysisResult = {
     state: [],
     methods: [],

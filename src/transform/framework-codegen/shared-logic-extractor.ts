@@ -1,5 +1,4 @@
 import type { ComponentSpec } from '../../types.js';
-import type { FrameworkCodeGenOptions } from '../../types.js';
 
 /**
  * Extracts shared logic from multiple components
@@ -16,7 +15,7 @@ export class SharedLogicExtractor {
     // Scan all components for API patterns
     specs.forEach((spec) => {
       if (spec.logic?.methods) {
-        spec.logic.methods.forEach((method: any) => {
+        spec.logic.methods.forEach((method) => {
           const code = method.code || '';
 
           // Detect API calls
@@ -54,7 +53,7 @@ export class SharedLogicExtractor {
 
     specs.forEach((spec) => {
       if (spec.logic?.methods) {
-        spec.logic.methods.forEach((method: any) => {
+        spec.logic.methods.forEach((method) => {
           // Detect common utility patterns
           if (method.kind === 'utility' || method.code?.includes('function')) {
             if (!utilities.has(method.name)) {
@@ -90,7 +89,7 @@ export class SharedLogicExtractor {
     specs.forEach((spec) => {
       // Extract from component data
       if (spec.logic?.state) {
-        spec.logic.state.forEach((state: any) => {
+        spec.logic.state.forEach((state) => {
           if (typeof state.initial === 'string' && state.initial.length > 0) {
             // Potential constant
             const constantName = `DEFAULT_${state.name.toUpperCase()}`;
@@ -103,12 +102,12 @@ export class SharedLogicExtractor {
 
       // Extract from methods
       if (spec.logic?.methods) {
-        spec.logic.methods.forEach((method: any) => {
+        spec.logic.methods.forEach((method) => {
           const code = method.code || '';
 
           // Find URL-like strings that look like API endpoints or configuration
           const urlMatches = code.match(/['"`](https?:\/\/[^'"`]+)['"`]/g) || [];
-          urlMatches.forEach((match: string) => {
+          urlMatches.forEach((match) => {
             const url = match.slice(1, -1); // strip quotes
             const name = `API_ENDPOINT_${constants.size + 1}`;
             if (!Array.from(constants.values()).includes(url)) {

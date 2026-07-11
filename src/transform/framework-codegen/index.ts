@@ -530,7 +530,7 @@ import('./App').then(module => {
 
   private resolveDeps(
     dependencies: string[],
-    framework: 'vue' | 'react' | 'angular' | 'svelte' | 'jquery'
+    _framework: 'vue' | 'react' | 'angular' | 'svelte' | 'jquery'
   ): Record<string, string> {
     const versions: Record<string, string> = {
       axios: '^1.6.0',

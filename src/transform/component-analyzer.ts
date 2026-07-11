@@ -138,12 +138,12 @@ class StreamingHtmlAnalyzer {
     }
   }
 
-  private processClosingTag(tagName: string, endOffset: number): void {
+  private processClosingTag(tagName: string): void {
     // Find the matching open label from the stack
     for (let i = this.stack.length - 1; i >= 0; i--) {
       if (this.stack[i].tagName === tagName) {
         // Find a match and pop to that location
-        const matched = this.stack.splice(i);
+        this.stack.splice(i);
         // Update outerHTML end position of matching tags (for subsequent extraction)
         break;
       }
@@ -399,8 +399,6 @@ class StreamingHtmlAnalyzer {
     this.TAG_REGEX.lastIndex = start + 1;
     let match: RegExpExecArray | null;
     while ((match = this.TAG_REGEX.exec(html)) !== null) {
-      const tagName = match[2].toLowerCase();
-      const isClosing = match[1] === '/';
       const tagDepth = this.getTagDepth(match[0], match.index, html);
 
       if (tagDepth <= root.depth) {
@@ -474,7 +472,7 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
     });
 
     // Stage 2: Building the Component Tree
-    const { candidates, dynamicPoints } = analyzer.getResults();
+    const { dynamicPoints } = analyzer.getResults();
     const topLevel = analyzer.buildComponentTree();
 
     // Stage 3: Filtration

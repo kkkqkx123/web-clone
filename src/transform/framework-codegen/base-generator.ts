@@ -30,8 +30,8 @@ export abstract class BaseFrameworkGenerator {
 
   protected abstract mapTemplate(
     html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string;
 
   protected abstract collectImports(
@@ -104,7 +104,10 @@ export abstract class BaseFrameworkGenerator {
       if (!methodMap.has(e.handler)) {
         methodMap.set(e.handler, []);
       }
-      methodMap.get(e.handler)!.push(e);
+      const handlerEvents = methodMap.get(e.handler);
+      if (handlerEvents) {
+        handlerEvents.push(e);
+      }
     });
     return Array.from(methodMap.entries())
       .map(([handler]) => {
@@ -120,7 +123,7 @@ export abstract class BaseFrameworkGenerator {
    */
   protected resolveDependencies(
     spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string[] {
     const deps = new Set<string>();
 
@@ -141,12 +144,12 @@ export abstract class BaseFrameworkGenerator {
 
     // Use dependencyMaps for pattern-based detection
     if (spec.logic?.methods) {
-      const frameworkMap = (dependencyMaps as any)[this.framework] || {};
+      const frameworkMap = dependencyMaps[this.framework] || {};
       const patternToDep: [RegExp, string][] = Object.entries(frameworkMap).map(
-        ([pattern, dep]) => [new RegExp(pattern), dep as string]
+        ([pattern, dep]) => [new RegExp(pattern), dep]
       );
 
-      spec.logic.methods.forEach((method: any) => {
+      spec.logic.methods.forEach((method: { code?: string }) => {
         if (method.code) {
           for (const [regex, dep] of patternToDep) {
             if (regex.test(method.code)) {
@@ -172,7 +175,7 @@ export abstract class BaseFrameworkGenerator {
   /**
    * Extract methods from component logic
    */
-  protected extractMethods(logic: any): string {
+  protected extractMethods(logic: { methods?: MethodSpec[] } | undefined): string {
     if (!logic?.methods || logic.methods.length === 0) {
       return '';
     }

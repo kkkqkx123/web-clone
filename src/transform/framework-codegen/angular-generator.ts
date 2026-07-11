@@ -1,7 +1,7 @@
 import { BaseFrameworkGenerator } from './base-generator.js';
 import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
 import type { StateVariable, EventBinding } from '../../types.js';
-import { frameworkRules, cssStrategies, templateRules } from './framework-rules.js';
+import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Angular component code generator
@@ -13,17 +13,16 @@ export class AngularGenerator extends BaseFrameworkGenerator {
   }
 
   generate(
-    spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    spec: ComponentSpec
   ): GeneratedComponent {
-    const imports = this.collectImports(spec, options);
+    const imports = this.collectImports(spec);
     const componentName = this.pascalCase(spec.name);
     const selector = `app-${this.camelCase(spec.name)}`;
 
-    const stateDeclarations = this.mapState(spec.logic?.state || [], options);
-    const eventMethods = this.mapEvents(spec.logic?.events || [], options);
-    const template = this.mapTemplate(spec.template, spec.logic, options);
-    const styles = this.mapStyles(spec.styles, options);
+    const stateDeclarations = this.mapState(spec.logic?.state || []);
+    const eventMethods = this.mapEvents(spec.logic?.events || []);
+    const template = this.mapTemplate(spec.template, spec.logic);
+    const styles = this.mapStyles(spec.styles);
 
     const code = `${imports.join('\n')}
 
@@ -44,14 +43,13 @@ export class ${componentName}Component {
       code,
       language: 'ts',
       imports,
-      dependencies: this.resolveDependencies(spec, options),
+      dependencies: this.resolveDependencies(spec),
       metadata: this.buildMetadata(spec)
     };
   }
 
   protected mapState(
-    state: StateVariable[],
-    options: FrameworkCodeGenOptions
+    state: StateVariable[]
   ): string {
     if (state.length === 0) {
       return '';
@@ -66,16 +64,14 @@ export class ${componentName}Component {
   }
 
   protected mapEvents(
-    events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    events: EventBinding[]
   ): string {
     return this.deduplicateEvents(events);
   }
 
   protected mapTemplate(
     html: string,
-    logic: any,
-    options: FrameworkCodeGenOptions
+    _logic: unknown
   ): string {
     let template = html;
 
@@ -102,15 +98,13 @@ export class ${componentName}Component {
   }
 
   protected mapStyles(
-    css: string,
-    options: FrameworkCodeGenOptions
+    css: string
   ): string {
-    return super.mapStyles(css, options);
+    return super.mapStyles(css, {} as FrameworkCodeGenOptions);
   }
 
   protected collectImports(
-    spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    spec: ComponentSpec
   ): string[] {
     const imports = [
       "import { Component } from '@angular/core';",

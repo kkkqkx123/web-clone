@@ -1,4 +1,4 @@
-import type { FrameworkCodeGenOptions } from '../../types.js';
+import type { FrameworkCodeGenOptions as _FrameworkCodeGenOptions } from '../../types.js';
 
 /**
  * Generates build and runtime configuration files for project scaffolds
@@ -64,7 +64,7 @@ export default defineConfig({
   /**
    * Generate tsconfig.app.json (app-specific TS config)
    */
-  static generateTsAppConfig(framework: string): string {
+  static generateTsAppConfig(_framework: string): string {
     return JSON.stringify({
       compilerOptions: {
         composite: true,
@@ -152,7 +152,7 @@ VITE_ENV=development
   /**
    * Get TypeScript compiler options for each framework
    */
-  private static getTsCompilerOptions(framework: string): Record<string, any> {
+  private static getTsCompilerOptions(framework: string): Record<string, unknown> {
     const baseOptions = {
       target: 'ES2020',
       useDefineForClassFields: true,

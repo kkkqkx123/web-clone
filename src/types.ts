@@ -39,7 +39,7 @@ export interface SnapshotOptions {
 export interface StateVariable {
   name: string;
   type: string;
-  initial?: any;
+  initial?: unknown;
   bindings: string[];
   mutators: string[];
   confidence: number;
@@ -102,8 +102,8 @@ export interface ComponentSpec {
 
 export interface ConvertResult extends SnapshotResult {
   components: Map<string, ComponentSpec>;
-  componentTree?: Record<string, any>;
-  index?: Record<string, any>;
+  componentTree?: Record<string, unknown>;
+  index?: Record<string, unknown>;
 }
 
 export interface AssetRef {
@@ -163,7 +163,7 @@ export interface GeneratedFramework {
   components: GeneratedComponent[];
   appTemplate?: string;
   mainEntry?: string;
-  packageJson?: Record<string, any>;
+  packageJson?: Record<string, unknown>;
   shared?: {
     api?: string;
     utils?: string;
