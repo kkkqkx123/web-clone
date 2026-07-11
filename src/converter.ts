@@ -1,15 +1,10 @@
-import type { SnapshotOptions, ConvertResult } from './types.js';
+import type { SnapshotOptions, ConvertResult, MemoryBudget } from './types.js';
 import { analyzeHtml } from './transform/component-analyzer.js';
 import { analyzeCss } from './transform/css-analyzer.js';
 import { analyzeJavaScript } from './transform/js-analyzer.js';
 import { correlateComponents } from './transform/correlator.js';
 import { generateComponentStructure } from './transform/generator.js';
-
-interface MemoryBudget {
-  htmlStrategy?: 'streaming' | 'full';
-  cssStrategy?: 'skip' | 'head' | 'full';
-  jsStrategy?: 'skip' | 'head' | 'full';
-}
+import { MemoryWatchdog } from './memory-budget.js';
 
 interface HtmlAnalysisOptions {
   depth?: number;
@@ -25,6 +20,9 @@ export async function convert(
   // Memory budget downgrade strategy
   const budget = (options as SnapshotOptions & { memoryBudget?: MemoryBudget }).memoryBudget;
 
+  // Start runtime memory watchdog if limit is configured
+  const watchdog = options.memoryLimit ? new MemoryWatchdog(options.memoryLimit) : undefined;
+
   // Phase 1: Parallel analysis (CPU-bound, wrapped in microtasks to yield event loop)
   const htmlOptions: HtmlAnalysisOptions = {
     depth: options.componentDepth,
@@ -36,10 +34,18 @@ export async function convert(
   }
 
   const [htmlAnalysis, cssAnalysis, jsAnalysis] = await Promise.all([
-    Promise.resolve().then(() => analyzeHtml(html, htmlOptions)),
+    Promise.resolve().then(async () => {
+      if (watchdog && await watchdog.check() === 'critical') {
+        return { componentRoots: [], dynamicPoints: { bindings: [], events: [], conditions: [] } };
+      }
+      return analyzeHtml(html, htmlOptions);
+    }),
 
     // CSS analysis: executed according to downgrade policy
-    Promise.resolve().then(() => {
+    Promise.resolve().then(async () => {
+      if (watchdog && await watchdog.check() === 'critical') {
+        return { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
+      }
       if (budget?.cssStrategy === 'skip') {
         return { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
       }
@@ -50,7 +56,10 @@ export async function convert(
     }),
 
     // JS analysis: executed according to downgrade policy
-    Promise.resolve().then(() => {
+    Promise.resolve().then(async () => {
+      if (watchdog && await watchdog.check() === 'critical') {
+        return { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
+      }
       if (budget?.jsStrategy === 'skip') {
         return { state: [], methods: [], events: [], refs: [], lifecycles: {}, todos: [] };
       }

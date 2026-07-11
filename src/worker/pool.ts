@@ -56,8 +56,8 @@ export async function runPool<T>(
       // Atomically get the next task index
       const idx = nextIndex++;
       if (idx >= total) break;
-      // Skip if over the max task limit
-      if (options.maxTasks !== undefined && idx >= options.maxTasks) continue;
+      // Stop if over the max task limit (don't waste CPU on continue)
+      if (options.maxTasks !== undefined && idx >= options.maxTasks) break;
 
       const result = await tasks[idx]();
       results[idx] = result;

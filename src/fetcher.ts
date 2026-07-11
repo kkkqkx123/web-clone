@@ -101,6 +101,14 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
   }
 }
 
+/**
+ * Calculate retry backoff delay with configurable initial/max values.
+ * Uses exponential backoff: initialDelay * 2^attempt, capped at maxDelay.
+ */
+function retryDelay(attempt: number, initialDelay: number, maxDelay: number): number {
+  return Math.min(initialDelay * Math.pow(2, attempt), maxDelay);
+}
+
 export class SizeLimitError extends Error {
   size: number;
   limit: number;
@@ -153,8 +161,7 @@ export async function downloadSingleAsset(
       if (!result.ok) {
         asset.error = `HTTP ${result.status}`;
         if (attempt < maxAttempts) {
-          // 指数退避：第 1 次重试等 200ms，第 2 次等 400ms，第 3 次等 800ms，最大 2s
-          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -168,7 +175,7 @@ export async function downloadSingleAsset(
       if (!isValidCachedResponse(filePath, result.mime, result.buffer)) {
         asset.error = 'Content validation failed';
         if (attempt < maxAttempts) {
-          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -200,7 +207,7 @@ export async function downloadSingleAsset(
       const message = err instanceof Error ? err.message : String(err);
       asset.error = message;
       if (attempt < maxAttempts) {
-        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -223,10 +230,19 @@ export async function downloadAllAssets(
   // 将每个下载操作包装为独立的任务工厂函数
   const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url));
 
+  // Calculate pool timeout more accurately
+  // Single resource can take: timeout * (retryCount + 1) + retry delays
+  const perResourceTimeoutMs = options.timeout * (options.retryCount + 1) + (options.retryCount * (options.retryMaxDelay ?? 2000));
+  // Estimate total time based on resource count and concurrency
+  const estimatedTotalMs = Math.min(
+    120 * 1000,  // Cap at 120s for safety
+    perResourceTimeoutMs * Math.ceil(Math.max(1, Math.min(total, options.maxAssets)) / options.concurrency)
+  );
+
   const results = await runPool(tasks, {
     concurrency: options.concurrency,
     maxTasks: options.maxAssets,
-    timeoutMs: options.timeout * 2,
+    timeoutMs: estimatedTotalMs,
   }, (asset, _idx, completedCount) => {
     onProgress?.(asset, completedCount, total);
   });

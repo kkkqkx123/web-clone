@@ -20,8 +20,10 @@ export class SvelteGenerator extends BaseFrameworkGenerator {
     const eventMethods = this.mapEvents(spec.logic?.events || [], options);
     const template = this.mapTemplate(spec.template, spec.logic, options);
     const styles = this.mapStyles(spec.styles, options);
+    const useTs = options.typescript !== false;
 
-    const code = `<script lang="ts">
+    const langAttr = useTs ? ' lang="ts"' : '';
+    const code = `<script${langAttr}>
 ${stateDeclarations}
 
 ${eventMethods}
@@ -52,16 +54,18 @@ ${template}
     }
 
     return state
-      .map(
-        (s) =>
-          '  ' + frameworkRules.svelte.stateDeclaration(s.name, s.type, s.initial)
-      )
+      .map((s) => {
+        const typeHint = options.typescript !== false && s.type !== 'unknown'
+          ? `: ${s.type}` : '';
+        const initialValue = JSON.stringify(s.initial);
+        return `  let ${s.name}${typeHint} = ${initialValue};`;
+      })
       .join('\n');
   }
 
   protected mapEvents(
     events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     if (events.length === 0) {
       return '';
@@ -78,8 +82,8 @@ ${template}
 
   protected mapTemplate(
     html: string,
-    logic: unknown,
-    options: FrameworkCodeGenOptions
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
   ): string {
     let template = html;
 
@@ -127,14 +131,14 @@ ${template}
 
   protected mapStyles(
     css: string,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
-    return super.mapStyles(css, options);
+    return super.mapStyles(css, _options);
   }
 
   protected collectImports(
     _spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string[] {
     // Svelte doesn't require explicit imports in most cases
     // Dependencies are listed in package.json

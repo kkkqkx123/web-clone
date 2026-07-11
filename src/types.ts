@@ -1,40 +1,17 @@
+export type {
+  SnapshotMode,
+  SnapshotOptions,
+  FrameworkCodeGenOptions,
+  CodegenFramework,
+  FrameworkHint,
+  MemoryBudget,
+  HtmlStrategy,
+  CssStrategy,
+  JsStrategy,
+} from './config/schema.js';
+
 export type AssetType = 'css' | 'js' | 'img' | 'font' | 'media' | 'other';
-
 export type AssetStatus = 'pending' | 'fetched' | 'failed' | 'skipped';
-
-export type SnapshotMode = 'single' | 'bundle';
-
-export interface FrameworkCodeGenOptions {
-  framework?: 'vue' | 'react' | 'angular' | 'svelte' | 'jquery';
-  typescript?: boolean;
-  cssModules?: boolean;
-  generateDrafts?: boolean;
-  extractSharedLogic?: boolean;
-}
-
-export interface SnapshotOptions {
-  url: string;
-  output: string;
-  mode: SnapshotMode;
-  maxAssets: number;
-  concurrency: number;
-  timeout: number;
-  retryCount: number;
-  inline: boolean;
-  pretty: boolean;
-  // Component extraction (orthogonal to output mode)
-  extractComponents?: boolean;
-  componentDepth?: number;
-  frameworkHint?: 'vue' | 'react' | 'svelte';
-  extractLogic?: boolean;
-  // Framework code generation
-  frameworkCodegen?: FrameworkCodeGenOptions;
-  // Resource filtering
-  skipExtensions?: string[];
-  maxFileSize?: number;
-  // Local conversion: skip fetch, run component extraction on existing bundle/single output
-  convertLocal?: string;
-}
 
 export interface StateVariable {
   name: string;
@@ -60,6 +37,12 @@ export interface EventBinding {
   preventDefault?: boolean;
 }
 
+export interface MigrationTodo {
+  type: 'dom_ref' | 'state_mapping' | 'event_binding' | 'unknown_pattern';
+  description: string;
+  severity: 'critical' | 'warning' | 'info';
+}
+
 export interface ComponentManifest {
   name: string;
   type: 'stateful' | 'presentational' | 'unknown';
@@ -68,20 +51,11 @@ export interface ComponentManifest {
   state: Record<string, StateVariable>;
   events: Record<string, EventBinding>;
   migration: {
-    effort: string;          // Estimated hours: "0.5h", "1h", "2h", "4h", "8h+"
-    effortBreakdown: {       // NEW: detailed breakdown for transparency
-      extraction: string;     // Time to verify extraction accuracy
-      conversion: string;     // Time to convert extracted content
-    };
+    effort: string;
+    effortBreakdown: { extraction: string; conversion: string };
     suggestions: string[];
     todos: MigrationTodo[];
   };
-}
-
-export interface MigrationTodo {
-  type: 'dom_ref' | 'state_mapping' | 'event_binding' | 'unknown_pattern';
-  description: string;
-  severity: 'critical' | 'warning' | 'info';
 }
 
 export interface ComponentSpec {
@@ -91,7 +65,7 @@ export interface ComponentSpec {
   children: string[];
   template: string;
   styles: string;
-  matchConfidence?: number; // NEW: confidence score for component matching
+  matchConfidence?: number;
   logic?: {
     state: StateVariable[];
     methods: MethodSpec[];
@@ -137,7 +111,6 @@ export interface SnapshotResult {
     skipped: number;
     validationWarnings: number;
     totalBytes: number;
-    // Local conversion only
     stateful?: number;
     presentational?: number;
   };
@@ -145,7 +118,6 @@ export interface SnapshotResult {
 
 export const MAX_INLINE_SIZE = 10 * 1024 * 1024;
 
-// Framework code generation types
 export interface GeneratedComponent {
   name: string;
   code: string;
@@ -170,9 +142,5 @@ export interface GeneratedFramework {
   };
 }
 
-// Playwright adapter re-exports (高级功能)
 export { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
 export type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-adapter.js';
-
-// 注：FetcherAdapter等内部接口不导出
-// 它们只在assembler内部使用

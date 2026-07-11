@@ -17,7 +17,7 @@ interface BabelPath {
   parent?: Node & Record<string, unknown>;
 }
 
-export function analyzeJavaScript(js: string, options?: { extractLogic?: boolean }): JsAnalysisResult {
+export function analyzeJavaScript(js: string, _options?: { extractLogic?: boolean }): JsAnalysisResult {
   const result: JsAnalysisResult = {
     state: [],
     methods: [],

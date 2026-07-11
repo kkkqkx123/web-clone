@@ -58,16 +58,17 @@ export class ${componentName}Component {
     }
 
     return state
-      .map(
-        (s) =>
-          frameworkRules.angular.stateDeclaration(s.name, s.type, s.initial)
-      )
+      .map((s) => {
+        const typeHint = options.typescript !== false ? `: ${s.type}` : '';
+        const initialValue = JSON.stringify(s.initial);
+        return `${s.name}${typeHint} = ${initialValue};`;
+      })
       .join('\n  ');
   }
 
   protected mapEvents(
     events: EventBinding[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     return this.deduplicateEvents(events);
   }
@@ -103,14 +104,14 @@ export class ${componentName}Component {
 
   protected mapStyles(
     css: string,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
-    return super.mapStyles(css, options);
+    return super.mapStyles(css, _options);
   }
 
   protected collectImports(
     spec: ComponentSpec,
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string[] {
     const imports = [
       "import { Component } from '@angular/core';",

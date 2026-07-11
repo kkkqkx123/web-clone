@@ -138,6 +138,15 @@ export function checkResourceFilter(refUrl: string, options: SnapshotOptions): S
     const ext = extname(new URL(refUrl).pathname).toLowerCase();
     return { skip: true, reason: `Skipped by extension: ${ext}` };
   }
+
+  // Note: maxFileSize is checked during download (fetchWithTimeout) via Content-Length and stream size validation
+  // This pre-filter cannot reliably check size without making a HEAD request, so we keep it in the fetch layer.
+  // However, we explicitly document this behavior for clarity.
+  if (options.maxFileSize === 0) {
+    // Explicit: no size limit
+    return { skip: false };
+  }
+
   return { skip: false };
 }
 

@@ -1,70 +1,31 @@
-/**
- * Memory Budget and Degradation Strategy
- * 
- * Three layers of protection:
- * 1. Lightweight preview-Quickly evaluate degradation strategies based on resource size
- * 2. Runtime Monitoring-Periodically Check Memory Usage
- * 3. Pipeline downgrade-Skip/simplify resource-consuming operations by policy
- */
+import type { MemoryBudget, HtmlStrategy, CssStrategy, JsStrategy } from './config/schema.js';
 
-// ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ──
-
-export type HtmlStrategy = 'full' | 'streaming' | 'skip';
-export type CssStrategy = 'full' | 'head' | 'skip';
-export type JsStrategy = 'full' | 'head' | 'skip';
-
-export interface MemoryBudget {
-  htmlParseBudget: number;    // HTML parsing budget (bytes)
-  cssParseBudget: number;     // CSS parsing budget (bytes)
-  jsParseBudget: number;      // JS parsing budget (bytes)
-  htmlStrategy: HtmlStrategy;
-  cssStrategy: CssStrategy;
-  jsStrategy: JsStrategy;
-}
-
-// - --First level: Light pre-inspection---------------------------------------------
+export type { MemoryBudget, HtmlStrategy, CssStrategy, JsStrategy };
 
 const MB = 1024 * 1024;
 const KB = 1024;
 
-export function assessMemoryBudget(html: string, css: string, js: string): MemoryBudget {
+export function assessMemoryBudget(html: string, css: string, js: string, maxMemoryMB: number = 0): MemoryBudget {
   const budget: MemoryBudget = {
-    htmlParseBudget: 200 * MB,
-    cssParseBudget: 100 * MB,
-    jsParseBudget: 100 * MB,
+    htmlParseBudget: maxMemoryMB > 0 ? maxMemoryMB * MB : 200 * MB,
+    cssParseBudget: maxMemoryMB > 0 ? Math.floor(maxMemoryMB * MB / 2) : 100 * MB,
+    jsParseBudget: maxMemoryMB > 0 ? Math.floor(maxMemoryMB * MB / 2) : 100 * MB,
     htmlStrategy: 'full',
     cssStrategy: 'full',
     jsStrategy: 'full',
   };
 
-  // HTML evaluation: estimated based on raw size
-  if (html.length > 2 * MB) {
-    budget.htmlStrategy = 'streaming';
-  }
-  if (html.length > 10 * MB) {
-    budget.htmlStrategy = 'skip';
-  }
+  if (html.length > 2 * MB) budget.htmlStrategy = 'streaming';
+  if (html.length > 10 * MB) budget.htmlStrategy = 'skip';
 
-  // CSS Assessment
-  if (css.length > 500 * KB) {
-    budget.cssStrategy = 'head';
-  }
-  if (css.length > 5 * MB) {
-    budget.cssStrategy = 'skip';
-  }
+  if (css.length > 500 * KB) budget.cssStrategy = 'head';
+  if (css.length > 5 * MB) budget.cssStrategy = 'skip';
 
-  // JS evaluation
-  if (js.length > 1 * MB) {
-    budget.jsStrategy = 'head';
-  }
-  if (js.length > 5 * MB) {
-    budget.jsStrategy = 'skip';
-  }
+  if (js.length > 1 * MB) budget.jsStrategy = 'head';
+  if (js.length > 5 * MB) budget.jsStrategy = 'skip';
 
   return budget;
 }
-
-// ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ──
 
 export class MemoryWatchdog {
   private readonly maxMemoryMB: number;
@@ -99,8 +60,6 @@ export class MemoryWatchdog {
     return true;
   }
 }
-
-// ── ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
 
 export function formatDegradationSummary(budget: MemoryBudget): string[] {
   const degradations: string[] = [];

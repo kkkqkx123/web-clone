@@ -2,6 +2,38 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, extname, relative, resolve } from 'node:path';
 import { type Asset, type SnapshotOptions } from '../types.js';
 
+function prettyPrintHtml(html: string): string {
+  const indentStr = '  ';
+  const lines: string[] = [];
+
+  const result = html
+    .replace(/>\s*</g, '>\n<')  // Add newline between tags
+    .replace(/\n\s+/g, '\n');   // Remove existing whitespace
+
+  let currentIndent = 0;
+  for (const line of result.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Close tags decrease indent
+    if (trimmed.startsWith('</')) {
+      currentIndent = Math.max(0, currentIndent - 1);
+    }
+
+    lines.push(indentStr.repeat(currentIndent) + trimmed);
+
+    // Self-closing or empty tags don't change indent
+    if (trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.endsWith('/>')) {
+      // Open tags increase indent (unless they close on the same line)
+      if (!trimmed.includes('</')) {
+        currentIndent++;
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
 function assetCategory(type: string): string {
   const map: Record<string, string> = { css: 'css', js: 'js', img: 'img', font: 'fonts', media: 'data' };
   return map[type] || 'data';
@@ -252,6 +284,11 @@ export function assembleBundle(
 
   let html = document.toString();
   if (!html.startsWith('<!')) html = '<!DOCTYPE html>\n' + html;
+
+  // Apply pretty-printing if requested
+  if (options.pretty) {
+    html = prettyPrintHtml(html);
+  }
 
   writeFileSync(join(outDir, 'index.html'), html, 'utf8');
 

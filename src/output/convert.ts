@@ -90,10 +90,10 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
       );
     }
 
-    // NEW: Generate application template if requested
-    if (options.frameworkCodegen?.framework && options.frameworkCodegen?.generateDrafts) {
-      writeApplicationDrafts(result, outputDir, options.frameworkCodegen as FrameworkCodegenOptions);
-    }
+  // Generate application template if requested
+  if (options.frameworkCodegen?.framework && options.frameworkCodegen?.generateDrafts) {
+    writeApplicationDrafts(result, outputDir, options.frameworkCodegen as FrameworkCodegenOptions);
+  }
 
     console.log(`\n  ✓ Conversion complete`);
     console.log(`    Components: ${result.components.size}`);
@@ -198,8 +198,10 @@ function writeApplicationDrafts(result: ConvertResult, outputDir: string, framew
   const envExample = ConfigGenerator.generateEnvExample();
   writeFileSync(join(frameworkDir, '.env.example'), envExample);
 
-  // 6. Generate shared logic files
-  writeSharedLogicFiles(frameworkDir, result.components, frameworkOptions);
+  // 6. Generate shared logic files (only if enabled)
+  if (frameworkOptions.extractSharedLogic) {
+    writeSharedLogicFiles(frameworkDir, result.components, frameworkOptions);
+  }
 
   // 7. Generate App component/file
   const appTemplate = codeGenerator.generateAppTemplate(

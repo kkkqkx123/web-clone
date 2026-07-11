@@ -1,34 +1,10 @@
 #!/usr/bin/env node
 
+import 'global-agent/bootstrap';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { snapshot, convertLocalSnapshot } from './assembler.js';
-import { type SnapshotOptions } from './types.js';
-import { DEFAULT_MAX_FILE_SIZE } from './validators.js';
-
-interface CommandOptions {
-  output: string;
-  mode: string;
-  maxAssets: string;
-  concurrency: string;
-  timeout: string;
-  retryCount: string;
-  inline: boolean;
-  pretty: boolean;
-  extractComponents: boolean;
-  componentDepth?: string;
-  framework?: string;
-  extractLogic: string;
-  memoryLimit: string;
-  codegenFramework?: string;
-  codegenTypescript: string;
-  codegenCssModules: string;
-  codegenGenerateDrafts: string;
-  codegenExtractShared: string;
-  skipTypes?: string;
-  maxFileSize?: string;
-  convertLocal?: string;
-}
+import { fromCommander, type CommanderOpts } from './config/index.js';
 
 const program = new Command();
 
@@ -42,6 +18,8 @@ program
   .option('--concurrency <number>', 'Number of concurrent downloads', '6')
   .option('--timeout <ms>', 'Per-resource timeout in milliseconds', '15000')
   .option('--retry-count <number>', 'Number of retries for failed downloads', '1')
+  .option('--retry-initial-delay <ms>', 'Initial retry backoff delay in milliseconds (default: 200)')
+  .option('--retry-max-delay <ms>', 'Maximum retry backoff delay in milliseconds (default: 2000)')
   .option('--no-inline', 'Skip inlining resources (data URIs)')
   .option('--pretty', 'Prettify output HTML')
   .option('--extract-components', 'Extract component structure from the page')
@@ -54,60 +32,12 @@ program
   .option('--codegen-css-modules', 'Use CSS Modules for React (default: false)')
   .option('--codegen-generate-drafts', 'Generate complete project templates in __drafts__/ (requires --codegen-framework)')
   .option('--codegen-extract-shared', 'Extract shared logic to shared/ directory (requires --extract-components)')
-  .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4,.ts"); empty to disable filtering')
+  .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4"); empty string "" disables filtering; default: archives/installers/docs/video (archives: .zip, .rar, .7z, .tar, .gz, .bz2; installers: .exe, .msi, .dmg, .apk, .deb, .rpm; docs: .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx; media: .mp4, .webm, .mp3, .wav, .m4v, .mkv, .avi, .mov, .flv, .aac, .flac, .ogg, .wma; other: .ts, .m3u8, .iso, .torrent, .wasm, .bin)')
   .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
-  .action(async (url: string, opts: CommandOptions) => {
+  .action(async (url: string, opts: CommanderOpts) => {
+    const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
-
-    // When --convert-local is used, default output to the same directory
-    const outputPath = isLocal && opts.output === './snapshot'
-      ? opts.convertLocal
-      : opts.output;
-
-    const options: SnapshotOptions = {
-      url: isLocal ? (opts.convertLocal ?? '') : (url ?? ''),
-      output: outputPath || './snapshot',
-      mode: (opts.mode as 'single' | 'bundle') || 'bundle',
-      maxAssets: parseInt(opts.maxAssets, 10),
-      concurrency: parseInt(opts.concurrency, 10),
-      timeout: parseInt(opts.timeout, 10),
-      retryCount: parseInt(opts.retryCount, 10),
-      inline: opts.inline !== false,
-      pretty: opts.pretty || false,
-      extractComponents: isLocal ? true : (opts.extractComponents || false),
-      convertLocal: opts.convertLocal || undefined,
-    };
-
-    // Component extraction options apply when --extract-components or --convert-local is specified
-    if (options.extractComponents) {
-      options.componentDepth = opts.componentDepth ? parseInt(opts.componentDepth, 10) : undefined;
-      options.frameworkHint = (opts.framework || undefined) as 'vue' | 'react' | 'svelte' | undefined;
-      options.extractLogic = opts.extractLogic !== 'false';
-
-      // Framework code generation options
-      if (opts.codegenFramework) {
-        options.frameworkCodegen = {
-          framework: opts.codegenFramework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery',
-          typescript: opts.codegenTypescript !== 'false',
-          cssModules: opts.codegenCssModules === 'true',
-          generateDrafts: opts.codegenGenerateDrafts === 'true',
-          extractSharedLogic: opts.codegenExtractShared === 'true',
-        };
-      }
-    }
-
-    // Resource filtering options (only relevant for fetch mode)
-    if (!isLocal) {
-      if (opts.skipTypes !== undefined) {
-        options.skipExtensions = opts.skipTypes
-          ? opts.skipTypes.split(',').map((s: string) => s.trim()).filter(Boolean)
-          : [];
-      }
-      options.maxFileSize = opts.maxFileSize !== undefined
-        ? parseFileSize(opts.maxFileSize)
-        : DEFAULT_MAX_FILE_SIZE;
-    }
 
     if (isLocal) {
       console.log(chalk.cyan('\n◉ Local Conversion\n'));
@@ -120,23 +50,7 @@ program
     try {
       const result = isLocal
         ? await convertLocalSnapshot(options)
-        : await snapshot(options.url, {
-            output: options.output,
-            mode: options.mode,
-            maxAssets: options.maxAssets,
-            concurrency: options.concurrency,
-            timeout: options.timeout,
-            retryCount: options.retryCount,
-            inline: options.inline,
-            pretty: options.pretty,
-            extractComponents: options.extractComponents,
-            componentDepth: options.componentDepth,
-            frameworkHint: options.frameworkHint,
-            extractLogic: options.extractLogic,
-            frameworkCodegen: options.frameworkCodegen,
-            skipExtensions: options.skipExtensions,
-            maxFileSize: options.maxFileSize,
-          });
+        : await snapshot(options.url, options);
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -178,15 +92,4 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
-
-function parseFileSize(val: string): number {
-  const m = val.match(/^(\d+(?:\.\d+)?)\s*(k|m|g|kb|mb|gb)?$/i);
-  if (!m) return parseInt(val, 10) || 0;
-  const num = parseFloat(m[1]);
-  const unit = (m[2] || '').toLowerCase();
-  if (unit === 'k' || unit === 'kb') return Math.round(num * 1024);
-  if (unit === 'm' || unit === 'mb') return Math.round(num * 1024 * 1024);
-  if (unit === 'g' || unit === 'gb') return Math.round(num * 1024 * 1024 * 1024);
-  return Math.round(num);
 }

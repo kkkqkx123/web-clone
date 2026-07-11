@@ -1,14 +1,6 @@
 import type { CorrelatedComponent } from './types.js';
 import type { ComponentSpec, ComponentManifest, StateVariable, EventBinding, MigrationTodo } from '../types.js';
 
-interface StateMapEntry {
-  type: string;
-  initial: unknown;
-  bindings: string[];
-  mutators: string[];
-  confidence: number;
-}
-
 interface EventMapEntry {
   event: string;
   handler: string;

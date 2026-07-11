@@ -2,7 +2,6 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
 import { type SnapshotOptions, type SnapshotResult, type AssetRef, type Asset } from './types.js';
-import { fetchWithTimeout } from './fetcher.js';
 import { parseHtml } from './parser/html-parser.js';
 import { extractCssAssets } from './parser/css-parser.js';
 import { downloadAllAssets } from './fetcher.js';
@@ -161,7 +160,7 @@ function extractJsFromAssets(assets: Asset[]): string {
 /**
  * Async write assets with concurrency control and progress reporting.
  */
-async function writeAssets(assets: Asset[]): Promise<void> {
+async function writeAssets(assets: Asset[], concurrency: number = 5): Promise<void> {
   const toWrite = assets.filter((a) => a.status === 'fetched' && a.localPath);
   const total = toWrite.length;
   if (total === 0) return;
@@ -180,7 +179,7 @@ async function writeAssets(assets: Asset[]): Promise<void> {
     await writeFile(localPath, buf);
   });
 
-  await runPool(tasks, { concurrency: 5 }, (_result, _idx, completedCount) => {
+  await runPool(tasks, { concurrency: Math.max(2, Math.min(concurrency, 10)) }, (_result, _idx, completedCount) => {
     if (completedCount % Math.max(1, Math.floor(total / 10)) === 0 || completedCount === total) {
       process.stdout.write(`  Writing assets: ${completedCount}/${total}\n`);
     }
@@ -335,7 +334,7 @@ async function snapshotInternal(
       }
     });
 
-    const cssResults = await runPool(cssTasks, { concurrency: 5 });
+    const cssResults = await runPool(cssTasks, { concurrency: Math.max(2, Math.min(options.concurrency, 5)) });
 
     // Collect child refs sequentially (safe: no race conditions on allRefs)
     for (const r of cssResults) {
@@ -354,12 +353,7 @@ async function snapshotInternal(
 
   allRefs = dedupe(allRefs);
 
-  if (allRefs.length > options.maxAssets) {
-    process.stdout.write(`Limiting from ${allRefs.length} to ${options.maxAssets} assets\n`);
-    allRefs = allRefs.slice(0, options.maxAssets);
-  }
-
-  process.stdout.write(`Downloading ${allRefs.length} assets...\n`);
+  process.stdout.write(`Downloading ${allRefs.length} assets (max: ${options.maxAssets})...\n`);
   const assets = await downloadAllAssets(allRefs, options, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
@@ -396,7 +390,7 @@ async function snapshotInternal(
     mkdirSync(options.output, { recursive: true });
     assembleBundle(parsed.document, assets, options);
 
-    await writeAssets(assets);
+    await writeAssets(assets, options.concurrency);
   } else {
     const outputHtml = assembleSingleFile(parsed.document, assets, options);
     await mkdir(dirname(options.output), { recursive: true });
