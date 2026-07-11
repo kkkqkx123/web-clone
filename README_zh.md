@@ -229,3 +229,7 @@ npm run test:run
 ## 许可证
 
 MIT
+
+## 🤝 致谢与社区
+
+本项目永久感谢 [LINUX DO](https://linux.do/) 社区的支持与推广。
