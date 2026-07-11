@@ -7,6 +7,18 @@ import { SvelteGenerator } from './svelte-generator.js';
 import { JQueryGenerator } from './jquery-generator.js';
 import { SharedLogicExtractor } from './shared-logic-extractor.js';
 
+type FrameworkGenerator = VueGenerator | ReactGenerator | AngularGenerator | SvelteGenerator | JQueryGenerator;
+
+interface PackageJson {
+  name: string;
+  version: string;
+  type: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 /**
  * Main entry point for framework code generation
  * Routes to appropriate generator based on framework selection
@@ -38,7 +50,7 @@ export class FrameworkCodeGenerator {
     }
 
     try {
-      let generator: any;
+      let generator: FrameworkGenerator | null = null;
       switch (options.framework) {
         case 'vue':
           generator = this.vueGenerator;
@@ -56,12 +68,14 @@ export class FrameworkCodeGenerator {
           generator = this.jqueryGenerator;
           break;
         default:
-          return null;
+          generator = null;
       }
+      if (!generator) return null;
       return generator.generate(spec, options);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       console.warn(
-        `Failed to generate ${options.framework} code for ${spec.name}: ${err.message}`
+        `Failed to generate ${options.framework} code for ${spec.name}: ${message}`
       );
       return null;
     }
@@ -410,7 +424,7 @@ import('./App').then(module => {
     appName: string,
     options: FrameworkCodeGenOptions,
     dependencies: string[]
-  ): Record<string, any> {
+  ): PackageJson {
     const basePackage = {
       name: appName.toLowerCase().replace(/\s+/g, '-'),
       version: '0.1.0',

@@ -182,16 +182,18 @@ export function assembleBundle(
 
       // Rewrite URLs inside srcset attribute (responsive images, picture elements)
       if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
-        const srcset = el.getAttribute('srcset')!;
-        // srcset format: "url descriptor, url descriptor, ..."
-        // e.g. "img/hero-1x.jpg 1x, img/hero-2x.jpg 2x"
-        const replaced = srcset.replace(
-          // Match the origin URL in any descriptor position
-          // The URL may have been percentage-encoded in srcset vs raw in originUrl
-          new RegExp(escRegex(a.originUrl), 'g'),
-          relPath,
-        );
-        el.setAttribute('srcset', replaced);
+        const srcset = el.getAttribute('srcset');
+        if (srcset) {
+          // srcset format: "url descriptor, url descriptor, ..."
+          // e.g. "img/hero-1x.jpg 1x, img/hero-2x.jpg 2x"
+          const replaced = srcset.replace(
+            // Match the origin URL in any descriptor position
+            // The URL may have been percentage-encoded in srcset vs raw in originUrl
+            new RegExp(escRegex(a.originUrl), 'g'),
+            relPath,
+          );
+          el.setAttribute('srcset', replaced);
+        }
       }
     }
 
@@ -232,7 +234,12 @@ export function assembleBundle(
     const mt = document.createElement('meta');
     mt.setAttribute('name', 'snapshot:time');
     mt.setAttribute('content', new Date().toISOString());
-    head.insertBefore(mt, ms.nextSibling!);
+    const nextNode = ms.nextSibling;
+    if (nextNode) {
+      head.insertBefore(mt, nextNode);
+    } else {
+      head.appendChild(mt);
+    }
   }
 
   // 清理快照辅助属性，避免在输出中泄露完整 URL

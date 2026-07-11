@@ -1,5 +1,14 @@
 import type { StateVariable, MethodSpec, EventBinding, MigrationTodo } from '../types.js';
 
+export interface Element {
+  tagName: string;
+  className: string;
+  id: string;
+  outerHTML: string;
+  childNodes?: Element[];
+  getAttribute?(name: string): string | null;
+}
+
 export interface HtmlAnalysisResult {
   componentRoots: ComponentRoot[];
   dynamicPoints: DynamicPoints;

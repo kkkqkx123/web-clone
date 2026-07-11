@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
-import { type SnapshotOptions, type SnapshotResult, type AssetRef } from './types.js';
+import { type SnapshotOptions, type SnapshotResult, type AssetRef, type Asset } from './types.js';
 import { fetchWithTimeout } from './fetcher.js';
 import { parseHtml } from './parser/html-parser.js';
 import { extractCssAssets } from './parser/css-parser.js';
@@ -66,7 +66,7 @@ function extractInlineJs(html: string): string {
 /**
  * Extract CSS and JS from downloaded assets
  */
-function extractCssFromAssets(assets: any[]): string {
+function extractCssFromAssets(assets: Asset[]): string {
   return assets
     .filter(a => a.type === 'css' && a.status === 'fetched')
     .map(a => a.textContent || '')
@@ -96,26 +96,26 @@ function isFrameworkCode(originUrl: string): boolean {
   return FRAMEWORK_PATTERNS.some(pattern => pattern.test(originUrl));
 }
 
-function extractJsFromAssets(assets: any[]): string {
-  const userCode = assets.filter((a: any) =>
+function extractJsFromAssets(assets: Asset[]): string {
+  const userCode = assets.filter((a) =>
     a.type === 'js' &&
     a.status === 'fetched' &&
     !isFrameworkCode(a.originUrl)
   );
-  const frameworkCode = assets.filter((a: any) =>
+  const frameworkCode = assets.filter((a) =>
     a.type === 'js' &&
     a.status === 'fetched' &&
     isFrameworkCode(a.originUrl)
   );
 
   if (frameworkCode.length > 0) {
-    const userSize = userCode.reduce((s: number, a: any) => s + (a.size || 0), 0);
-    const fwSize = frameworkCode.reduce((s: number, a: any) => s + (a.size || 0), 0);
+    const userSize = userCode.reduce((s: number, a) => s + (a.size || 0), 0);
+    const fwSize = frameworkCode.reduce((s: number, a) => s + (a.size || 0), 0);
     process.stdout.write(`  JS filter: ${userCode.length} user files (${fmt(userSize)}) + ${frameworkCode.length} framework files (${fmt(fwSize)}) filtered\n`);
   }
 
   return userCode
-    .map((a: any) => a.textContent || '')
+    .map((a) => a.textContent || '')
     .filter(Boolean)
     .join('\n');
 }
@@ -123,16 +123,17 @@ function extractJsFromAssets(assets: any[]): string {
 /**
  * Async write assets with concurrency control and progress reporting.
  */
-async function writeAssets(assets: any[]): Promise<void> {
-  const toWrite = assets.filter((a: any) => a.status === 'fetched' && a.localPath);
+async function writeAssets(assets: Asset[]): Promise<void> {
+  const toWrite = assets.filter((a) => a.status === 'fetched' && a.localPath);
   const total = toWrite.length;
   if (total === 0) return;
 
   const tasks = toWrite.map(a => async (): Promise<void> => {
     const dir = dirname(a.localPath);
     await mkdir(dir, { recursive: true });
-    const buf = a.dataUri
-      ? Buffer.from(a.dataUri.split(',')[1]!, 'base64')
+    const dataUriContent = a.dataUri?.split(',')[1];
+    const buf = dataUriContent
+      ? Buffer.from(dataUriContent, 'base64')
       : a.textContent
         ? Buffer.from(a.textContent, 'utf8')
         : Buffer.alloc(0);
@@ -194,8 +195,9 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
           return { url: ref.url, ok: true, cssText, childRefs };
         }
         return { url: ref.url, ok: false };
-      } catch (e: any) {
-        process.stdout.write(`  CSS fetch skipped: ${ref.url} — ${e.message}\n`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        process.stdout.write(`  CSS fetch skipped: ${ref.url} — ${message}\n`);
         return { url: ref.url, ok: false };
       }
     });
@@ -329,7 +331,10 @@ export async function snapshot(options: SnapshotOptions): Promise<SnapshotResult
  * assets/js/*.js from the local directory, then runs the full conversion pipeline.
  */
 export async function convertLocalSnapshot(options: SnapshotOptions): Promise<SnapshotResult> {
-  const localPath = options.convertLocal!;
+  if (!options.convertLocal) {
+    throw new Error('convertLocal option is required');
+  }
+  const localPath = options.convertLocal;
   const timestamp = new Date().toISOString();
 
   if (!existsSync(localPath)) {
@@ -385,11 +390,11 @@ export async function convertLocalSnapshot(options: SnapshotOptions): Promise<Sn
   }
 
   process.stdout.write(`Converting to component structure...\n`);
-  const convertOptions = {
+  const convertOptions: SnapshotOptions = {
     ...options,
-    memoryBudget: budget,
+    convertLocal: undefined,
   };
-  const converted = await convert(html, css, js, convertOptions as any);
+  const converted = await convert(html, css, js, convertOptions);
 
   process.stdout.write(`Writing component output...\n`);
   const componentOutputDir = isDir
@@ -407,7 +412,7 @@ export async function convertLocalSnapshot(options: SnapshotOptions): Promise<Sn
   const componentList = Array.from(converted.components.values());
 
   // Use dummy assets to satisfy SnapshotResult type
-  const assets: any[] = [];
+  const assets: Asset[] = [];
 
   return {
     sourceUrl: localPath,

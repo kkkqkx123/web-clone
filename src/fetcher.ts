@@ -20,8 +20,8 @@ function validateUrlScheme(url: string): void {
     if (u.protocol !== 'http:' && u.protocol !== 'https:') {
       throw new Error(`Unsupported protocol: ${u.protocol}`);
     }
-  } catch (err: any) {
-    throw new Error(`Invalid URL: ${err.message}`, { cause: err });
+  } catch (err: unknown) {
+    throw new Error(`Invalid URL: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
 }
 
@@ -91,9 +91,11 @@ export async function fetchWithTimeout(url: string, timeout: number, referer?: s
       ok: response.ok,
       isHtmlLike: response.headers.get('content-type')?.includes('text/html') || false,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof SizeLimitError) throw err;
-    throw new Error(err.name === 'AbortError' ? `Timeout after ${timeout}ms` : err.message, { cause: err });
+    const message = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.name : '';
+    throw new Error(name === 'AbortError' ? `Timeout after ${timeout}ms` : message, { cause: err });
   } finally {
     clearTimeout(timer);
   }
@@ -189,13 +191,14 @@ export async function downloadSingleAsset(
       }
 
       return asset;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof SizeLimitError) {
         asset.status = 'skipped';
         asset.error = err.message;
         return asset;
       }
-      asset.error = err.message;
+      const message = err instanceof Error ? err.message : String(err);
+      asset.error = message;
       if (attempt < maxAttempts) {
         const delay = Math.min(100 * Math.pow(2, attempt), 2000);
         await new Promise(resolve => setTimeout(resolve, delay));

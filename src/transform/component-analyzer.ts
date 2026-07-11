@@ -1,21 +1,21 @@
 /**
  * Streaming DOM Parser - SAX Style HTML Scanning
- * 
+ *
  * Replaces linkedom's full DOM parsing, using a single-pass regular scan to extract the information needed for component analysis.
  * Memory footprint reduced from 1GB+ to <10MB.
  */
-import type { HtmlAnalysisResult, DynamicPoints } from './types.js';
+import type { HtmlAnalysisResult, DynamicPoints, Element } from './types.js';
 
 // ── Lightweight Element Proxy ────────────────────────────────────────────────
 // Compatible element interfaces for downstream correlators
 
-class LightweightElement {
+class LightweightElement implements Element {
   constructor(
     public tagName: string,
     public className: string,
     public id: string,
     public outerHTML: string,
-    public childNodes: any[] = [],
+    public childNodes: LightweightElement[] = [],
   ) {}
 
   getAttribute(name: string): string | null {
@@ -104,7 +104,7 @@ class StreamingHtmlAnalyzer {
       this.tagCount++;
 
       if (isClosing) {
-        this.processClosingTag(tagName, startOffset);
+        this.processClosingTag(tagName);
       } else {
         this.processOpeningTag(tagName, attrsRaw, startOffset);
       }
@@ -454,7 +454,17 @@ function filterComponentRoots(roots: ComponentRootCandidate[]): ComponentRootCan
 
 // ── Public API ─────────────────────────────────────────────────────
 
-export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
+interface MappedComponent {
+  name: string;
+  element: LightweightElement;
+  depth: number;
+  type: 'explicit' | 'semantic' | 'implicit';
+  confidence: number;
+  parent?: MappedComponent | null;
+  children?: MappedComponent[];
+}
+
+export function analyzeHtml(html: string, options?: { maxTagScan?: number; depth?: number }): HtmlAnalysisResult {
   if (!html || !html.trim()) {
     return {
       componentRoots: [],
@@ -480,7 +490,7 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
 
     // Stage 4: Conversion to ComponentRoot format (with lightweight element proxies)
     // Recursively map children to preserve the full component tree
-    function mapChildren(children: ComponentRootCandidate[]): any[] {
+    function _mapChildren(children: ComponentRootCandidate[]): MappedComponent[] {
       return children.map(child => {
         const childOuterHTML = analyzer.extractOuterHTML(html, child);
         const childEl = new LightweightElement(
@@ -496,7 +506,7 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
           type: child.type,
           confidence: child.confidence,
           parent: null,
-          children: mapChildren(child.children), // recursive
+          children: _mapChildren(child.children), // recursive
         };
       });
     }
@@ -516,8 +526,6 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
         depth: c.depth,
         type: c.type,
         confidence: c.confidence,
-        parent: null,
-        children: mapChildren(c.children),
       };
     });
 
@@ -525,8 +533,9 @@ export function analyzeHtml(html: string, options?: any): HtmlAnalysisResult {
       componentRoots,
       dynamicPoints,
     };
-  } catch (err: any) {
-    console.warn(`HTML analysis error: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`HTML analysis error: ${message}`);
     return {
       componentRoots: [],
       dynamicPoints: { bindings: [], events: [], conditions: [] },

@@ -1,6 +1,6 @@
 import type { ComponentSpec } from '../../types.js';
 import type { FrameworkCodeGenOptions, GeneratedComponent } from '../../types.js';
-import type { StateVariable, EventBinding } from '../../types.js';
+import type { StateVariable, EventBinding, MethodSpec } from '../../types.js';
 import { BaseFrameworkGenerator } from './base-generator.js';
 import { frameworkRules, templateRules } from './framework-rules.js';
 
@@ -212,7 +212,7 @@ ${styles ? `\n${styles}` : ''}`;
     // }
 
     // Need useEffect for lifecycle
-    if (spec.logic?.methods?.some((m: any) => m.kind === 'lifecycle')) {
+    if (spec.logic?.methods?.some((m: MethodSpec) => m.kind === 'lifecycle')) {
       imports.add('useEffect');
     }
 

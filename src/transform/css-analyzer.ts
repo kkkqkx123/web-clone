@@ -1,12 +1,13 @@
 /**
  * CSS parser - supports incremental parsing and full postcss parsing
- * 
+ *
  * Size hierarchy:
  * - < 100KB: full postcss parsing (highest quality)
  * - 100KB - 1MB: streaming state machine parsing (selective parsing)
  * - > 1MB: Extract CSS variables only (minimum effort)
  */
 import postcss from 'postcss';
+import type { Root, Declaration, Rule } from 'postcss';
 import type { CssAnalysisResult, CssRule } from './types.js';
 
 // ── Public API ─────────────────────────────────────────────────────
@@ -30,8 +31,9 @@ export function analyzeCss(css: string): CssAnalysisResult {
       // < 100KB: full postcss parse
       return analyzeCssFull(css);
     }
-  } catch (err: any) {
-    console.warn(`CSS analysis error: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`CSS analysis error: ${message}`);
     return { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
   }
 }
@@ -48,9 +50,9 @@ function analyzeCssFull(css: string): CssAnalysisResult {
   return { variables, rules, componentStyles, globalStyles, dynamicStyles };
 }
 
-function extractVariables(root: any): Record<string, string> {
+function extractVariables(root: Root): Record<string, string> {
   const vars: Record<string, string> = {};
-  root.walkDecls((decl: any) => {
+  root.walkDecls((decl: Declaration) => {
     if (decl.prop.startsWith('--')) {
       vars[decl.prop] = decl.value;
     }
@@ -58,9 +60,9 @@ function extractVariables(root: any): Record<string, string> {
   return vars;
 }
 
-function extractRules(root: any): CssRule[] {
+function extractRules(root: Root): CssRule[] {
   const rules: CssRule[] = [];
-  root.walkRules((rule: any) => {
+  root.walkRules((rule: Rule) => {
     rules.push({
       selector: rule.selector,
       source: rule.toString(),

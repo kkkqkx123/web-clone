@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import * as parser from '@babel/parser';
 import type { JsAnalysisResult, DomRef } from './types.js';
 import type { StateVariable, MethodSpec, EventBinding } from '../types.js';
+import type { Node } from '@babel/types';
 
 const require = createRequire(import.meta.url);
 const traverse = require('@babel/traverse').default;
@@ -10,6 +11,11 @@ const traverse = require('@babel/traverse').default;
 const FULL_PARSE_LIMIT = 100 * 1024;        // < 100KB: Full Babel Explanation
 const FILTERED_PARSE_LIMIT = 1024 * 1024;   // < 1MB: Babel parsing after prefiltering
 const TRUNCATED_PARSE_LIMIT = 5 * 1024 * 1024; // < 5MB: Babel parsing after truncation
+
+interface BabelPath {
+  node: Node & Record<string, unknown>;
+  parent?: Node & Record<string, unknown>;
+}
 
 export function analyzeJavaScript(js: string): JsAnalysisResult {
   const result: JsAnalysisResult = {
@@ -210,20 +216,25 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
     const eventListeners: EventBinding[] = [];
     const domRefs: DomRef[] = [];
 
+    interface BabelPath {
+      node: Node & Record<string, unknown>;
+      parent?: Node & Record<string, unknown>;
+    }
+
     traverse(ast, {
-      VariableDeclarator(path: any) {
-        const sv = extractStateVariable(path, js);
+      VariableDeclarator(path: BabelPath) {
+        const sv = extractStateVariable(path);
         if (sv) stateVariables.set(sv.name, sv);
       },
 
-      ObjectProperty(path: any) {
+      ObjectProperty(path: BabelPath) {
         // Detect object properties that look like state (e.g., data: { count: 0 })
-        const sv = extractObjectPropertyState(path, js);
+        const sv = extractObjectPropertyState(path);
         if (sv) stateVariables.set(sv.name, sv);
       },
 
-      FunctionDeclaration(path: any) {
-        const method = extractMethod(path, js);
+      FunctionDeclaration(path: BabelPath) {
+        const method = extractMethod(path);
         if (method) {
           methodMap.set(method.name, method);
           if (isLifecycleMethod(method.name)) {
@@ -232,27 +243,29 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
         }
       },
 
-      ArrowFunctionExpression(path: any) {
-        const method = extractArrowFunction(path, js);
+      ArrowFunctionExpression(path: BabelPath) {
+        const method = extractArrowFunction(path);
         if (method) methodMap.set(method.name, method);
       },
 
-      AssignmentExpression(path: any) {
+      AssignmentExpression(path: BabelPath) {
         // Detect state mutations like state.count = 5
-        const stateRef = detectStateMutation(path, js);
+        const stateRef = detectStateMutation(path);
         if (stateRef && stateVariables.has(stateRef.varName)) {
-          const sv = stateVariables.get(stateRef.varName)!;
-          sv.mutators.push(stateRef.type);
+          const sv = stateVariables.get(stateRef.varName);
+          if (sv) {
+            sv.mutators.push(stateRef.type);
+          }
         }
       },
 
-      CallExpression(path: any) {
+      CallExpression(path: BabelPath) {
         // Try to extract event listeners
-        const event = tryExtractEvent(path, js);
+        const event = tryExtractEvent(path);
         if (event) eventListeners.push(event);
 
         // Try to extract DOM references
-        const ref = tryExtractDomRef(path, js);
+        const ref = tryExtractDomRef(path);
         if (ref) domRefs.push(ref);
       }
     });
@@ -261,10 +274,11 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
     result.methods = Array.from(methodMap.values());
     result.events = eventListeners;
     result.refs = domRefs;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     result.todos.push({
       type: 'unknown_pattern',
-      description: `JS parsing error: ${err.message}`,
+      description: `JS parsing error: ${errorMessage}`,
       severity: 'critical'
     });
   }
@@ -272,11 +286,11 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
   return result;
 }
 
-function extractStateVariable(path: any, js: string): StateVariable | null {
-  const { id, init } = path.node;
-  if (!id || id.type !== 'Identifier') return null;
+function extractStateVariable(path: BabelPath): StateVariable | null {
+  const { id, init } = path.node as Record<string, unknown> & { id?: Node; init?: Node };
+  if (!id || (id as Record<string, unknown>).type !== 'Identifier') return null;
 
-  const name = id.name;
+  const name = (id as Record<string, unknown>).name as string;
   if (!isLikelyState(name)) return null;
 
   return {
@@ -289,11 +303,11 @@ function extractStateVariable(path: any, js: string): StateVariable | null {
   };
 }
 
-function extractObjectPropertyState(path: any, js: string): StateVariable | null {
-  const { key, value } = path.node;
-  if (!key || key.type !== 'Identifier') return null;
+function extractObjectPropertyState(path: BabelPath): StateVariable | null {
+  const { key, value } = path.node as Record<string, unknown> & { key?: Node; value?: Node };
+  if (!key || (key as Record<string, unknown>).type !== 'Identifier') return null;
 
-  const name = key.name;
+  const name = (key as Record<string, unknown>).name as string;
   if (!isLikelyState(name)) return null;
 
   return {
@@ -306,8 +320,8 @@ function extractObjectPropertyState(path: any, js: string): StateVariable | null
   };
 }
 
-function extractMethod(path: any, js: string): MethodSpec | null {
-  const name = path.node.id?.name;
+function extractMethod(path: BabelPath): MethodSpec | null {
+  const name = (path.node as Record<string, unknown>).id && ((path.node as Record<string, unknown>).id as Record<string, unknown>).name as string | undefined;
   if (!name) return null;
 
   const isHandler = isLikelyHandler(name);
@@ -315,56 +329,59 @@ function extractMethod(path: any, js: string): MethodSpec | null {
 
   if (!isHandler && !isLifecycle) return null;
 
+  const params = (path.node as Record<string, unknown>).params as Array<Record<string, unknown>> || [];
   return {
     name,
     kind: isLifecycle ? 'lifecycle' : 'handler',
     code: '', // Simplified
-    parameters: path.node.params.map((p: any) => p.name || 'arg'),
+    parameters: params.map((p) => (p.name || 'arg') as string),
     sideEffects: []
   };
 }
 
-function extractArrowFunction(path: any, js: string): MethodSpec | null {
+function extractArrowFunction(path: BabelPath): MethodSpec | null {
   // Try to get function name from assignment or object property
   let funcName: string | null = null;
 
-  if (path.parent?.type === 'VariableDeclarator' && path.parent.id?.name) {
-    funcName = path.parent.id.name;
-  } else if (path.parent?.type === 'ObjectProperty' && path.parent.key?.name) {
-    funcName = path.parent.key.name;
+  if (path.parent?.type === 'VariableDeclarator' && (path.parent as Record<string, unknown>).id) {
+    funcName = ((path.parent as Record<string, unknown>).id as Record<string, unknown>).name as string;
+  } else if (path.parent?.type === 'ObjectProperty' && (path.parent as Record<string, unknown>).key) {
+    funcName = ((path.parent as Record<string, unknown>).key as Record<string, unknown>).name as string;
   }
 
   if (!funcName || (!isLikelyHandler(funcName) && !isLifecycleMethod(funcName))) {
     return null;
   }
 
+  const params = (path.node as Record<string, unknown>).params as Array<Record<string, unknown>> || [];
   return {
     name: funcName,
     kind: isLifecycleMethod(funcName) ? 'lifecycle' : 'handler',
     code: '',
-    parameters: path.node.params.map((p: any) => p.name || 'arg'),
+    parameters: params.map((p) => (p.name || 'arg') as string),
     sideEffects: []
   };
 }
 
-function detectStateMutation(path: any, js: string): { varName: string; type: string } | null {
-  const node = path.node;
+function detectStateMutation(path: BabelPath): { varName: string; type: string } | null {
+  const node = path.node as Record<string, unknown> & { left?: Record<string, unknown>; operator?: string };
   if (!node.left) return null;
 
   let varName = '';
   let mutationType = 'assignment';
 
   if (node.left.type === 'Identifier') {
-    varName = node.left.name;
+    varName = (node.left as Record<string, unknown>).name as string || '';
   } else if (node.left.type === 'MemberExpression') {
-    varName = node.left.object?.name || '';
+    varName = ((node.left as Record<string, unknown>).object as Record<string, unknown>)?.name as string || '';
   }
 
   // Check for compound assignments
-  if (node.operator.includes('=') && !node.operator.startsWith('==')) {
-    if (node.operator === '++' || node.operator === '--') {
-      mutationType = node.operator;
-    } else if (node.operator.includes('+') || node.operator.includes('-') || node.operator.includes('*')) {
+  const op = node.operator || '';
+  if (op.includes('=') && !op.startsWith('==')) {
+    if (op === '++' || op === '--') {
+      mutationType = op;
+    } else if (op.includes('+') || op.includes('-') || op.includes('*')) {
       mutationType = 'arithmetic';
     }
   }
@@ -372,17 +389,21 @@ function detectStateMutation(path: any, js: string): { varName: string; type: st
   return varName ? { varName, type: mutationType } : null;
 }
 
-function tryExtractEvent(path: any, js: string): EventBinding | null {
-  const node = path.node;
-  if (node.callee?.property?.name !== 'addEventListener') return null;
+function tryExtractEvent(path: BabelPath): EventBinding | null {
+  const node = path.node as Record<string, unknown> & { callee?: Record<string, unknown>; arguments?: unknown[] };
+  const callee = node.callee as Record<string, unknown> | undefined;
+  if (callee?.property && (callee.property as Record<string, unknown>).name !== 'addEventListener') return null;
 
   const eventArg = node.arguments?.[0];
   const handlerArg = node.arguments?.[1];
 
   if (!eventArg || !handlerArg) return null;
 
-  const event = eventArg.value || eventArg.name || '';
-  const handler = handlerArg.name || (handlerArg.type === 'ArrowFunctionExpression' ? 'arrow' : '');
+  const eventArgObj = eventArg as Record<string, unknown>;
+  const handlerArgObj = handlerArg as Record<string, unknown>;
+
+  const event = (eventArgObj.value || eventArgObj.name || '') as string;
+  const handler = (handlerArgObj.name || (handlerArgObj.type === 'ArrowFunctionExpression' ? 'arrow' : '')) as string;
 
   if (!event) return null;
 
@@ -394,9 +415,9 @@ function tryExtractEvent(path: any, js: string): EventBinding | null {
   };
 }
 
-function tryExtractDomRef(path: any, js: string): DomRef | null {
-  const node = path.node;
-  const callee = node.callee;
+function tryExtractDomRef(path: BabelPath): DomRef | null {
+  const node = path.node as Record<string, unknown> & { callee?: Record<string, unknown>; arguments?: unknown[] };
+  const callee = node.callee as Record<string, unknown> | undefined;
 
   const domMethods = [
     'getElementById', 'getElementsByClassName', 'getElementsByTagName',
@@ -404,15 +425,21 @@ function tryExtractDomRef(path: any, js: string): DomRef | null {
     'closest', 'parentElement', 'children', 'nextElementSibling', 'previousElementSibling'
   ];
 
-  const methodName = callee?.property?.name || '';
+  const methodName = (callee?.property as Record<string, unknown>)?.name as string || '';
   if (!domMethods.includes(methodName)) return null;
 
   const arg = node.arguments?.[0];
-  const selector = arg?.value || arg?.name || '';
+  const argObj = arg as Record<string, unknown> | undefined;
+  const selector = ((argObj?.value || argObj?.name) as string) || '';
 
   if (!selector) return null;
 
   return { selector, method: methodName };
+}
+
+interface BabelPath {
+  node: Node & Record<string, unknown>;
+  parent?: Node & Record<string, unknown>;
 }
 
 function isLikelyState(name: string): boolean {
@@ -449,24 +476,26 @@ function scoreAsState(name: string): number {
   return Math.min(1, score);
 }
 
-function inferType(init: any): string {
+function inferType(init: Node | undefined): string {
   if (!init) return 'unknown';
-  if (init.type === 'NumericLiteral') return 'number';
-  if (init.type === 'StringLiteral') return 'string';
-  if (init.type === 'BooleanLiteral') return 'boolean';
-  if (init.type === 'ArrayExpression') return 'array';
-  if (init.type === 'ObjectExpression') return 'object';
-  if (init.type === 'FunctionExpression' || init.type === 'ArrowFunctionExpression') return 'function';
+  const initObj = init as Record<string, unknown>;
+  if (initObj.type === 'NumericLiteral') return 'number';
+  if (initObj.type === 'StringLiteral') return 'string';
+  if (initObj.type === 'BooleanLiteral') return 'boolean';
+  if (initObj.type === 'ArrayExpression') return 'array';
+  if (initObj.type === 'ObjectExpression') return 'object';
+  if (initObj.type === 'FunctionExpression' || initObj.type === 'ArrowFunctionExpression') return 'function';
   return 'unknown';
 }
 
-function inferInitialValue(init: any): any {
+function inferInitialValue(init: Node | undefined): unknown {
   if (!init) return undefined;
-  if (init.type === 'NumericLiteral') return init.value;
-  if (init.type === 'StringLiteral') return init.value;
-  if (init.type === 'BooleanLiteral') return init.value;
-  if (init.type === 'ArrayExpression') return [];
-  if (init.type === 'ObjectExpression') return {};
+  const initObj = init as Record<string, unknown>;
+  if (initObj.type === 'NumericLiteral') return initObj.value;
+  if (initObj.type === 'StringLiteral') return initObj.value;
+  if (initObj.type === 'BooleanLiteral') return initObj.value;
+  if (initObj.type === 'ArrayExpression') return [];
+  if (initObj.type === 'ObjectExpression') return {};
   return undefined;
 }
 

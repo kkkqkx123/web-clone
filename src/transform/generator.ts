@@ -1,5 +1,20 @@
 import type { CorrelatedComponent } from './types.js';
-import type { ComponentSpec, ComponentManifest } from '../types.js';
+import type { ComponentSpec, ComponentManifest, StateVariable, EventBinding, MigrationTodo } from '../types.js';
+
+interface StateMapEntry {
+  type: string;
+  initial: unknown;
+  bindings: string[];
+  mutators: string[];
+  confidence: number;
+}
+
+interface EventMapEntry {
+  event: string;
+  handler: string;
+  selector: string;
+  nativeEvent?: boolean;
+}
 
 export function generateComponentStructure(
   correlated: Map<string, CorrelatedComponent>,
@@ -100,8 +115,8 @@ function estimateEffort(comp: CorrelatedComponent): { effort: string; breakdown:
   };
 }
 
-function buildStateMap(stateVars: any[]): Record<string, any> {
-  const map: Record<string, any> = {};
+function buildStateMap(stateVars: StateVariable[]): Record<string, StateMapEntry> {
+  const map: Record<string, StateMapEntry> = {};
   stateVars.forEach(sv => {
     map[sv.name] = {
       type: sv.type,
@@ -114,8 +129,8 @@ function buildStateMap(stateVars: any[]): Record<string, any> {
   return map;
 }
 
-function buildEventMap(events: any[]): Record<string, any> {
-  const map: Record<string, any> = {};
+function buildEventMap(events: EventBinding[]): Record<string, EventMapEntry> {
+  const map: Record<string, EventMapEntry> = {};
   let index = 0;
   events.forEach(event => {
     const key = event.handler || `event_${index++}`;
@@ -123,15 +138,15 @@ function buildEventMap(events: any[]): Record<string, any> {
       event: event.event,
       handler: event.handler,
       selector: event.selector,
-      nativeEvent: event.nativeEvent || false
+      nativeEvent: event.preventDefault || false
     };
   });
   return map;
 }
 
-function enrichTodos(comp: CorrelatedComponent) {
+function enrichTodos(comp: CorrelatedComponent): (MigrationTodo & { context: string })[] {
   const todos = comp.logic?.todos || [];
-  const enriched = todos.map((t: any) => ({
+  const enriched = todos.map((t: MigrationTodo) => ({
     ...t,
     context: `In ${comp.type} component '${comp.name}'`
   }));

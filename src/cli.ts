@@ -6,6 +6,30 @@ import { snapshot, convertLocalSnapshot } from './assembler.js';
 import { type SnapshotOptions } from './types.js';
 import { DEFAULT_MAX_FILE_SIZE } from './validators.js';
 
+interface CommandOptions {
+  output: string;
+  mode: string;
+  maxAssets: string;
+  concurrency: string;
+  timeout: string;
+  retryCount: string;
+  inline: boolean;
+  pretty: boolean;
+  extractComponents: boolean;
+  componentDepth?: string;
+  framework?: string;
+  extractLogic: string;
+  memoryLimit: string;
+  codegenFramework?: string;
+  codegenTypescript: string;
+  codegenCssModules: string;
+  codegenGenerateDrafts: string;
+  codegenExtractShared: string;
+  skipTypes?: string;
+  maxFileSize?: string;
+  convertLocal?: string;
+}
+
 const program = new Command();
 
 program
@@ -33,7 +57,7 @@ program
   .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4,.ts"); empty to disable filtering')
   .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
-  .action(async (url: string, opts: Record<string, any>) => {
+  .action(async (url: string, opts: CommandOptions) => {
     const isLocal = !!opts.convertLocal;
 
     // When --convert-local is used, default output to the same directory
@@ -58,7 +82,7 @@ program
     // Component extraction options apply when --extract-components or --convert-local is specified
     if (options.extractComponents) {
       options.componentDepth = opts.componentDepth ? parseInt(opts.componentDepth, 10) : undefined;
-      options.frameworkHint = opts.framework as any;
+      options.frameworkHint = (opts.framework || undefined) as 'vue' | 'react' | 'svelte' | undefined;
       options.extractLogic = opts.extractLogic !== 'false';
 
       // Framework code generation options
@@ -123,8 +147,9 @@ program
           console.log(chalk.yellow(`\n  ⚠ ${result.stats.failed} asset(s) failed to download`));
         }
       }
-    } catch (err: any) {
-      console.error(chalk.red(`\n✗ Error: ${err.message}`));
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error(chalk.red(`\n✗ Error: ${error.message}`));
       process.exit(1);
     }
   });

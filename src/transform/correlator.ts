@@ -1,15 +1,25 @@
 import type { HtmlAnalysisResult, CssAnalysisResult, JsAnalysisResult, CorrelatedComponent } from './types.js';
 
+// ── Type aliases for lightweight element proxies ──────────────────
+type ComponentRoot = HtmlAnalysisResult['componentRoots'][number];
+type Element = ComponentRoot['element'];
+
+interface LogicAnalysis {
+  state?: unknown[];
+  events?: unknown[];
+  methods?: unknown[];
+  todos?: unknown[];
+  lifecycles?: Record<string, unknown>;
+}
+
 export function correlateComponents(
   html: HtmlAnalysisResult,
   css: CssAnalysisResult,
   js: JsAnalysisResult
 ): Map<string, CorrelatedComponent> {
   const components = new Map<string, CorrelatedComponent>();
-  // Counter to generate unique keys for children with duplicate names
-  let childIndex = 0;
 
-  function processRoot(root: any, parentDepth: number = -1) {
+  function processRoot(root: ComponentRoot) {
     const styles = matchStyles(root, css);
     const logic = matchLogic(root, js);
     const componentType = inferComponentType(logic);
@@ -30,18 +40,8 @@ export function correlateComponents(
       matchConfidence
     };
 
-    // Use a unique key to prevent overwriting when sibling components share the same name.
-    // Top-level components use their name directly; children use name + depth + index.
-    const isTopLevel = parentDepth === -1;
-    const key = isTopLevel
-      ? root.name
-      : `${root.name}_d${root.depth}_${childIndex++}`;
-    components.set(key, comp);
-
-    // Process nested children
-    if (root.children && Array.isArray(root.children)) {
-      root.children.forEach((child: any) => processRoot(child, root.depth));
-    }
+    // Use the component name as key
+    components.set(root.name, comp);
   }
 
   html.componentRoots.forEach(root => processRoot(root));
@@ -49,11 +49,11 @@ export function correlateComponents(
   return components;
 }
 
-function matchStyles(root: any, css: CssAnalysisResult) {
+function matchStyles(root: ComponentRoot, css: CssAnalysisResult) {
   const classes = getElementClasses(root.element);
   const id = root.element.id;
   const tag = root.element.tagName?.toLowerCase() || '';
-  const matched: any[] = [];
+  const matched: string[] = [];
   const matchSignals: number[] = []; // Track individual signal strengths
 
   // Match by class names (BEM support)
@@ -85,8 +85,14 @@ function matchStyles(root: any, css: CssAnalysisResult) {
   // Match by CSS descendant/child combinators
   const selectors = Object.keys(css.componentStyles);
   selectors.forEach(sel => {
-    if ((sel.includes(tag) || classes.some(c => sel.includes(c))) && !matched.includes(css.componentStyles[sel])) {
-      matched.push(...css.componentStyles[sel]);
+    const styles = css.componentStyles[sel];
+    // Only add if we haven't already added this selector's styles
+    if ((sel.includes(tag) || classes.some(c => sel.includes(c)))) {
+      for (const style of styles) {
+        if (!matched.includes(style)) {
+          matched.push(style);
+        }
+      }
       matchSignals.push(0.15); // Weak-medium signal: combinator match
     }
   });
@@ -116,11 +122,11 @@ function matchStyles(root: any, css: CssAnalysisResult) {
   };
 }
 
-function matchLogic(root: any, js: JsAnalysisResult) {
+function matchLogic(root: ComponentRoot, js: JsAnalysisResult) {
   const refs = getElementRefs(root.element);
 
   if (js.methods.length === 0 && js.state.length === 0 && js.events.length === 0) {
-    return null;
+    return undefined;
   }
 
   // Try to match state/methods/events by element references
@@ -149,11 +155,10 @@ function matchLogic(root: any, js: JsAnalysisResult) {
     state: matchedState.length > 0 ? matchedState : js.state,
     methods: matchedMethods.length > 0 ? matchedMethods : js.methods,
     events: matchedEvents.length > 0 ? matchedEvents : js.events,
-    todos: js.todos
   };
 }
 
-function inferComponentType(logic: any): 'stateful' | 'presentational' | 'unknown' {
+function inferComponentType(logic: LogicAnalysis | null): 'stateful' | 'presentational' | 'unknown' {
   if (!logic) return 'unknown';
 
   const hasState = logic.state && logic.state.length > 0;
@@ -165,12 +170,12 @@ function inferComponentType(logic: any): 'stateful' | 'presentational' | 'unknow
   return 'unknown';
 }
 
-function getElementClasses(el: any): string[] {
+function getElementClasses(el: Element): string[] {
   if (!el.className) return [];
   return el.className.split(' ').filter((c: string) => c && c.length > 0);
 }
 
-function getElementRefs(el: any): string[] {
+function getElementRefs(el: Element): string[] {
   const refs: string[] = [];
   if (el.id) refs.push(`#${el.id}`);
   const classes = getElementClasses(el);
@@ -179,7 +184,7 @@ function getElementRefs(el: any): string[] {
   return refs;
 }
 
-function getOuterHtml(el: any): string {
+function getOuterHtml(el: Element): string {
   try {
     return el.outerHTML || el.toString();
   } catch {

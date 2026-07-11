@@ -5,6 +5,17 @@ import { analyzeJavaScript } from './transform/js-analyzer.js';
 import { correlateComponents } from './transform/correlator.js';
 import { generateComponentStructure } from './transform/generator.js';
 
+interface MemoryBudget {
+  htmlStrategy?: 'streaming' | 'full';
+  cssStrategy?: 'skip' | 'head' | 'full';
+  jsStrategy?: 'skip' | 'head' | 'full';
+}
+
+interface HtmlAnalysisOptions {
+  depth?: number;
+  maxTagScan?: number;
+}
+
 export async function convert(
   html: string,
   css: string,
@@ -12,10 +23,10 @@ export async function convert(
   options: SnapshotOptions
 ): Promise<ConvertResult> {
   // Memory budget downgrade strategy
-  const budget = (options as any).memoryBudget;
+  const budget = (options as SnapshotOptions & { memoryBudget?: MemoryBudget }).memoryBudget;
 
   // Phase 1: Parallel analysis (CPU-bound, wrapped in microtasks to yield event loop)
-  const htmlOptions: any = {
+  const htmlOptions: HtmlAnalysisOptions = {
     depth: options.componentDepth,
   };
   if (budget) {
@@ -57,7 +68,7 @@ export async function convert(
   const components = generateComponentStructure(correlated);
 
   // Build component tree (simplified)
-  const componentTree: Record<string, any> = {};
+  const componentTree: Record<string, unknown> = {};
   components.forEach((comp, name) => {
     componentTree[name] = {
       type: comp.type,
