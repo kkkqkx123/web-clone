@@ -1,7 +1,44 @@
 import { extname } from 'node:path';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest, type RequestOptions } from 'node:https';
+import type { Agent, IncomingMessage } from 'node:http';
+import { HttpProxyAgent } from 'http-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { isValidCachedResponse, mimeFromExt, checkResourceFilter } from './validators.js';
 import { type AssetType, type Asset, type AssetRef, type SnapshotOptions, MAX_INLINE_SIZE } from './types.js';
 import { runPool } from './worker/pool.js';
+
+const MAX_REDIRECTS = 10;
+
+/**
+ * Resolve proxy agent for a given URL based on environment variables.
+ * Supports HTTPS_PROXY / HTTP_PROXY / NO_PROXY (and lowercase variants).
+ */
+function resolveProxyAgent(url: string): Agent | undefined {
+  const urlObj = new URL(url);
+  const host = urlObj.hostname;
+  const isHttps = urlObj.protocol === 'https:';
+
+  const noProxy = process.env.NO_PROXY ?? process.env.no_proxy ?? '';
+  if (noProxy) {
+    const noProxyList = noProxy.split(',').map(s => s.trim());
+    if (noProxyList.some((p: string) => host === p || host.endsWith('.' + p))) {
+      return undefined; // bypass proxy
+    }
+  }
+
+  const proxyUrl = isHttps
+    ? (process.env.HTTPS_PROXY ?? process.env.https_proxy ?? process.env.HTTP_PROXY ?? process.env.http_proxy ?? '')
+    : (process.env.HTTP_PROXY ?? process.env.http_proxy ?? process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '');
+
+  if (!proxyUrl) return undefined;
+
+  // HttpsProxyAgent for HTTPS targets (CONNECT tunnel through HTTP proxy)
+  // HttpProxyAgent for HTTP targets (direct proxy forwarding)
+  return isHttps
+    ? new HttpsProxyAgent(proxyUrl) as unknown as Agent
+    : new HttpProxyAgent(proxyUrl) as unknown as Agent;
+}
 
 export interface FetchResult {
   buffer: Buffer;
@@ -25,80 +62,124 @@ function validateUrlScheme(url: string): void {
   }
 }
 
-export async function fetchWithTimeout(url: string, timeout: number, referer?: string, maxSize?: number): Promise<FetchResult> {
+/**
+ * Normalize a single header value from http.IncomingHttpHeaders to string.
+ */
+function headerValue(val: string | string[] | undefined): string {
+  if (Array.isArray(val)) return val[0];
+  return val ?? '';
+}
+
+export async function fetchWithTimeout(
+  url: string,
+  timeout: number,
+  referer?: string,
+  maxSize?: number,
+  redirectCount = 0,
+): Promise<FetchResult> {
   validateUrlScheme(url);
+
+  const urlObj = new URL(url);
+  const isHttps = urlObj.protocol === 'https:';
+  const requestFn = isHttps ? httpsRequest : httpRequest;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
+  return new Promise<FetchResult>((resolve, reject) => {
+    const proxyAgent = resolveProxyAgent(url);
+
+    const options: RequestOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (isHttps ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         ...(referer ? { Referer: referer } : {}),
       },
+      signal: controller.signal,
+      agent: proxyAgent,
+    };
+
+    const req = requestFn(options, (res: IncomingMessage) => {
+      const statusCode = res.statusCode ?? 0;
+
+      // Handle redirects (up to MAX_REDIRECTS)
+      if (statusCode >= 300 && statusCode < 400 && res.headers.location) {
+        clearTimeout(timer);
+        const redirectUrl = new URL(res.headers.location, url).href;
+        if (redirectCount >= MAX_REDIRECTS) {
+          reject(new Error(`Too many redirects for ${url}`));
+          return;
+        }
+        // Consume the response body to free memory, then follow redirect
+        res.resume();
+        fetchWithTimeout(redirectUrl, timeout, referer, maxSize, redirectCount + 1)
+          .then(resolve, reject);
+        return;
+      }
+
+      // Check Content-Length header before reading
+      if (maxSize && maxSize > 0) {
+        const cl = res.headers['content-length'];
+        if (cl) {
+          const size = parseInt(Array.isArray(cl) ? cl[0] : cl, 10);
+          if (!isNaN(size) && size > maxSize) {
+            clearTimeout(timer);
+            res.resume(); // drain to prevent memory leak
+            reject(new SizeLimitError(size, maxSize));
+            return;
+          }
+        }
+      }
+
+      const chunks: Buffer[] = [];
+      let totalLength = 0;
+
+      res.on('data', (chunk: Buffer) => {
+        totalLength += chunk.length;
+        if (maxSize && maxSize > 0 && totalLength > maxSize) {
+          clearTimeout(timer);
+          controller.abort();
+          req.destroy();
+          reject(new SizeLimitError(totalLength, maxSize));
+          return;
+        }
+        chunks.push(chunk);
+      });
+
+      res.on('end', () => {
+        clearTimeout(timer);
+        const buffer = Buffer.concat(chunks);
+        const contentType = headerValue(res.headers['content-type']) || mimeFromExt(url);
+
+        resolve({
+          buffer,
+          mime: contentType,
+          status: statusCode,
+          ok: statusCode >= 200 && statusCode < 300,
+          isHtmlLike: contentType.includes('text/html'),
+        });
+      });
+
+      res.on('error', (err: Error) => {
+        clearTimeout(timer);
+        reject(err);
+      });
     });
 
-    // Avoid unnecessary downloads by checking the Content-Length header first!
-    if (maxSize && maxSize > 0) {
-      const cl = response.headers.get('content-length');
-      if (cl) {
-        const size = parseInt(cl, 10);
-        if (!isNaN(size) && size > maxSize) {
-          throw new SizeLimitError(size, maxSize);
-        }
+    req.on('error', (err: Error) => {
+      clearTimeout(timer);
+      if (err.name === 'AbortError' || (err as any).code === 'ABORT_ERR') {
+        reject(new Error(`Timeout after ${timeout}ms`));
+      } else {
+        reject(err);
       }
-    }
+    });
 
-    // Streaming reads, checking size as it downloads and breaking immediately when it exceeds the limit
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('No response body');
-    }
-
-    const chunks: Uint8Array[] = [];
-    let totalLength = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      if (value) {
-        totalLength += value.length;
-        // Check the size of the data block each time it is received and interrupt immediately if it exceeds the limit
-        if (maxSize && maxSize > 0 && totalLength > maxSize) {
-          controller.abort();
-          throw new SizeLimitError(totalLength, maxSize);
-        }
-        chunks.push(value);
-      }
-    }
-
-    // Merge all data blocks into a single Buffer
-    const totalBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      totalBuffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-    const buffer = Buffer.from(totalBuffer);
-
-    return {
-      buffer,
-      mime: response.headers.get('content-type') || mimeFromExt(url),
-      status: response.status,
-      ok: response.ok,
-      isHtmlLike: response.headers.get('content-type')?.includes('text/html') || false,
-    };
-  } catch (err: unknown) {
-    if (err instanceof SizeLimitError) throw err;
-    const message = err instanceof Error ? err.message : String(err);
-    const name = err instanceof Error ? err.name : '';
-    throw new Error(name === 'AbortError' ? `Timeout after ${timeout}ms` : message, { cause: err });
-  } finally {
-    clearTimeout(timer);
-  }
+    req.end();
+  });
 }
 
 /**

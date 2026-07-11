@@ -167,6 +167,38 @@ HTML analysis → CSS analysis → JS analysis → correlation analysis → gene
 | `src/transform/generator.ts` | Component specification generation |
 | `src/transform/framework-codegen/` | Multi-framework code generators |
 
+## Platform Notes
+
+### PowerShell Parameter Passing
+
+In PowerShell, `--` needs to be quoted to be passed correctly to npm:
+
+```powershell
+# Correct: '--' with quotes
+npm run dev '--' "https://example.com" -o ./snapshot
+
+# Incorrect (PowerShell only): -- will be intercepted by PowerShell
+npm run dev -- https://example.com -o ./snapshot
+```
+
+It is recommended to use `npx tsx` directly (not subject to this limitation):
+
+```powershell
+npx tsx src/cli.ts "https://example.com" -o ./snapshot
+```
+
+### Proxy Configuration
+
+If you are using clash/v2ray/corporate proxy for internet access, the tool will automatically read the `HTTPS_PROXY` / `HTTP_PROXY` environment variables.
+
+```powershell
+# Temporary setting
+$env:HTTPS_PROXY="http://127.0.0.1:7890"
+npx tsx src/cli.ts "https://example.com" -o ./snapshot
+```
+
+See [docs/proxy.md](./docs/proxy.md) for more information.
+
 ## Usage Examples
 
 ### Basic Snapshot

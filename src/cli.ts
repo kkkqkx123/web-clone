@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { bootstrap } from 'global-agent';
-bootstrap();
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { snapshot, convertLocalSnapshot } from './assembler.js';

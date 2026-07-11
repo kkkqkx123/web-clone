@@ -27,6 +27,9 @@ npm run build
 node dist/cli.js https://example.com -o ./snapshot
 ```
 
+> **PowerShell users**: Use `npm run dev '--' <url>` (quote `--`) or `npx tsx src/cli.ts <url>` instead.
+> **Proxy users**: The tool automatically detects `HTTPS_PROXY`/`HTTP_PROXY` env vars. See [docs/proxy.md](docs/proxy.md).
+
 ## CLI Usage
 
 ```bash
@@ -209,6 +212,26 @@ Optional component extraction pipeline:
 - Correlate components with styles and logic
 - Generate component specs with confidence scores
 - Output framework-specific code (optional)
+
+## Platform Notes
+
+### PowerShell
+
+The `--` separator must be quoted to avoid PowerShell's stop-parsing:
+
+```powershell
+npm run dev '--' "https://example.com" -o ./snapshot
+```
+
+Or use `npx tsx` directly:
+
+```powershell
+npx tsx src/cli.ts "https://example.com" -o ./snapshot
+```
+
+### Proxy
+
+The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables for all HTTP(S) requests. See [docs/proxy.md](docs/proxy.md) for details.
 
 ## Development
 

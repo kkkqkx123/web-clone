@@ -1,5 +1,8 @@
 # 命令参考
 
+> **PowerShell 用户注意**：`--` 需要加引号，见下方说明。
+> **代理用户注意**：工具自动读取 `HTTPS_PROXY`/`HTTP_PROXY` 环境变量，见 [proxy.md](./proxy.md)。
+
 ## 入口命令
 
 ```bash
@@ -21,6 +24,24 @@ node dist/cli.js <url> [options]
 | `npm run build` | TypeScript 编译到 `dist/` |
 | `npm run dev -- <url>` | 直接通过 tsx 运行快照 |
 | `npm run snapshot -- <url>` | 同上，别名 |
+
+## PowerShell 兼容性
+
+在 **PowerShell** 中，`--` 是 stop-parsing 符号，会被 PowerShell 自身截获而不会传递给 npm。需加上引号：
+
+```powershell
+# ✅ 正确
+npm run dev '--' "https://example.com" -o ./snapshot
+
+# ❌ 错误，-- 会被 PowerShell 吃掉
+npm run dev -- https://example.com -o ./snapshot
+```
+
+**推荐方案**：绕过 npm，直接使用 `npx tsx` 运行（不受 PowerShell 参数解析影响）：
+
+```powershell
+npx tsx src/cli.ts "https://example.com" -o ./snapshot
+```
 
 ## CLI 选项
 
