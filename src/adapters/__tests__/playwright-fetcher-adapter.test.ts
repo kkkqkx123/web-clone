@@ -628,4 +628,168 @@ describe('PlaywrightFetcherAdapter', () => {
       expect(result2.buffer.toString()).toBe('<html>2</html>');
     });
   });
+
+  describe('State Management (saveState/loadState)', () => {
+    beforeEach(() => {
+      vi.resetModules();
+    });
+
+    it('should save state to file', async () => {
+      const fsMock = {
+        mkdir: vi.fn().mockResolvedValue(undefined),
+        writeFile: vi.fn().mockResolvedValue(undefined),
+      };
+
+      vi.doMock('node:fs/promises', () => fsMock);
+
+      const stateData = {
+        cookies: [
+          { name: 'session', value: 'abc123', domain: 'example.com', path: '/', secure: true },
+        ],
+        origins: [
+          {
+            origin: 'https://example.com',
+            localStorage: [{ name: 'auth_token', value: 'token123' }],
+          },
+        ],
+      };
+
+      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce(stateData);
+
+      await adapter.saveState('/tmp/test-state.json');
+
+      expect(fsMock.mkdir).toHaveBeenCalledWith('/tmp', { recursive: true });
+      expect(fsMock.writeFile).toHaveBeenCalled();
+      const [path, content] = vi.mocked(fsMock.writeFile).mock.calls[0];
+      expect(path).toBe('/tmp/test-state.json');
+      expect(JSON.parse(content as string)).toEqual(stateData);
+
+      vi.doUnmock('node:fs/promises');
+    });
+
+    it('should handle saveState file write errors', async () => {
+      const fsMock = {
+        mkdir: vi.fn().mockResolvedValue(undefined),
+        writeFile: vi.fn().mockRejectedValue(new Error('Permission denied')),
+      };
+
+      vi.doMock('node:fs/promises', () => fsMock);
+      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({});
+
+      await expect(adapter.saveState('/root/state.json')).rejects.toThrow(
+        'Failed to save state to /root/state.json'
+      );
+
+      vi.doUnmock('node:fs/promises');
+    });
+
+    it('should load state from file', async () => {
+      const stateData = {
+        cookies: [
+          { name: 'session', value: 'abc123', domain: 'example.com', path: '/', secure: true },
+        ],
+        origins: [
+          {
+            origin: 'https://example.com',
+            localStorage: [{ name: 'auth_token', value: 'token123' }],
+          },
+        ],
+      };
+
+      const fsMock = {
+        readFile: vi.fn().mockResolvedValue(JSON.stringify(stateData)),
+      };
+
+      vi.doMock('node:fs/promises', () => fsMock);
+
+      const addCookiesMock = vi.fn().mockResolvedValue(undefined);
+      const tempPageMock = {
+        goto: vi.fn().mockResolvedValue({}),
+        evaluate: vi.fn().mockResolvedValue(undefined),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      const contextWithAddCookies = {
+        ...mockContext,
+        addCookies: addCookiesMock,
+        newPage: vi.fn().mockResolvedValue(tempPageMock),
+      };
+
+      const adapterWithMockContext = new PlaywrightFetcherAdapter(
+        mockPage,
+        contextWithAddCookies as any
+      );
+
+      await adapterWithMockContext.loadState('/tmp/test-state.json');
+
+      expect(fsMock.readFile).toHaveBeenCalledWith('/tmp/test-state.json', 'utf-8');
+      expect(addCookiesMock).toHaveBeenCalledWith(stateData.cookies);
+
+      vi.doUnmock('node:fs/promises');
+    });
+
+    it('should handle loadState file read errors', async () => {
+      const fsMock = {
+        readFile: vi.fn().mockRejectedValue(new Error('File not found')),
+      };
+
+      vi.doMock('node:fs/promises', () => fsMock);
+
+      await expect(adapter.loadState('/nonexistent/state.json')).rejects.toThrow(
+        'Failed to load state from /nonexistent/state.json'
+      );
+
+      vi.doUnmock('node:fs/promises');
+    });
+
+    it('should return correct state summary', async () => {
+      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
+        cookies: [
+          { name: 'c1', value: 'v1', domain: '', path: '' },
+          { name: 'c2', value: 'v2', domain: '', path: '' },
+        ],
+        origins: [
+          {
+            origin: 'https://example.com',
+            localStorage: [
+              { name: 'token', value: 'abc' },
+              { name: 'user', value: 'john' },
+            ],
+          },
+          {
+            origin: 'https://api.example.com',
+            localStorage: [{ name: 'api_key', value: 'xyz' }],
+          },
+        ],
+      });
+
+      const summary = await adapter.getStateSummary();
+
+      expect(summary.cookieCount).toBe(2);
+      expect(summary.localStorageCount).toBe(3);
+      expect(summary.origins).toEqual(['https://example.com', 'https://api.example.com']);
+    });
+
+    it('should handle empty state', async () => {
+      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
+        cookies: [],
+        origins: [],
+      });
+
+      const summary = await adapter.getStateSummary();
+
+      expect(summary.cookieCount).toBe(0);
+      expect(summary.localStorageCount).toBe(0);
+      expect(summary.origins).toEqual([]);
+    });
+
+    it('should handle null storageState', async () => {
+      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce(null);
+
+      const summary = await adapter.getStateSummary();
+
+      expect(summary.cookieCount).toBe(0);
+      expect(summary.localStorageCount).toBe(0);
+      expect(summary.origins).toEqual([]);
+    });
+  });
 });

@@ -5,7 +5,13 @@
 
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { BrowserContextOptions, LaunchOptions, Page, BrowserContext } from 'playwright';
+import type {
+  BrowserContextOptions,
+  LaunchOptions,
+  Page,
+  BrowserContext,
+} from 'playwright';
+import type { PlaywrightFetcherAdapter } from '../adapters/playwright-fetcher-adapter.js';
 
 /**
  * Parse CLI options into Playwright launch configuration
@@ -76,11 +82,66 @@ export async function loadAuthScript(
 export function shouldUsePlaywright(opts: Record<string, any>): boolean {
   return (
     opts.usePlaywright === true ||
-    opts.authScript ||
-    opts.loadState ||
-    opts.headless !== undefined ||
-    opts.proxy ||
-    opts.userAgent ||
-    opts.viewport
+    Boolean(opts.authScript) ||
+    Boolean(opts.loadState) ||
+    Boolean(opts.proxy) ||
+    Boolean(opts.userAgent) ||
+    Boolean(opts.viewport)
   );
+}
+
+/**
+ * Save authentication state from adapter to file
+ *
+ * Saves cookies and localStorage to a JSON file for later reuse.
+ * Prints summary of saved state to console.
+ *
+ * @param statePath - File path to save state to
+ * @param adapter - PlaywrightFetcherAdapter instance with state to save
+ */
+export async function saveAuthState(
+  statePath: string,
+  adapter: PlaywrightFetcherAdapter
+): Promise<void> {
+  try {
+    await adapter.saveState(statePath);
+    console.log(`✓ State saved to: ${statePath}`);
+
+    // Print state summary
+    const summary = await adapter.getStateSummary();
+    console.log(`  Cookies: ${summary.cookieCount}`);
+    console.log(`  LocalStorage items: ${summary.localStorageCount}`);
+    if (summary.origins.length > 0) {
+      console.log(`  Origins: ${summary.origins.join(', ')}`);
+    }
+  } catch (error) {
+    console.warn(`✗ Failed to save state: ${error}`);
+  }
+}
+
+/**
+ * Load authentication state from file into adapter
+ *
+ * Restores cookies and localStorage from a previously saved state file.
+ *
+ * @param statePath - File path to load state from
+ * @param adapter - PlaywrightFetcherAdapter instance to load state into
+ * @throws Error if state file cannot be loaded
+ */
+export async function loadAuthState(
+  statePath: string,
+  adapter: PlaywrightFetcherAdapter
+): Promise<void> {
+  try {
+    await adapter.loadState(statePath);
+    console.log(`✓ State loaded from: ${statePath}`);
+
+    // Print loaded state summary
+    const summary = await adapter.getStateSummary();
+    console.log(`  Cookies: ${summary.cookieCount}`);
+    console.log(`  LocalStorage items: ${summary.localStorageCount}`);
+  } catch (error) {
+    console.warn(`✗ Failed to load state: ${error}`);
+    throw error; // Fail if loading state, it's critical
+  }
 }

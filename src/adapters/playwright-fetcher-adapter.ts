@@ -349,11 +349,137 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
   }
 
   /**
+   * Save authentication state to file
+   *
+   * Includes cookies, localStorage, and sessionStorage from all origins.
+   * The state file is JSON format and can be loaded later to restore authentication.
+   *
+   * @param path - File path to save state to
+   * @throws Error if save fails
+   */
+  async saveState(path: string): Promise<void> {
+    const fs = await import('fs/promises');
+    const { dirname } = await import('path');
+
+    try {
+      // Get complete state from context
+      const state = await this.context.storageState();
+
+      // Ensure directory exists
+      const dir = dirname(path);
+      try {
+        await fs.mkdir(dir, { recursive: true });
+      } catch {
+        // Directory already exists or couldn't create
+      }
+
+      // Write state file
+      await fs.writeFile(path, JSON.stringify(state, null, 2), 'utf-8');
+    } catch (error) {
+      throw new Error(`Failed to save state to ${path}: ${error}`);
+    }
+  }
+
+  /**
+   * Load authentication state from file
+   *
+   * Restores cookies and localStorage from a previously saved state.
+   *
+   * @param path - File path to load state from
+   * @throws Error if load or restore fails
+   */
+  async loadState(path: string): Promise<void> {
+    const fs = await import('fs/promises');
+
+    try {
+      // Read state file
+      const content = await fs.readFile(path, 'utf-8');
+      const state = JSON.parse(content);
+
+      // Restore cookies
+      if (state.cookies && Array.isArray(state.cookies)) {
+        await (this.context as any).addCookies(state.cookies);
+      }
+
+      // Restore localStorage and sessionStorage
+      if (state.origins && Array.isArray(state.origins)) {
+        for (const origin of state.origins) {
+          if (origin.localStorage && Array.isArray(origin.localStorage)) {
+            // Create a temporary page to inject localStorage
+            const tempPage = await this.context.newPage();
+            try {
+              // Navigate to origin to set localStorage in correct context
+              await tempPage.goto(origin.origin, { waitUntil: 'domcontentloaded' }).catch(() => {
+                // Ignore navigation errors, we just need the context
+              });
+
+              // Inject localStorage items
+              await (tempPage as any).evaluate((items: any[]) => {
+                for (const { name, value } of items) {
+                  localStorage.setItem(name, value);
+                }
+              }, origin.localStorage);
+            } finally {
+              await tempPage.close();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error(`Failed to load state from ${path}: ${error}`);
+    }
+  }
+
+  /**
+   * Get summary of current authentication state
+   *
+   * Returns counts of cookies, localStorage items, and list of origins.
+   * Useful for debugging and verifying state was loaded correctly.
+   *
+   * @returns Summary object with statistics
+   */
+  async getStateSummary(): Promise<{
+    cookieCount: number;
+    localStorageCount: number;
+    origins: string[];
+  }> {
+    const state = await this.context.storageState();
+
+    const cookieCount = state && typeof state === 'object' && 'cookies' in state
+      ? Array.isArray((state as any).cookies)
+        ? (state as any).cookies.length
+        : 0
+      : 0;
+
+    const localStorageCount = state && typeof state === 'object' && 'origins' in state
+      ? Array.isArray((state as any).origins)
+        ? (state as any).origins.reduce(
+          (sum: number, o: any) =>
+            sum + (Array.isArray(o.localStorage) ? o.localStorage.length : 0),
+          0
+        )
+        : 0
+      : 0;
+
+    const origins = state && typeof state === 'object' && 'origins' in state
+      ? Array.isArray((state as any).origins)
+        ? (state as any).origins.map((o: any) => o.origin)
+        : []
+      : [];
+
+    return {
+      cookieCount,
+      localStorageCount,
+      origins,
+    };
+  }
+
+  /**
    * Liquidation of resources
-   * 
+   *
    * Closes the pages managed by this adapter.
    * Browser contexts and browser instances are managed by the caller and are not released here.
-   * 
+   *
    * Description:
    * - Page object: created and managed by the adapter, dispose() closes the
    * - Browser context: managed by the caller, adapter only used

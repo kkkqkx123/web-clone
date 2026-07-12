@@ -4,7 +4,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { snapshot, convertLocalSnapshot, snapshotWithPlaywright } from './assembler.js';
 import { fromCommander, type CommanderOpts } from './config/index.js';
-import { loadAuthScript, parseViewport, shouldUsePlaywright } from './config/cli-helper.js';
+import {
+  loadAuthScript,
+  parseViewport,
+  shouldUsePlaywright,
+  saveAuthState,
+  loadAuthState,
+} from './config/cli-helper.js';
+import { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
 import type { SnapshotResult } from './types.js';
 import type { BrowserContextOptions, LaunchOptions } from 'playwright';
 
@@ -108,12 +115,14 @@ program
 program.parse(process.argv);
 
 /**
- * Perform Playwright-based snapshot with optional authentication
+ * Perform Playwright-based snapshot with optional authentication and state management
  */
 async function performPlaywrightSnapshot(
   options: any,
   opts: CommanderOpts
 ): Promise<SnapshotResult> {
+  const { chromium } = await import('playwright');
+
   // Parse Playwright options
   const launchOptions: LaunchOptions = {
     headless: opts.headless !== 'false',
@@ -133,25 +142,65 @@ async function performPlaywrightSnapshot(
     }
   }
 
-  // Load authentication script if provided
-  let setupAuth: ((page: any, context: any) => Promise<void>) | undefined;
-  if (opts.authScript) {
-    try {
-      const timeout = opts.authTimeout ? parseInt(opts.authTimeout, 10) : 30000;
-      console.log(chalk.gray(`  Loading auth script from: ${opts.authScript}`));
-      setupAuth = await loadAuthScript(opts.authScript, timeout);
-    } catch (err) {
-      throw new Error(`Failed to load auth script: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  // Perform snapshot with Playwright
+  // Launch browser
   console.log(chalk.gray('  Starting Playwright browser...'));
-  return snapshotWithPlaywright(options.url, options, {
-    browserLaunchOptions: launchOptions,
-    contextOptions,
-    setupAuth,
-  });
+  const browser = await chromium.launch(launchOptions);
+
+  try {
+    const context = await browser.newContext(contextOptions);
+
+    try {
+      // Create adapter to manage state
+      const page = await context.newPage();
+      const adapter = new PlaywrightFetcherAdapter(page, context);
+
+      // Load state if provided (before auth)
+      if (opts.loadState) {
+        console.log(chalk.gray(`  Loading state from: ${opts.loadState}`));
+        try {
+          await loadAuthState(opts.loadState, adapter);
+        } catch (err) {
+          throw new Error(`Failed to load state: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Load authentication script if provided (and state not loaded)
+      let setupAuth: ((page: any, context: any) => Promise<void>) | undefined;
+      if (opts.authScript && !opts.loadState) {
+        try {
+          const timeout = opts.authTimeout ? parseInt(opts.authTimeout, 10) : 30000;
+          console.log(chalk.gray(`  Loading auth script from: ${opts.authScript}`));
+          setupAuth = await loadAuthScript(opts.authScript, timeout);
+        } catch (err) {
+          throw new Error(`Failed to load auth script: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Perform snapshot with Playwright
+      const result = await snapshotWithPlaywright(options.url, options, {
+        browserLaunchOptions: launchOptions,
+        contextOptions,
+        setupAuth,
+      });
+
+      // Save state if requested
+      if (opts.saveState) {
+        console.log(chalk.gray(`  Saving state to: ${opts.saveState}`));
+        try {
+          await saveAuthState(opts.saveState, adapter);
+        } catch (err) {
+          console.warn(`Warning: Failed to save state: ${err}`);
+          // Don't fail the snapshot if state save fails
+        }
+      }
+
+      return result;
+    } finally {
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
 }
 
 function formatBytes(bytes: number): string {
