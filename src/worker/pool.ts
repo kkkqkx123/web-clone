@@ -80,8 +80,13 @@ export async function runPool<T>(
     await Promise.race([Promise.all(workers), timeoutGuard]);
     // If timeout fired, the timedOut flag is already set. Workers that are
     // in-flight will complete their current task naturally and then stop.
-    // Wait a brief moment for those in-flight tasks to settle.
+    // Wait for those in-flight tasks to settle, with output so the user
+    // knows the system is still working.
     if (timedOut) {
+      const inFlight = nextIndex - completedCount;
+      if (inFlight > 0) {
+        process.stdout.write(`  Pool timeout reached, waiting for ${inFlight} in-flight task(s) to complete...\n`);
+      }
       await Promise.all(workers);
     }
   } else {

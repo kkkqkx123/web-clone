@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { snapshot, convertLocalSnapshot, snapshotWithPlaywright } from './assembler.js';
-import { fromCommander, type CommanderOpts } from './config/index.js';
+import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
 import {
   loadAuthScript,
   parseViewport,
@@ -65,6 +65,14 @@ program
       console.log(chalk.cyan('\n◉ Web Snapshot\n'));
     }
 
+    // Print effective options for diagnostics
+    if (!isLocal) {
+      console.log(chalk.gray(`  Options: maxAssets=${options.maxAssets}, concurrency=${options.concurrency}, timeout=${options.timeout}ms, mode=${options.mode}`));
+      if (options.maxAssets === DEFAULTS.maxAssets) {
+        console.log(chalk.gray(`  Tip: use --max-assets <n> or set MAX_ASSETS env var to change the asset limit`));
+      }
+    }
+
     const startTime = Date.now();
 
     try {
@@ -110,6 +118,9 @@ program
       console.error(chalk.red(`\n✗ Error: ${error.message}`));
       process.exit(1);
     }
+    // Force exit to prevent idle sockets/agent timers from keeping the
+    // event loop alive (Node.js 19+ default keepAlive with freeSocketTimeout=30s).
+    process.exit(0);
   });
 
 program.parse(process.argv);

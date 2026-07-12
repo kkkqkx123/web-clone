@@ -57,6 +57,18 @@ async function fetchHtml(
     const result = await adapter.fetch(url, { timeout, maxSize });
     if (!result.ok) {
       process.stdout.write(`Warning: Origin returned HTTP ${result.status} for HTML page\n`);
+
+      // Handle 3xx status codes (redirects that weren't followed, 304 Not Modified, etc.)
+      if (result.status >= 300 && result.status < 400) {
+        if (result.buffer.length > 0) {
+          // Some servers return content with 3xx (e.g. 304 with cached body)
+          return result.buffer.toString('utf8');
+        }
+        process.stdout.write(`  HTTP ${result.status} with no content body — cannot proceed\n`);
+        return null;
+      }
+
+      // Handle 4xx/5xx: accept if the response is HTML-like (404 error page, 401 login form, etc.)
       if (result.status >= 400 && (result.isHtmlLike || isHtmlLike(result.buffer))) {
         return result.buffer.toString('utf8');
       }
@@ -335,7 +347,11 @@ async function snapshotInternal(
       }
     });
 
-    const cssResults = await runPool(cssTasks, { concurrency: Math.max(2, Math.min(options.concurrency, 5)) });
+    process.stdout.write(`Fetching ${cssRefs.length} external CSS file(s)...\n`);
+
+    const cssResults = await runPool(cssTasks, { concurrency: Math.max(2, Math.min(options.concurrency, 5)), timeoutMs: 60000 }, (_result, _idx, completedCount) => {
+      process.stdout.write(`  CSS ${completedCount}/${cssRefs.length}\n`);
+    });
 
     // Collect child refs sequentially (safe: no race conditions on allRefs)
     for (const r of cssResults) {

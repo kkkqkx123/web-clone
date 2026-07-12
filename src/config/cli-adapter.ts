@@ -2,6 +2,20 @@ import { DEFAULTS } from './defaults.js';
 import { safeInt, parseBool, parseCodegenFramework, parseFrameworkHint, parseFileSize, validateOptions } from './normalize.js';
 import type { SnapshotOptions } from './schema.js';
 
+/**
+ * Fallback to environment variable if the CLI value is still the default.
+ * This helps users on Windows where npm's `--` separator may not pass
+ * quoted arguments to the script correctly.
+ */
+function envFallback(name: string, cliValue: number): number {
+  const envVal = process.env[name];
+  if (envVal !== undefined) {
+    const n = parseInt(envVal, 10);
+    if (Number.isFinite(n)) return n;
+  }
+  return cliValue;
+}
+
 /** Raw key-value pairs produced by Commander (all strings). */
 export interface CommanderOpts {
   output: string;
@@ -55,8 +69,8 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
     url: isLocal ? (localPath ?? '') : (url ?? ''),
     output: outputPath || DEFAULTS.output,
     mode: (cmd.mode === 'single' ? 'single' : 'bundle'),
-    maxAssets: safeInt(cmd.maxAssets, DEFAULTS.maxAssets),
-    concurrency: safeInt(cmd.concurrency, DEFAULTS.concurrency),
+    maxAssets: envFallback('MAX_ASSETS', safeInt(cmd.maxAssets, DEFAULTS.maxAssets)),
+    concurrency: envFallback('CONCURRENCY', safeInt(cmd.concurrency, DEFAULTS.concurrency)),
     timeout: safeInt(cmd.timeout, DEFAULTS.timeout),
     retryCount: safeInt(cmd.retryCount, DEFAULTS.retryCount),
     retryInitialDelay: cmd.retryInitialDelay !== undefined ? safeInt(cmd.retryInitialDelay, DEFAULTS.retryInitialDelay) : DEFAULTS.retryInitialDelay,

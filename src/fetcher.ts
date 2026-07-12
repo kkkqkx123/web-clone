@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
-import { request as httpRequest } from 'node:http';
-import { request as httpsRequest, type RequestOptions } from 'node:https';
+import { request as httpRequest, Agent as HttpAgent } from 'node:http';
+import { request as httpsRequest, Agent as HttpsAgent, type RequestOptions } from 'node:https';
 import type { Agent, IncomingMessage } from 'node:http';
 import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -85,21 +85,29 @@ export async function fetchWithTimeout(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
+  timer.unref(); // Don't let the abort timer keep the event loop alive
 
   return new Promise<FetchResult>((resolve, reject) => {
     const proxyAgent = resolveProxyAgent(url);
+
+    // Use a dedicated Agent with keepAlive: false to prevent idle sockets
+    // from keeping the Node.js event loop alive (Node.js 19+ defaults to
+    // keepAlive: true with freeSocketTimeout: 30s).
+    const AgentClass = isHttps ? HttpsAgent : HttpAgent;
+    const httpAgent = proxyAgent || new AgentClass({ keepAlive: false, maxSockets: Infinity });
 
     const options: RequestOptions = {
       hostname: urlObj.hostname,
       port: urlObj.port || (isHttps ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: 'GET',
+      timeout,  // Socket-level timeout (fallback if AbortController signal doesn't work)
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         ...(referer ? { Referer: referer } : {}),
       },
       signal: controller.signal,
-      agent: proxyAgent,
+      agent: httpAgent,
     };
 
     const req = requestFn(options, (res: IncomingMessage) => {
@@ -167,6 +175,16 @@ export async function fetchWithTimeout(
         clearTimeout(timer);
         reject(err);
       });
+
+      // Guard: if the server closes the connection without firing 'end',
+      // the promise would hang forever (the AbortController may not always
+      // destroy the response stream). This handler ensures we always clean up.
+      res.on('close', () => {
+        clearTimeout(timer);
+        // Only reject if the promise hasn't settled yet
+        const err = new Error(`Connection closed prematurely for ${url}`);
+        reject(err);
+      });
     });
 
     req.on('error', (err: Error) => {
@@ -176,6 +194,14 @@ export async function fetchWithTimeout(
       } else {
         reject(err);
       }
+    });
+
+    // Socket timeout handler: the 'timeout' option above only sets the
+    // socket timeout timer — it does NOT destroy the socket. We must
+    // explicitly destroy it and reject the promise.
+    req.on('timeout', () => {
+      clearTimeout(timer);
+      req.destroy(new Error(`Socket timeout after ${timeout}ms for ${url}`));
     });
 
     req.end();
@@ -236,8 +262,17 @@ export async function downloadSingleAsset(
   const maxSize = options.maxFileSize ?? 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Track slow fetch so the user never sees a silent hang.
+    let slowWarningTimer: ReturnType<typeof setTimeout> | undefined;
+
     try {
+      slowWarningTimer = setTimeout(() => {
+        process.stdout.write(`  Waiting for response from ${ref.url}...\n`);
+      }, 2000);
+
       const result = await fetchWithTimeout(ref.url, options.timeout, referer, maxSize);
+      clearTimeout(slowWarningTimer);
+      slowWarningTimer = undefined;
 
       const ext = extname(new URL(ref.url).pathname) || '.bin';
       const filePath = `asset${ext}`;
@@ -248,18 +283,24 @@ export async function downloadSingleAsset(
       // Determine if the status code is acceptable
       // - Always accept 2xx
       // - Strict mode: require 2xx for all asset types
-      // - Lenient mode (default): For CSS/JS: accept 4xx/5xx if content is valid (likely error pages with actual CSS/JS content)
+      // - Lenient mode (default): For CSS/JS: accept 4xx/5xx if content is valid and not HTML (likely error pages with actual CSS/JS content)
+      // - For img/font: accept 4xx/5xx if content is valid (magic bytes or MIME check passes)
       // - For other types: always require 2xx
       const isAcceptableStatus = options.strictStatusCodes
         ? result.ok  // Strict: only 2xx
         : (result.ok ||
            (asset.type === 'css' && isContentValid && !result.isHtmlLike) ||
-           (asset.type === 'js' && isContentValid && !result.isHtmlLike));
+           (asset.type === 'js' && isContentValid && !result.isHtmlLike) ||
+           ((asset.type === 'img' || asset.type === 'font') && isContentValid));
 
       if (!isAcceptableStatus) {
-        asset.error = `HTTP ${result.status}`;
+        const detail = result.isHtmlLike
+          ? `HTML error page (${result.buffer.length} B)`
+          : `${result.mime} (${result.buffer.length} B)`;
+        asset.error = `HTTP ${result.status} ${detail}`;
         if (attempt < maxAttempts) {
           const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
+          process.stdout.write(`  Retry ${attempt}/${maxAttempts} for ${ref.url} (${asset.error}, retry in ${delay}ms)\n`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -268,9 +309,13 @@ export async function downloadSingleAsset(
       }
 
       if (!isContentValid) {
-        asset.error = 'Content validation failed';
+        const detail = result.isHtmlLike
+          ? `HTML content for ${ext} extension`
+          : `content type mismatch (${result.mime})`;
+        asset.error = `Content validation failed: ${detail}`;
         if (attempt < maxAttempts) {
           const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
+          process.stdout.write(`  Retry ${attempt}/${maxAttempts} for ${ref.url} (${asset.error}, retry in ${delay}ms)\n`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -284,7 +329,7 @@ export async function downloadSingleAsset(
       asset.statusCode = result.status;
 
       // Mark if this resource was accepted with non-2xx status code
-      if (!result.ok && (asset.type === 'css' || asset.type === 'js')) {
+      if (!result.ok && (asset.type === 'css' || asset.type === 'js' || asset.type === 'img' || asset.type === 'font')) {
         asset.acceptedWithWarning = true;
       }
 
@@ -300,6 +345,10 @@ export async function downloadSingleAsset(
 
       return asset;
     } catch (err: unknown) {
+      // Clear the slow-fetch timer if the fetch failed early
+      if (slowWarningTimer !== undefined) {
+        clearTimeout(slowWarningTimer);
+      }
       if (err instanceof SizeLimitError) {
         asset.status = 'skipped';
         asset.error = err.message;
@@ -309,6 +358,7 @@ export async function downloadSingleAsset(
       asset.error = message;
       if (attempt < maxAttempts) {
         const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
+        process.stdout.write(`  Retry ${attempt}/${maxAttempts} for ${ref.url} (${message}, retry in ${delay}ms)\n`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -331,19 +381,14 @@ export async function downloadAllAssets(
   // Wrap each download operation as a separate task factory function
   const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url));
 
-  // Calculate pool timeout more accurately
-  // Single resource can take: timeout * (retryCount + 1) + retry delays
-  const perResourceTimeoutMs = options.timeout * (options.retryCount + 1) + (options.retryCount * (options.retryMaxDelay ?? 2000));
-  // Estimate total time based on resource count and concurrency
-  const estimatedTotalMs = Math.min(
-    120 * 1000,  // Cap at 120s for safety
-    perResourceTimeoutMs * Math.ceil(Math.max(1, Math.min(total, options.maxAssets)) / options.concurrency)
-  );
-
+  // NOTE: Pool timeout is intentionally NOT set here.
+  // maxAssets limits the number of tasks via maxTasks. Each individual task
+  // has its own per-resource timeout (fetchWithTimeout's AbortController).
+  // An additional pool-level timeout would conflate the asset limit with
+  // a wall-clock deadline, causing premature truncation of downloads.
   const results = await runPool(tasks, {
     concurrency: options.concurrency,
     maxTasks: options.maxAssets,
-    timeoutMs: estimatedTotalMs,
   }, (asset, _idx, completedCount) => {
     onProgress?.(asset, completedCount, total);
   });

@@ -35,7 +35,7 @@ export function isValidCachedResponse(filePath: string, contentType: string, buf
   const ext = extname(filePath).toLowerCase();
   const ct = contentType.toLowerCase();
 
-  if (isHtmlLike(buffer) && ext !== '.html' && ext !== '') {
+  if (isHtmlLike(buffer) && ext !== '.html' && ext !== '' && ext !== '.bin') {
     return false;
   }
 
