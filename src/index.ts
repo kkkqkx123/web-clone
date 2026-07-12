@@ -1,19 +1,26 @@
 /**
  * web-clone library entry
- * 
- * Provides three main APIs:
- * 1. snapshot() - basic snapshot (HTTP direct pull)
- * 2. snapshotWithPlaywright() - Playwright snapshots (supports authentication)
- * 3. snapshotWithBrowserContext() - fine-grained control (manage your own browser)
- * 
- * also provides convertLocalSnapshot() for local conversion
+ *
+ * Provides two main APIs:
+ * 1. snapshot() - web page snapshot with HTTP fetcher
+ * 2. snapshot() with custom FetcherAdapter - advanced usage with Playwright/Puppeteer
+ *
+ * For Playwright integration, use the adapter directly:
+ *   import { snapshot } from 'web-clone';
+ *   import { PlaywrightFetcherAdapter } from 'web-clone/adapters';
+ *
+ *   const browser = await chromium.launch();
+ *   const context = await browser.newContext();
+ *   const page = await context.newPage();
+ *
+ *   // Your authentication logic here
+ *   const adapter = new PlaywrightFetcherAdapter(page, context);
+ *   const result = await snapshot({ url, output, mode: 'bundle' }, adapter);
  */
 
 // Core Snapshot API
 export {
   snapshot,
-  snapshotWithPlaywright,
-  snapshotWithBrowserContext,
   convertLocalSnapshot,
 } from './assembler.js';
 
@@ -38,9 +45,15 @@ export type {
   GeneratedFramework,
 } from './types.js';
 
-// Playwright-related exports (advanced features)
-export { PlaywrightFetcherAdapter } from './adapters/index.js';
-export type { PlaywrightAdapterOptions } from './adapters/index.js';
+// Adapter interfaces and implementations
+export { PlaywrightFetcherAdapter, HttpFetcherAdapter } from './adapters/index.js';
+export type {
+  FetcherAdapter,
+  FetchOptions,
+  FetchResult,
+  AuthContext,
+  PlaywrightAdapterOptions,
+} from './adapters/index.js';
 
 // Optional tool function export
 export { parseHtml } from './parser/html-parser.js';

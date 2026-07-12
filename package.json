@@ -3,8 +3,15 @@
   "version": "1.0.0",
   "description": "Single-execution web page snapshot tool based on MirrorKit",
   "type": "module",
+  "main": "dist/index.js",
   "bin": {
     "snapshot": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./adapters": "./dist/adapters/index.js",
+    "./types": "./dist/types.js",
+    "./cli": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -17,7 +24,6 @@
     "test:all": "npm run test:unit && npm run test:integration",
     "test:coverage": "vitest run --coverage",
     "test:clean": "rm -rf ./test-* ./coverage",
-    "verify:playwright": "PLAYWRIGHT_BROWSERS_PATH=/d/Source/pw-browsers tsx scripts/verify-playwright.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },
@@ -35,6 +41,14 @@
     "ora": "^9.4.1",
     "postcss": "^8.5.17"
   },
+  "peerDependencies": {
+    "playwright": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/babel__parser": "^7.1.5",
@@ -47,7 +61,7 @@
     "jsdom": "^29.1.1",
     "playwright": "^1.58.2",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   }

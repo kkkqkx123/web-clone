@@ -6,6 +6,7 @@ import { HttpProxyAgent } from 'http-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { isValidCachedResponse, mimeFromExt, checkResourceFilter } from './validators.js';
 import { type AssetType, type Asset, type AssetRef, type SnapshotOptions, MAX_INLINE_SIZE } from './types.js';
+import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
 import { runPool } from './worker/pool.js';
 
 const MAX_REDIRECTS = 10;
@@ -189,7 +190,7 @@ export async function fetchWithTimeout(
 
     req.on('error', (err: Error) => {
       clearTimeout(timer);
-      if (err.name === 'AbortError' || (err as any).code === 'ABORT_ERR') {
+      if ((err as NodeJS.ErrnoException).code === 'ABORT_ERR' || (err as NodeJS.ErrnoException).code === 'ECONNRESET') {
         reject(new Error(`Timeout after ${timeout}ms`));
       } else {
         reject(err);
@@ -242,6 +243,7 @@ export async function downloadSingleAsset(
   ref: AssetRef,
   options: SnapshotOptions,
   referer: string,
+  adapter?: FetcherAdapter,
 ): Promise<Asset> {
   const asset: Asset = {
     originUrl: ref.url,
@@ -270,7 +272,9 @@ export async function downloadSingleAsset(
         process.stdout.write(`  Waiting for response from ${ref.url}...\n`);
       }, 2000);
 
-      const result = await fetchWithTimeout(ref.url, options.timeout, referer, maxSize);
+      const result = adapter
+        ? await adapter.fetch(ref.url, { timeout: options.timeout, maxSize, referer })
+        : await fetchWithTimeout(ref.url, options.timeout, referer, maxSize);
       clearTimeout(slowWarningTimer);
       slowWarningTimer = undefined;
 
@@ -375,11 +379,12 @@ export async function downloadAllAssets(
   refs: AssetRef[],
   options: SnapshotOptions,
   onProgress?: (asset: Asset, index: number, total: number) => void,
+  adapter?: FetcherAdapter,
 ): Promise<Asset[]> {
   const total = refs.length;
 
   // Wrap each download operation as a separate task factory function
-  const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url));
+  const tasks = refs.map(ref => () => downloadSingleAsset(ref, options, options.url, adapter));
 
   // NOTE: Pool timeout is intentionally NOT set here.
   // maxAssets limits the number of tasks via maxTasks. Each individual task

@@ -1,15 +1,17 @@
 /**
  * Unified resource acquisition adapter interface
  * Support for multiple backends: HTTP, Playwright, caching, etc.
- * 
+ *
  * Design Principle:
  * - Abstract resource fetching logic, decouple the snapshot core from the specific HTTP implementation
  * - Supports multiple authentication and resource sources (HTTP, browser context, cache, etc.)
- * - Allow Playwright to integrate with other automation tools.
+ * - Allow integration with different automation tools (HTTP, Playwright, Puppeteer, etc.)
  */
 
 /**
  * Options when fetching resources
+ *
+ * These are universal options that apply to all FetcherAdapter implementations.
  */
 export interface FetchOptions {
   /**
@@ -45,10 +47,25 @@ export interface FetchOptions {
    * @default true
    */
   followRedirects?: boolean;
+
+  /**
+   * Mark this request as the main document (HTML page).
+   * - true: main document (may require full page rendering/JS execution)
+   * - false/undefined: sub-resource (CSS, JS, images, fonts, etc.)
+   *
+   * Usage:
+   * - HTTP adapter: treats all requests the same way
+   * - Playwright adapter: main doc uses page.goto(), sub-resources use context.request.fetch()
+   *
+   * Set by the caller (snapshotInternal) based on context.
+   */
+  isMainDocument?: boolean;
 }
 
 /**
  * Results of resource acquisition
+ *
+ * These fields are universal across all adapter implementations.
  */
 export interface FetchResult {
   /**
@@ -77,7 +94,7 @@ export interface FetchResult {
   isHtmlLike: boolean;
 
   /**
-   * response header
+   * Response headers (optional, for adapter implementations that have access)
    */
   headers?: Record<string, string>;
 
@@ -89,98 +106,128 @@ export interface FetchResult {
 
 /**
  * Authentication Context
- * Used to pass authentication information between adapters
+ *
+ * Represents authentication state captured from an adapter.
+ * This is adapter-specific but follows a common schema to enable portability.
+ *
+ * Usage:
+ * - Save authentication state after snapshotting an authenticated page
+ * - Share state between snapshots or export for reuse in other tools
+ *
+ * Example (Playwright adapter):
+ * ```typescript
+ * const context = await adapter.getAuthContext();
+ * // { cookies: [...], headers: {...}, token: '...' }
+ * ```
+ *
+ * Example (HTTP adapter):
+ * ```typescript
+ * const context = await adapter.getAuthContext();
+ * // { cookies: [], headers: {...} }  (HTTP doesn't auto-capture cookies)
+ * ```
  */
 export interface AuthContext {
   /**
-   * Browser Cookie List
+   * Browser/HTTP Cookies
    */
   cookies?: Array<{ name: string; value: string }>;
 
   /**
-   * Custom request headers (e.g. Authorization)
+   * Custom request headers (e.g., Authorization)
    */
   headers?: Record<string, string>;
 
   /**
-   * Authentication tokens (JWT, OAuth, etc.)
+   * Authentication tokens (JWT, OAuth, Bearer, etc.)
+   * Found in localStorage or extracted from headers
    */
   token?: string;
 }
 
 /**
- * 统一的资源获取适配器接口
+ * Unified Fetcher Adapter Interface
  *
- * 实现示例：
- * - HttpFetcherAdapter: 使用 node-fetch 进行 HTTP 请求（默认）
- * - PlaywrightFetcherAdapter: 使用 Playwright 浏览器上下文
- * - CacheFetcherAdapter: 从本地缓存读取资源
+ * Implementations:
+ * - HttpFetcherAdapter: Node.js HTTP requests (default)
+ * - PlaywrightFetcherAdapter: Playwright browser context (requires 'playwright' package)
  *
- * 使用方式：
+ * Future implementations could include:
+ * - PuppeteerFetcherAdapter: Puppeteer automation
+ * - CacheFetcherAdapter: Local file cache
+ * - HybridFetcherAdapter: Composite of multiple adapters
+ *
+ * Usage:
  * ```typescript
- * const adapter = new HttpFetcherAdapter();
- * // 或
- * const adapter = new PlaywrightFetcherAdapter(page, context);
- *
- * const result = await adapter.fetch('https://example.com/style.css', {
- *   timeout: 15000,
- *   headers: { 'Accept': 'text/css' }
+ * // Use with snapshot() library API
+ * const adapter = new PlaywrightFetcherAdapter(page, context, {
+ *   timeout: 30000,
+ *   validateSSL: true
  * });
  *
- * if (result.ok) {
- *   console.log(`Fetched ${result.buffer.length} bytes of ${result.mime}`);
- * }
+ * const result = await snapshot(options, adapter);
  * ```
  */
 export interface FetcherAdapter {
   /**
-   * Getting resources (HTML, CSS, JS, images, etc.)
-   * 
+   * Fetch a resource (HTML, CSS, JS, image, etc.)
+   *
    * @param url The full URL of the resource
-   * @param options Get options
-   * @returns Get results, including buffers, MIME types, status codes, etc.
-   * @throws Throw exceptions in case of network errors, timeouts, etc.
+   * @param options Fetch options (timeout, headers, SSL validation, etc.)
+   * @returns FetchResult with buffer, MIME type, status code, headers, etc.
+   * @throws Throws on network errors, timeouts, etc.
+   *
+   * Implementation notes:
+   * - Must handle the `isMainDocument` flag appropriately
+   *   - For browser adapters: main doc may trigger full rendering
+   *   - For HTTP adapters: treat all requests uniformly
+   * - Must apply custom headers and timeout settings
+   * - Should set `isHtmlLike` based on Content-Type or content analysis
    */
   fetch(url: string, options: FetchOptions): Promise<FetchResult>;
 
   /**
-   * Checking if a resource is accessible
-   * 
-   * Optional method. Used to pre-filter inaccessible resources.
-   * Should be implemented efficiently and quickly (e.g. using HEAD requests or a simple canAccess check).
-   * 
-   * @param url The full URL of the resource.
-   * @returns true means the resource is accessible, false means it is not.
-   * @default If not implemented, the caller should assume that the resource can be attempted to be accessed.
+   * Check if a resource is accessible (optional)
+   *
+   * Used for pre-filtering inaccessible resources to avoid wasting time.
+   * Implementations should use efficient methods (HEAD requests, quick checks).
+   *
+   * @param url The full URL of the resource
+   * @returns true if accessible (2xx), false if not accessible
+   *
+   * Implementation notes:
+   * - Default behavior (if not implemented): assume all resources are accessible
+   * - HTTP adapter: performs quick HEAD request
+   * - Playwright adapter: uses context.request.head()
    */
   canAccess?(url: string): Promise<boolean>;
 
   /**
-   * Get the current authentication context
-   * 
-   * Optional method. Returns the authentication information in the current adapter, including cookies, tokens, etc.
-   * Used to extract the authentication state after a snapshot for subsequent use.
-   * 
-   * Implementation Notes:
-   * - HTTP adapter: returns an empty object or a custom request header
-   * - Playwright adapter: Returns browser cookies and localStorage tokens.
-   * 
-   * @returns Authentication context, including cookies, request headers, tokens, etc.
-   * @default If not implemented, assumes no special authentication information.
+   * Extract current authentication context (optional)
+   *
+   * Useful for:
+   * - Capturing auth state after snapshotting authenticated pages
+   * - Sharing authentication between multiple snapshots
+   * - Debugging authentication setup
+   *
+   * @returns AuthContext with cookies, headers, tokens
+   *
+   * Implementation notes:
+   * - HTTP adapter: returns empty context (no auto cookie capture)
+   * - Playwright adapter: extracts browser cookies and localStorage
+   * - Should not throw; return empty context if auth info unavailable
    */
   getAuthContext?(): Promise<AuthContext>;
 
   /**
-   * Liquidation of resources
-   * 
-   * Optional method. Called when the adapter is no longer in use to free up resources.
-   * For example, closing browser connections, cleaning up temporary files, etc.
-   * 
-   * Implementation Notes:
-   * - HTTP adapter: usually no need to implement
-   * - Playwright adapter: closes the page (but does not close the browser, managed by the caller)
-   * 
-   * @default if not implemented, assuming no special cleanup is needed
+   * Clean up adapter resources (optional)
+   *
+   * Called when the adapter is no longer needed.
+   * Allows implementation-specific cleanup.
+   *
+   * Implementation notes:
+   * - HTTP adapter: usually no cleanup needed
+   * - Playwright adapter: closes managed page (but NOT browser/context)
+   * - Should not throw; best effort cleanup
    */
   dispose?(): Promise<void>;
 }

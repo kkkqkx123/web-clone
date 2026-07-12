@@ -9,7 +9,7 @@
  * 4. Estimate migration effort accurately
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { analyzeHtml } from '../component-analyzer';
 import { analyzeCss } from '../css-analyzer';
 import { analyzeJavaScript } from '../js-analyzer';
@@ -233,7 +233,7 @@ describe('Transform Pipeline - Real World Scenarios', () => {
         '   ',
         '<div>',  // unclosed
         '><</div',  // malformed
-        null as any,
+        null as unknown as string,
       ];
 
       testCases.forEach(html => {
@@ -324,7 +324,7 @@ describe('Transform Pipeline - Real World Scenarios', () => {
       const result = analyzeCss(css);
       expect(result.componentStyles['card']).toBeDefined();
       // After deduplication: 4 unique rules (header, header--large, body, footer) + base card
-      expect(result.componentStyles['card']!.length).toBeGreaterThanOrEqual(4);
+      expect(result.componentStyles['card']?.length ?? 0).toBeGreaterThanOrEqual(4);
     });
 
     it('should match ID-based and tag-based styles as fallback', () => {
@@ -348,7 +348,6 @@ describe('Transform Pipeline - Real World Scenarios', () => {
       `;
 
       const result = analyzeCss(css);
-      const dynamicSelectors = result.dynamicStyles?.map(d => d.selector) || [];
 
       // "display" is in dynamic properties list
       const hasDynamicDisplay = result.dynamicStyles?.some(d =>
@@ -368,7 +367,7 @@ describe('Transform Pipeline - Real World Scenarios', () => {
 
       const result = analyzeCss(css);
       // Should identify *, body, html as global styles
-      expect(result.globalStyles!.length).toBeGreaterThanOrEqual(2);
+      expect(result.globalStyles?.length ?? 0).toBeGreaterThanOrEqual(2);
       // Should identify component styles (card, btn, etc)
       expect(Object.keys(result.componentStyles).length).toBeGreaterThanOrEqual(1);
     });
@@ -555,8 +554,9 @@ describe('Transform Pipeline - Real World Scenarios', () => {
       const correlated = correlateComponents(htmlResult, cssResult, jsResult);
       expect(correlated.has('Card')).toBe(true);
 
-      const card = correlated.get('Card')!;
-      expect(card.styles).toContain('card');
+      const card = correlated.get('Card');
+      expect(card).toBeDefined();
+      expect(card?.styles).toContain('card');
     });
 
     /**
@@ -624,7 +624,6 @@ describe('Transform Pipeline - Real World Scenarios', () => {
       `;
       const cssResult = analyzeCss(css);
 
-      const js = {};
       const jsResult = analyzeJavaScript('');
 
       const correlated = correlateComponents(htmlResult, cssResult, jsResult);
@@ -703,9 +702,10 @@ describe('Transform Pipeline - Real World Scenarios', () => {
 
       expect(componentSpecs.has('Button')).toBe(true);
 
-      const button = componentSpecs.get('Button')!;
-      expect(button.manifest).toBeDefined();
-      expect(button.manifest.migration).toBeDefined();
+      const button = componentSpecs.get('Button');
+      expect(button).toBeDefined();
+      expect(button?.manifest).toBeDefined();
+      expect(button?.manifest.migration).toBeDefined();
     });
 
     /**
@@ -803,7 +803,6 @@ describe('Transform Pipeline - Real World Scenarios', () => {
 
     it('should generate actionable migration suggestions', () => {
       const html = `<div data-component="StatefulWidget" class="widget" id="widget-main">Widget</div>`;
-      const htmlResult = analyzeHtml(html);
 
       const jsResult = {
         state: [
@@ -905,7 +904,6 @@ describe('Transform Pipeline - Real World Scenarios', () => {
       const jsResult = analyzeJavaScript(js);
 
       const correlated = correlateComponents(htmlResult, cssResult, jsResult);
-      const specs = generateComponentStructure(correlated);
 
       // Should identify ProductCard
       expect(correlated.size).toBeGreaterThan(0);

@@ -13,39 +13,9 @@ import { convert } from './converter.js';
 import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js';
 import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './core/resource-filter.js';
+import { fixPathsForFileProtocol } from './core/path-fixer.js';
 import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
 import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
-import { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
-import type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-adapter.js';
-// Playwright types - imported as type-only to avoid module resolution errors at compile time
-// Runtime import is handled dynamically in snapshotWithPlaywright()
-import type { Page, BrowserContext, LaunchOptions, BrowserContextOptions } from 'playwright';
-
-/**
- * Playwright Snapshot Options
- */
-interface PlaywrightSnapshotOptions {
-  /**
-   * Playwright Browser Launch Options
-   */
-  browserLaunchOptions?: LaunchOptions;
-
-  /**
-   * Browser context options (cookies, permissions, user agents, etc.)
-   */
-  contextOptions?: BrowserContextOptions;
-
-  /**
-   * Custom Authentication Setup Functions
-   * Executed before the snapshot for logging in, setting Token, etc.
-   */
-  setupAuth?: (page: Page, context: BrowserContext) => Promise<void>;
-
-  /**
-   * Playwright Adapter Options
-   */
-  adapterOptions?: PlaywrightAdapterOptions;
-}
 
 async function fetchHtml(
   url: string,
@@ -54,7 +24,7 @@ async function fetchHtml(
   adapter: FetcherAdapter
 ): Promise<string | null> {
   try {
-    const result = await adapter.fetch(url, { timeout, maxSize });
+    const result = await adapter.fetch(url, { timeout, maxSize, isMainDocument: true });
     if (!result.ok) {
       process.stdout.write(`Warning: Origin returned HTTP ${result.status} for HTML page\n`);
 
@@ -203,90 +173,29 @@ async function writeAssets(assets: Asset[], concurrency: number = 5): Promise<vo
  * Basic Snapshot Functions - Pulling Directly Using HTTP
  * @public
  */
-export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOptions, 'url'>): Promise<SnapshotResult> {
-  const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
-  const httpAdapter = new HttpFetcherAdapter();
-  return snapshotInternal(options, httpAdapter);
-}
-
-/**
- * Snapshots with Playwright - Support for Authentication, Cookies, JS Execution
- * @public
- */
-export async function snapshotWithPlaywright(
-  url: string,
-  optionsWithoutUrl: Omit<SnapshotOptions, 'url'>,
-  playwrightOptions?: PlaywrightSnapshotOptions
+// Overload 1: backward-compatible CLI signature — snapshot(url, optionsWithoutUrl)
+export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOptions, 'url'>): Promise<SnapshotResult>;
+// Overload 2: library-friendly signature — snapshot(options, adapter?)
+// The optional adapter allows passing a custom FetcherAdapter (e.g. PlaywrightFetcherAdapter)
+// for browser-context snapshotting. Defaults to HttpFetcherAdapter when omitted.
+export async function snapshot(options: SnapshotOptions, adapter?: FetcherAdapter): Promise<SnapshotResult>;
+// Implementation
+export async function snapshot(
+  urlOrOptions: string | SnapshotOptions,
+  optionsOrAdapter?: Omit<SnapshotOptions, 'url'> | FetcherAdapter
 ): Promise<SnapshotResult> {
-  try {
-    const { chromium } = await import('playwright');
-
-    const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
-    const {
-      browserLaunchOptions,
-      contextOptions,
-      setupAuth,
-      adapterOptions,
-    } = playwrightOptions || {};
-
-    const browser = await chromium.launch(browserLaunchOptions);
-    const context = await browser.newContext(contextOptions);
-
-    try {
-      // Optional: perform customized authentication
-      if (setupAuth) {
-        const page = await context.newPage();
-        await setupAuth(page, context);
-        await page.close();
-      }
-
-      const page = await context.newPage();
-      const adapter = new PlaywrightFetcherAdapter(page, context, adapterOptions);
-
-      try {
-        return await snapshotInternal(options, adapter);
-      } finally {
-        await adapter.dispose();
-      }
-    } finally {
-      await context.close();
-      await browser.close();
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Cannot find module')) {
-      throw new Error(
-        'Playwright adapter requires "playwright" to be installed. ' +
-        'Run: npm install playwright',
-        { cause: error }
-      );
-    }
-    throw error;
+  if (typeof urlOrOptions === 'string') {
+    // Overload 1: CLI style — snapshot(url, optionsWithoutUrl)
+    const opts = { ...(optionsOrAdapter as Omit<SnapshotOptions, 'url'>), url: urlOrOptions } as SnapshotOptions;
+    return snapshotInternal(opts, new HttpFetcherAdapter());
   }
+  // Overload 2: Library style — snapshot(options, adapter?)
+  const fetcher = (optionsOrAdapter as FetcherAdapter | undefined) || new HttpFetcherAdapter();
+  return snapshotInternal(urlOrOptions, fetcher);
 }
 
 /**
- * Snapshots using your own browser context
- * Ideal for scenarios where you need full control over the browser lifecycle
- * @public
- */
-export async function snapshotWithBrowserContext(
-  url: string,
-  optionsWithoutUrl: Omit<SnapshotOptions, 'url'>,
-  browserContext: BrowserContext
-): Promise<SnapshotResult> {
-  const options: SnapshotOptions = { ...optionsWithoutUrl, url } as SnapshotOptions;
-  const page = await browserContext.newPage();
-  const adapter = new PlaywrightFetcherAdapter(page, browserContext);
-
-  try {
-    return await snapshotInternal(options, adapter);
-  } finally {
-    await adapter.dispose();
-  }
-}
-
-/**
- * Internal Core Pipeline - shared by three public APIs
+ * Internal Core Pipeline - shared by public APIs
  * @internal
  */
 async function snapshotInternal(
@@ -389,7 +298,7 @@ async function snapshotInternal(
   const assets = await downloadAllAssets(filteredRefs, options, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
-  });
+  }, adapter);
 
   // Log resources accepted with non-2xx status codes (lenient acceptance)
   const lenientAcceptedAssets = assets.filter(a => a.acceptedWithWarning);
@@ -427,6 +336,11 @@ async function snapshotInternal(
   };
 
   process.stdout.write(`\nAssembling output (${options.mode} mode)...\n`);
+
+  // Fix paths for file:// protocol compatibility
+  // Converts absolute paths (/_nuxt/, etc.) to relative paths (./assets/...)
+  // This allows snapshots to work when opened directly in browsers without a server
+  fixPathsForFileProtocol(parsed.document, html);
 
   if (options.mode === 'bundle') {
     mkdirSync(options.output, { recursive: true });

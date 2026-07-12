@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import type { AssetRef, SnapshotOptions } from '../types.js';
+import type { AssetRef } from '../types.js';
 
 export interface ResourceFilterOptions {
   skipExtensions?: string[];

@@ -63,7 +63,7 @@ export const MOCK_RESULTS = {
   /**
    * HTML 响应
    */
-  html: (overrides?: Record<string, any>) => ({
+  html: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from('<html><body>Test Page</body></html>'),
     mime: 'text/html; charset=utf-8',
     status: 200,
@@ -77,7 +77,7 @@ export const MOCK_RESULTS = {
   /**
    * CSS 响应
    */
-  css: (overrides?: Record<string, any>) => ({
+  css: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from('body { color: red; } .class { display: flex; }'),
     mime: 'text/css',
     status: 200,
@@ -91,7 +91,7 @@ export const MOCK_RESULTS = {
   /**
    * JavaScript 响应
    */
-  js: (overrides?: Record<string, any>) => ({
+  js: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from('console.log("hello"); function test() { return 42; }'),
     mime: 'application/javascript',
     status: 200,
@@ -105,7 +105,7 @@ export const MOCK_RESULTS = {
   /**
    * PNG 图片响应
    */
-  image: (overrides?: Record<string, any>) => ({
+  image: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), // PNG header
     mime: 'image/png',
     status: 200,
@@ -119,7 +119,7 @@ export const MOCK_RESULTS = {
   /**
    * 404 错误响应
    */
-  error404: (overrides?: Record<string, any>) => ({
+  error404: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from('Not Found'),
     mime: 'text/html',
     status: 404,
@@ -133,7 +133,7 @@ export const MOCK_RESULTS = {
   /**
    * 500 服务器错误响应
    */
-  error500: (overrides?: Record<string, any>) => ({
+  error500: (overrides?: Record<string, unknown>) => ({
     buffer: Buffer.from('Internal Server Error'),
     mime: 'text/html',
     status: 500,
@@ -152,11 +152,11 @@ export const MOCK_RESULTS = {
   /**
    * 自定义响应
    */
-  custom: (options: Record<string, any> = {}) => ({
+  custom: (options: Record<string, unknown> = {}) => ({
     buffer: Buffer.from(options.content || ''),
     mime: options.mime || 'application/octet-stream',
-    status: options.status || 200,
-    ok: (options.status || 200) >= 200 && (options.status || 200) < 300,
+    status: (options.status as number) || 200,
+    ok: ((options.status as number) || 200) >= 200 && ((options.status as number) || 200) < 300,
     isHtmlLike: options.mime?.includes('html') || false,
     headers: options.headers || {},
     url: options.url || 'https://example.com/custom',

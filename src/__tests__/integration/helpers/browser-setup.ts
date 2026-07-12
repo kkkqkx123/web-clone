@@ -46,7 +46,7 @@ export async function setupBrowser(
  */
 export async function createBrowserContext(
   browser: Browser,
-  options: any = {}
+  options: Record<string, unknown> = {}
 ): Promise<BrowserContext> {
   return await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -102,7 +102,7 @@ export async function closePage(page: Page): Promise<void> {
 export async function navigateToUrl(
   page: Page,
   url: string,
-  options: any = {}
+  options: Record<string, unknown> = {}
 ): Promise<void> {
   await page.goto(url, {
     waitUntil: 'networkidle',
@@ -151,14 +151,14 @@ export async function setCookies(
 /**
  * 获取浏览器上下文中的 Cookie
  */
-export async function getCookies(context: BrowserContext): Promise<any[]> {
+export async function getCookies(context: BrowserContext): Promise<Array<{ name: string; value: string }>> {
   return await context.cookies();
 }
 
 /**
  * 获取存储状态（Cookie、localStorage、sessionStorage）
  */
-export async function getStorageState(context: BrowserContext): Promise<any> {
+export async function getStorageState(context: BrowserContext): Promise<{ cookies: Array<{ name: string; value: string }>; origins: Array<{ origin: string; localStorage: Array<{ name: string; value: string }> }> }> {
   return await context.storageState();
 }
 
@@ -181,7 +181,7 @@ export async function saveStorageState(
 /**
  * 从文件加载存储状态
  */
-export async function loadStorageState(filePath: string): Promise<any> {
+export async function loadStorageState(filePath: string): Promise<Record<string, unknown>> {
   const fs = await import('fs/promises');
   const content = await fs.readFile(filePath, 'utf-8');
   return JSON.parse(content);
@@ -190,7 +190,7 @@ export async function loadStorageState(filePath: string): Promise<any> {
 /**
  * 页面性能信息
  */
-export async function getPageMetrics(page: Page): Promise<any> {
+export async function getPageMetrics(page: Page): Promise<Record<string, unknown>> {
   return await page.evaluate(() => ({
     url: window.location.href,
     title: document.title,

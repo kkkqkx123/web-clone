@@ -49,7 +49,7 @@ export async function removeDir(dirPath: string): Promise<void> {
 
     await fs.rmdir(dirPath);
   } catch (error) {
-    if ((error as any).code !== 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;
     }
   }
@@ -89,7 +89,7 @@ export async function readFile(filePath: string, encoding: BufferEncoding = 'utf
 /**
  * 读取 JSON 文件
  */
-export async function readJson<T = any>(filePath: string): Promise<T> {
+export async function readJson<T = Record<string, unknown>>(filePath: string): Promise<T> {
   const content = await readFile(filePath);
   return JSON.parse(content);
 }
@@ -109,7 +109,7 @@ export async function writeFile(
 /**
  * 写入 JSON 文件
  */
-export async function writeJson<T = any>(
+export async function writeJson<T = Record<string, unknown>>(
   filePath: string,
   data: T,
   pretty: boolean = true

@@ -16,7 +16,6 @@ export interface FrameworkCodeGenOptions {
  * - Component extraction
  * - Framework code generation
  * - Local conversion
- * - Playwright browser automation
  */
 export interface SnapshotOptions {
   url: string;
@@ -39,18 +38,7 @@ export interface SnapshotOptions {
   maxFileSize?: number;
   memoryLimit?: number;
   convertLocal?: string;
-  strictStatusCodes?: boolean; // When true, require 2xx for all asset types (default: false for lenient acceptance)
-
-  // Playwright browser automation (Phase 0)
-  usePlaywright?: boolean;
-  headless?: boolean;
-  proxy?: string;
-  userAgent?: string;
-  viewport?: { width: number; height: number };
-  authScript?: string; // Path to authentication script file
-  authTimeout?: number;
-  saveState?: string; // Path to save browser state
-  loadState?: string; // Path to load browser state
+  strictStatusCodes?: boolean;
 }
 
 /**

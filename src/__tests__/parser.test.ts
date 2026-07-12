@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { parseHtml } from '../parser/html-parser';
 import { extractCssAssets, rewriteCssUrls } from '../parser/css-parser';
 import { resolveUrl, normalizeUrl, parseSrcset } from '../parser/url-resolver';

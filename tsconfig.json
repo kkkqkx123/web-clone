@@ -12,7 +12,9 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/**/__tests__/**/*.ts", "src/**/*.test.ts"]

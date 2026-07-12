@@ -144,5 +144,5 @@ export interface GeneratedFramework {
   };
 }
 
-export { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
-export type { PlaywrightAdapterOptions } from './adapters/playwright-fetcher-adapter.js';
+export { PlaywrightFetcherAdapter } from './adapters/automation/playwright/index.js';
+export type { PlaywrightAdapterOptions } from './adapters/automation/playwright/options.js';

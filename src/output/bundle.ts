@@ -8,7 +8,7 @@ import { type Asset, type SnapshotOptions } from '../types.js';
 function serializeDocument(document: Document): string {
   // Try jsdom's serialization first
   if ('documentElement' in document && document.documentElement) {
-    const defaultView = document.defaultView as any;
+    const defaultView = document.defaultView as Window & typeof globalThis;
     if (defaultView && defaultView.XMLSerializer) {
       const serializer = new defaultView.XMLSerializer();
       return serializer.serializeToString(document);

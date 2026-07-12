@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import type { Asset, SnapshotOptions, ComponentSpec, ConvertResult } from '../../types.js';
@@ -80,7 +80,9 @@ describe('assembleBundle - Bundle Mode Tests', () => {
     if (testDir) {
       try {
         rmSync(testDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // Cleanup failure is non-critical
+      }
     }
   });
 
@@ -97,12 +99,9 @@ describe('assembleBundle - Bundle Mode Tests', () => {
     expect(readFileSync(indexHtml, 'utf-8')).toContain('<!DOCTYPE');
 
     const cssDir = join(testDir, 'assets', 'css');
-    const jsDir = join(testDir, 'assets', 'js');
-    const imgDir = join(testDir, 'assets', 'img');
-
     // Verify directory structure exists
     expect(() => {
-      const files = readFileSync(cssDir, 'utf-8');
+      readFileSync(cssDir, 'utf-8');
     }).toBeDefined();
   });
 
@@ -429,7 +428,9 @@ describe('assembleConvert - Component Conversion Tests', () => {
     if (testDir) {
       try {
         rmSync(testDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // Cleanup failure is non-critical
+      }
     }
   });
 
@@ -517,8 +518,9 @@ describe('assembleConvert - Component Conversion Tests', () => {
     try {
       readFileSync(reviewFile);
       throw new Error('REVIEW_REQUIRED.md should not be created');
-    } catch (err: any) {
-      expect(err.code).toBe('ENOENT');
+    } catch (err: unknown) {
+      const error = err as NodeJS.ErrnoException;
+      expect(error.code).toBe('ENOENT');
     }
   });
 
@@ -536,8 +538,9 @@ describe('assembleConvert - Component Conversion Tests', () => {
     try {
       readFileSync(logicFile);
       throw new Error('logic.original.json should not be created when logic is undefined');
-    } catch (err: any) {
-      expect(err.code).toBe('ENOENT');
+    } catch (err: unknown) {
+      const error = err as NodeJS.ErrnoException;
+      expect(error.code).toBe('ENOENT');
     }
   });
 
@@ -600,7 +603,7 @@ describe('Output Module - Integration Tests', () => {
 function createTestComponentManifest(
   name: string,
   confidence = 0.8
-): any {
+): Record<string, unknown> {
   return {
     name,
     type: 'presentational',
@@ -608,13 +611,14 @@ function createTestComponentManifest(
     children: [],
     state: {},
     events: {},
+    confidence,
     migration: {
       effort: '1h',
       effortBreakdown: { extraction: '0.5h', conversion: '0.5h' },
       suggestions: [],
       todos: [],
     },
-  } as any;
+  } as Record<string, unknown>;
 }
 
 function createTestConvertResult(): ConvertResult {
@@ -641,7 +645,7 @@ function createTestConvertResult(): ConvertResult {
           template: '<header>Header Component</header>',
           styles: 'header { padding: 1rem; }',
           matchConfidence: 0.85,
-          manifest: createTestComponentManifest('Header', 0.85) as any,
+          manifest: createTestComponentManifest('Header', 0.85) as Record<string, unknown>,
         },
       ],
     ]),

@@ -41,17 +41,7 @@ export interface CommanderOpts {
   skipTypes?: string;
   maxFileSize?: string;
   convertLocal?: string;
-  strictStatusCodes?: boolean; // Require 2xx status for all assets (default: false)
-  // Playwright options (Phase 0)
-  usePlaywright?: boolean;
-  headless?: string;
-  proxy?: string;
-  authScript?: string;
-  authTimeout?: string;
-  saveState?: string;
-  loadState?: string;
-  userAgent?: string;
-  viewport?: string;
+  strictStatusCodes?: boolean;
 }
 
 /**
@@ -80,7 +70,7 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
     extractComponents: isLocal ? true : (cmd.extractComponents || false),
     memoryLimit: safeInt(cmd.memoryLimit, DEFAULTS.memoryLimit),
     convertLocal: cmd.convertLocal || undefined,
-    strictStatusCodes: cmd.strictStatusCodes || false, // Default: lenient acceptance (false = allow 4xx/5xx for CSS/JS)
+    strictStatusCodes: cmd.strictStatusCodes || false,
   };
 
   // Component extraction sub-options
@@ -114,25 +104,6 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
       : undefined;
   }
 
-  // Playwright options (Phase 0)
-  opts.usePlaywright = cmd.usePlaywright || false;
-  opts.headless = cmd.headless !== 'false';
-  opts.proxy = cmd.proxy;
-  opts.authScript = cmd.authScript;
-  opts.authTimeout = cmd.authTimeout ? safeInt(cmd.authTimeout, 30000) : 30000;
-  opts.saveState = cmd.saveState;
-  opts.loadState = cmd.loadState;
-  opts.userAgent = cmd.userAgent;
-
-  // Parse viewport if provided
-  if (cmd.viewport) {
-    const [w, h] = cmd.viewport.split('x').map(Number);
-    if (w && h && w > 0 && h > 0) {
-      opts.viewport = { width: w, height: h };
-    }
-  }
-
   validateOptions(opts);
   return opts;
 }
-

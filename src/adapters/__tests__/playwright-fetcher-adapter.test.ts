@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Page, BrowserContext } from 'playwright';
-import { PlaywrightFetcherAdapter } from '../playwright-fetcher-adapter.js';
+import { PlaywrightFetcherAdapter } from '../automation/playwright/adapter.js';
 
 /**
  * Create a simulated Playwright page object
@@ -70,15 +70,16 @@ describe('PlaywrightFetcherAdapter', () => {
     it('should fetch HTML via page.goto when URL is main document', async () => {
       const htmlContent = '<html><body>Test Page</body></html>';
 
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({ 'content-type': 'text/html; charset=utf-8' }),
       });
 
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce(htmlContent);
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce(htmlContent);
 
       const result = await adapter.fetch('https://example.com', {
+        isMainDocument: true,
         timeout: 5000,
       });
 
@@ -95,16 +96,20 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should wait for load state after page.goto', async () => {
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', {});
+      await adapter.fetch('https://example.com', { isMainDocument: true });
 
-      expect(mockPage.waitForLoadState).toHaveBeenCalledWith('networkidle');
+      // Verify that page.goto() was called with the correct waitUntil parameter
+      expect(mockPage.goto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ waitUntil: 'networkidle' })
+      );
     });
 
     it('should use custom waitForLoadState option', async () => {
@@ -112,14 +117,14 @@ describe('PlaywrightFetcherAdapter', () => {
         waitForLoadState: 'load',
       });
 
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', {});
+      await adapter2.fetch('https://example.com', { isMainDocument: true });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -128,14 +133,14 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle custom timeout for page.goto', async () => {
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', { timeout: 60000 });
+      await adapter.fetch('https://example.com', { isMainDocument: true, timeout: 60000 });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -148,14 +153,14 @@ describe('PlaywrightFetcherAdapter', () => {
         debugScreenshot: '/tmp/debug.png',
       });
 
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', {});
+      await adapter2.fetch('https://example.com', { isMainDocument: true });
 
       expect(mockPage.screenshot).toHaveBeenCalledWith({
         path: '/tmp/debug.png',
@@ -163,23 +168,23 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should throw error when page.goto fails', async () => {
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce(null);
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce(null);
 
-      await expect(adapter.fetch('https://example.com', {})).rejects.toThrow(
+      await expect(adapter.fetch('https://example.com', { isMainDocument: true })).rejects.toThrow(
         'Failed to navigate'
       );
     });
 
     it('should return correct URL from page.url()', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/final');
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/final');
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      const result = await adapter.fetch('https://example.com', {});
+      const result = await adapter.fetch('https://example.com', { isMainDocument: true });
 
       expect(result.url).toBe('https://example.com/final');
     });
@@ -188,13 +193,13 @@ describe('PlaywrightFetcherAdapter', () => {
   describe('fetch() - 子资源获取', () => {
     it('should fetch CSS via context.request when not main document', async () => {
       // Settings page loaded
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       const cssContent = 'body { color: red; }';
       const buffer = Buffer.from(cssContent);
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -211,14 +216,14 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should inherit custom headers in sub-resource fetch', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
         customHeaders: { 'Authorization': 'Bearer token123' },
       });
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -229,7 +234,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
       await adapter2.fetch('https://api.example.com/data', {});
 
-      expect((mockContext.request as any).fetch).toHaveBeenCalledWith(
+      expect(mockContext.request.fetch).toHaveBeenCalledWith(
         'https://api.example.com/data',
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -240,14 +245,14 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should merge fetch options headers with custom headers', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
         customHeaders: { 'Authorization': 'Bearer token' },
       });
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -260,7 +265,7 @@ describe('PlaywrightFetcherAdapter', () => {
         headers: { 'Accept': 'application/json' },
       });
 
-      expect((mockContext.request as any).fetch).toHaveBeenCalledWith(
+      expect(mockContext.request.fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -272,12 +277,12 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should fetch images as binary', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       const imageBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]); // PNG header
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -295,7 +300,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
   describe('fetch() - 错误处理', () => {
     it('should throw error with descriptive message', async () => {
-      vi.mocked(mockPage.goto as any).mockRejectedValueOnce(
+      vi.spyOn(mockPage, 'goto').mockRejectedValueOnce(
         new Error('Network timeout')
       );
 
@@ -305,7 +310,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle non-error objects thrown', async () => {
-      vi.mocked(mockPage.goto as any).mockRejectedValueOnce('String error');
+      vi.spyOn(mockPage, 'goto').mockRejectedValueOnce('String error');
 
       await expect(adapter.fetch('https://example.com', {})).rejects.toThrow(
         'Playwright fetch failed'
@@ -316,7 +321,7 @@ describe('PlaywrightFetcherAdapter', () => {
   describe('canAccess()', () => {
     it('should return true for accessible resource', async () => {
       vi.mocked(
-        (mockContext.request as any).head
+        mockContext.request.head
       ).mockResolvedValueOnce({
         ok: () => true,
       });
@@ -324,7 +329,7 @@ describe('PlaywrightFetcherAdapter', () => {
       const accessible = await adapter.canAccess('https://example.com/api');
 
       expect(accessible).toBe(true);
-      expect((mockContext.request as any).head).toHaveBeenCalledWith(
+      expect(mockContext.request.head).toHaveBeenCalledWith(
         'https://example.com/api',
         { timeout: 5000 }
       );
@@ -332,7 +337,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
     it('should return false for inaccessible resource', async () => {
       vi.mocked(
-        (mockContext.request as any).head
+        mockContext.request.head
       ).mockResolvedValueOnce({
         ok: () => false,
       });
@@ -344,7 +349,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
     it('should return false on network error', async () => {
       vi.mocked(
-        (mockContext.request as any).head
+        mockContext.request.head
       ).mockRejectedValueOnce(
         new Error('Network error')
       );
@@ -356,7 +361,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
     it('should return false for server errors', async () => {
       vi.mocked(
-        (mockContext.request as any).head
+        mockContext.request.head
       ).mockResolvedValueOnce({
         ok: () => false,
       });
@@ -394,7 +399,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle empty cookies', async () => {
-      vi.mocked(mockContext.cookies as any).mockResolvedValueOnce([]);
+      vi.spyOn(mockContext, 'cookies').mockResolvedValueOnce([]);
 
       const authContext = await adapter.getAuthContext();
 
@@ -402,7 +407,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle missing storageState', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce(null);
+      vi.spyOn(mockContext, 'storageState').mockResolvedValueOnce(null);
 
       const authContext = await adapter.getAuthContext();
 
@@ -410,7 +415,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle empty origins in storageState', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
+      vi.spyOn(mockContext, 'storageState').mockResolvedValueOnce({
         origins: [],
       });
 
@@ -420,7 +425,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should find token by various naming conventions', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
+      vi.spyOn(mockContext, 'storageState').mockResolvedValueOnce({
         origins: [
           {
             origin: 'https://example.com',
@@ -445,7 +450,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should check if page is closed before closing', async () => {
-      vi.mocked(mockPage.isClosed as any).mockReturnValueOnce(false);
+      vi.spyOn(mockPage, 'isClosed').mockReturnValueOnce(false);
 
       await adapter.dispose();
 
@@ -453,7 +458,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should not close already closed page', async () => {
-      vi.mocked(mockPage.isClosed as any).mockReturnValueOnce(true);
+      vi.spyOn(mockPage, 'isClosed').mockReturnValueOnce(true);
 
       await adapter.dispose();
 
@@ -461,7 +466,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle errors silently', async () => {
-      vi.mocked(mockPage.close as any).mockRejectedValueOnce(
+      vi.spyOn(mockPage, 'close').mockRejectedValueOnce(
         new Error('Already closed')
       );
 
@@ -470,11 +475,11 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should be idempotent', async () => {
-      vi.mocked(mockPage.isClosed as any).mockReturnValue(false);
+      vi.spyOn(mockPage, 'isClosed').mockReturnValue(false);
 
       await adapter.dispose();
       // Second call
-      vi.mocked(mockPage.isClosed as any).mockReturnValue(true);
+      vi.spyOn(mockPage, 'isClosed').mockReturnValue(true);
       await adapter.dispose();
 
       // close() should only be called once
@@ -485,20 +490,20 @@ describe('PlaywrightFetcherAdapter', () => {
   describe('integration scenarios', () => {
     it('should handle complete authenticated workflow', async () => {
       // Step 1: Page is logged in, get the main document
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      const pageResult = await adapter.fetch('https://example.com', {});
+      const pageResult = await adapter.fetch('https://example.com', { isMainDocument: true });
       expect(pageResult.ok).toBe(true);
 
       // Step 2: Getting Sub-resources (CSS)
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -512,7 +517,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
       // Step 3: Check Resource Access
       vi.mocked(
-        (mockContext.request as any).head
+        mockContext.request.head
       ).mockResolvedValueOnce({
         ok: () => true,
       });
@@ -526,7 +531,7 @@ describe('PlaywrightFetcherAdapter', () => {
       expect(authCtx.token).toBeDefined();
 
       // Step 5: Cleanup
-      vi.mocked(mockPage.isClosed as any).mockReturnValue(false);
+      vi.spyOn(mockPage, 'isClosed').mockReturnValue(false);
       await adapter.dispose();
       expect(mockPage.close).toHaveBeenCalled();
     });
@@ -541,21 +546,20 @@ describe('PlaywrightFetcherAdapter', () => {
         validateSSL: false,
       });
 
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html></html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', {});
+      await adapter2.fetch('https://example.com', { isMainDocument: true });
 
       // Verify that all options are used correctly
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ waitUntil: 'load' })
       );
-      expect(mockPage.waitForLoadState).toHaveBeenCalledWith('load');
       expect(mockPage.screenshot).toHaveBeenCalledWith({
         path: '/tmp/screenshot.png',
       });
@@ -564,12 +568,12 @@ describe('PlaywrightFetcherAdapter', () => {
 
   describe('edge cases', () => {
     it('should handle very large response bodies', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       const largeBuffer = Buffer.alloc(100 * 1024 * 1024); // 100 MB
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -584,10 +588,10 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should handle responses with missing content-type', async () => {
-      vi.mocked(mockPage.url as any).mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
 
       vi.mocked(
-        (mockContext.request as any).fetch
+        mockContext.request.fetch
       ).mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -607,189 +611,25 @@ describe('PlaywrightFetcherAdapter', () => {
       const mockContext2 = createMockContext();
       const adapter2 = new PlaywrightFetcherAdapter(mockPage2, mockContext2);
 
-      vi.mocked(mockPage.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage.content as any).mockResolvedValueOnce('<html>1</html>');
+      vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html>1</html>');
 
-      vi.mocked(mockPage2.goto as any).mockResolvedValueOnce({
+      vi.spyOn(mockPage2, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         allHeaders: async () => ({}),
       });
-      vi.mocked(mockPage2.content as any).mockResolvedValueOnce('<html>2</html>');
+      vi.spyOn(mockPage2, 'content').mockResolvedValueOnce('<html>2</html>');
 
-      const result1 = await adapter.fetch('https://example.com', {});
-      const result2 = await adapter2.fetch('https://example.com', {});
+      const result1 = await adapter.fetch('https://example.com', { isMainDocument: true });
+      const result2 = await adapter2.fetch('https://example.com', { isMainDocument: true });
 
       expect(result1.buffer.toString()).toBe('<html>1</html>');
       expect(result2.buffer.toString()).toBe('<html>2</html>');
-    });
-  });
-
-  describe('State Management (saveState/loadState)', () => {
-    beforeEach(() => {
-      vi.resetModules();
-    });
-
-    it('should save state to file', async () => {
-      const fsMock = {
-        mkdir: vi.fn().mockResolvedValue(undefined),
-        writeFile: vi.fn().mockResolvedValue(undefined),
-      };
-
-      vi.doMock('node:fs/promises', () => fsMock);
-
-      const stateData = {
-        cookies: [
-          { name: 'session', value: 'abc123', domain: 'example.com', path: '/', secure: true },
-        ],
-        origins: [
-          {
-            origin: 'https://example.com',
-            localStorage: [{ name: 'auth_token', value: 'token123' }],
-          },
-        ],
-      };
-
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce(stateData);
-
-      await adapter.saveState('/tmp/test-state.json');
-
-      expect(fsMock.mkdir).toHaveBeenCalledWith('/tmp', { recursive: true });
-      expect(fsMock.writeFile).toHaveBeenCalled();
-      const [path, content] = vi.mocked(fsMock.writeFile).mock.calls[0];
-      expect(path).toBe('/tmp/test-state.json');
-      expect(JSON.parse(content as string)).toEqual(stateData);
-
-      vi.doUnmock('node:fs/promises');
-    });
-
-    it('should handle saveState file write errors', async () => {
-      const fsMock = {
-        mkdir: vi.fn().mockResolvedValue(undefined),
-        writeFile: vi.fn().mockRejectedValue(new Error('Permission denied')),
-      };
-
-      vi.doMock('node:fs/promises', () => fsMock);
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({});
-
-      await expect(adapter.saveState('/root/state.json')).rejects.toThrow(
-        'Failed to save state to /root/state.json'
-      );
-
-      vi.doUnmock('node:fs/promises');
-    });
-
-    it('should load state from file', async () => {
-      const stateData = {
-        cookies: [
-          { name: 'session', value: 'abc123', domain: 'example.com', path: '/', secure: true },
-        ],
-        origins: [
-          {
-            origin: 'https://example.com',
-            localStorage: [{ name: 'auth_token', value: 'token123' }],
-          },
-        ],
-      };
-
-      const fsMock = {
-        readFile: vi.fn().mockResolvedValue(JSON.stringify(stateData)),
-      };
-
-      vi.doMock('node:fs/promises', () => fsMock);
-
-      const addCookiesMock = vi.fn().mockResolvedValue(undefined);
-      const tempPageMock = {
-        goto: vi.fn().mockResolvedValue({}),
-        evaluate: vi.fn().mockResolvedValue(undefined),
-        close: vi.fn().mockResolvedValue(undefined),
-      };
-      const contextWithAddCookies = {
-        ...mockContext,
-        addCookies: addCookiesMock,
-        newPage: vi.fn().mockResolvedValue(tempPageMock),
-      };
-
-      const adapterWithMockContext = new PlaywrightFetcherAdapter(
-        mockPage,
-        contextWithAddCookies as any
-      );
-
-      await adapterWithMockContext.loadState('/tmp/test-state.json');
-
-      expect(fsMock.readFile).toHaveBeenCalledWith('/tmp/test-state.json', 'utf-8');
-      expect(addCookiesMock).toHaveBeenCalledWith(stateData.cookies);
-
-      vi.doUnmock('node:fs/promises');
-    });
-
-    it('should handle loadState file read errors', async () => {
-      const fsMock = {
-        readFile: vi.fn().mockRejectedValue(new Error('File not found')),
-      };
-
-      vi.doMock('node:fs/promises', () => fsMock);
-
-      await expect(adapter.loadState('/nonexistent/state.json')).rejects.toThrow(
-        'Failed to load state from /nonexistent/state.json'
-      );
-
-      vi.doUnmock('node:fs/promises');
-    });
-
-    it('should return correct state summary', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
-        cookies: [
-          { name: 'c1', value: 'v1', domain: '', path: '' },
-          { name: 'c2', value: 'v2', domain: '', path: '' },
-        ],
-        origins: [
-          {
-            origin: 'https://example.com',
-            localStorage: [
-              { name: 'token', value: 'abc' },
-              { name: 'user', value: 'john' },
-            ],
-          },
-          {
-            origin: 'https://api.example.com',
-            localStorage: [{ name: 'api_key', value: 'xyz' }],
-          },
-        ],
-      });
-
-      const summary = await adapter.getStateSummary();
-
-      expect(summary.cookieCount).toBe(2);
-      expect(summary.localStorageCount).toBe(3);
-      expect(summary.origins).toEqual(['https://example.com', 'https://api.example.com']);
-    });
-
-    it('should handle empty state', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce({
-        cookies: [],
-        origins: [],
-      });
-
-      const summary = await adapter.getStateSummary();
-
-      expect(summary.cookieCount).toBe(0);
-      expect(summary.localStorageCount).toBe(0);
-      expect(summary.origins).toEqual([]);
-    });
-
-    it('should handle null storageState', async () => {
-      vi.mocked(mockContext.storageState as any).mockResolvedValueOnce(null);
-
-      const summary = await adapter.getStateSummary();
-
-      expect(summary.cookieCount).toBe(0);
-      expect(summary.localStorageCount).toBe(0);
-      expect(summary.origins).toEqual([]);
     });
   });
 });

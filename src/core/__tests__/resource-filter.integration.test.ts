@@ -3,7 +3,7 @@
  * Verifies that ResourceFilter is properly integrated into the snapshot pipeline
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { ResourceFilter } from '../resource-filter.js';
 
 describe('Phase 1: ResourceFilter Integration', () => {
