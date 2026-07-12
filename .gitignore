@@ -1,4 +1,3 @@
-```
 # Dependencies
 node_modules/
 
@@ -18,4 +17,7 @@ target/
 
 # Package manager
 package-lock.json
-```
+
+# download
+snapshot
+snapshot-test
