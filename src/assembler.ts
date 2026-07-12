@@ -359,6 +359,16 @@ async function snapshotInternal(
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
   });
 
+  // Log resources accepted with non-2xx status codes (lenient acceptance)
+  const lenientAcceptedAssets = assets.filter(a => a.acceptedWithWarning);
+  if (lenientAcceptedAssets.length > 0) {
+    process.stdout.write(`\n✓ Lenient acceptance (4xx/5xx with valid content):\n`);
+    for (const asset of lenientAcceptedAssets) {
+      process.stdout.write(`  ⚠ HTTP ${asset.statusCode} → ${asset.type.toUpperCase()} (${fmt(asset.size)}) ${asset.originUrl}\n`);
+    }
+    process.stdout.write('\n');
+  }
+
   for (const a of assets) {
     if (a.type === 'css' && a.status === 'fetched' && !a.textContent) {
       const cached = cssContentMap.get(a.originUrl);

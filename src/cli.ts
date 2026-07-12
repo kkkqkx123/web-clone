@@ -21,6 +21,7 @@ program
   .option('--retry-max-delay <ms>', 'Maximum retry backoff delay in milliseconds (default: 2000)')
   .option('--no-inline', 'Skip inlining resources (data URIs)')
   .option('--pretty', 'Prettify output HTML')
+  .option('--strict-status-codes', 'Require 2xx status code for all assets (default: lenient mode accepts 4xx/5xx CSS/JS with valid content)')
   .option('--extract-components', 'Extract component structure from the page')
   .option('--component-depth <n>', 'Limit component recognition to specified depth (no limit if not specified, requires --extract-components)')
   .option('--framework <hint>', 'Framework hint: vue | react | svelte (requires --extract-components)')

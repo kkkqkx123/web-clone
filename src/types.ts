@@ -97,6 +97,8 @@ export interface Asset {
   size: number;
   mime: string;
   error?: string;
+  statusCode?: number; // Track HTTP status code for lenient acceptance logging
+  acceptedWithWarning?: boolean; // Mark if 4xx/5xx but content was valid
 }
 
 export interface SnapshotResult {

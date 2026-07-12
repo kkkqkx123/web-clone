@@ -13,14 +13,14 @@ import { type FetchOptions, type FetchResult, type AuthContext, type FetcherAdap
 import { fetchWithTimeout } from '../fetcher.js';
 
 /**
- * HTTP 适配器：使用 node-fetch 进行 HTTP 请求
+ * HTTP Adapter: Uses node-fetch for HTTP requests
  *
- * 特点：
- * - 简单高效，适合公开内容
- * - 无法处理需要浏览器 Cookie 的认证
- * - 适合作为 CLI 工具的默认后端
+ * Features:
+ * - Simple and efficient, suitable for public content
+ * - Cannot handle authentication that requires browser cookies
+ * - Suitable as the default backend for CLI tools
  *
- * 使用示例：
+ * Usage example:
  * ```typescript
  * const adapter = new HttpFetcherAdapter();
  * const result = await adapter.fetch('https://example.com', {

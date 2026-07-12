@@ -38,6 +38,7 @@ export interface SnapshotOptions {
   maxFileSize?: number;
   memoryLimit?: number;
   convertLocal?: string;
+  strictStatusCodes?: boolean; // When true, require 2xx for all asset types (default: false for lenient acceptance)
 }
 
 /**

@@ -71,8 +71,8 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
   const seen = new Set<string>();
   const inlineStyles: ParsedHtml['inlineStyles'] = [];
 
-  // Reset counter for each parse call to keep IDs stable
-  snapshotIdCounter = 0;
+  // NOTE: snapshotIdCounter is NOT reset here to ensure unique IDs across multiple parseHtml calls
+  // This is critical for component extraction which calls parseHtml multiple times
 
   for (const rules of Object.values(TAG_ATTR_MAP)) {
     for (const { sel, attr, type } of rules) {

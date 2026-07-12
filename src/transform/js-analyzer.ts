@@ -451,20 +451,22 @@ function isLikelyState(name: string): boolean {
   // Use word-boundary matching to reduce false positives from substring matches.
   // Prefixes: is*, has*, should*, current*, selected*
   // Suffixes: *Count, *List, *Items, *Value, *Data, *State, *Model, *Name, *Type, *Key, *Id, *Index, *Status, *Error, *Message, *Visible, *Active, *Loading
-  // Whole words: state, data, model, form, visible, active, loading, error, result
+  // Whole words: state, data, model, form, visible, active, loading, error, result, counter, cache, store, queue, stack, heap, buffer, array, object, map, set
   if (/^(is|has|should|current|selected)/i.test(name)) return true;
   if (/(Count|List|Items|Value|Data|State|Model|Name|Type|Key|Id|Index|Status|Error|Message|Visible|Active|Loading)$/i.test(name)) return true;
-  return /^(state|data|model|form|visible|active|loading|error|result)$/i.test(name);
+  // Include common counter/accumulator patterns
+  if (/^(counter|total|sum|count|amount|size|length|index)$/i.test(name)) return true;
+  return /^(state|data|model|form|visible|active|loading|error|result|cache|store|queue|stack)$/i.test(name);
 }
 
 function isLikelyHandler(name: string): boolean {
   // Use word-boundary matching to reduce false positives.
-  // Prefixes: handle*, on*
+  // Prefixes: handle*, on*, toggle*, update*, refresh*, open*, close*, show*, hide*, add*, remove*, delete*
   // Suffixes: *Click, *Submit, *Change, *Toggle, *Handler, *Callback, *Action, *Request, *Response
   // Whole words: click, submit, change, toggle, fetch, load, close, open, add, remove, delete, update, save, cancel, reset, search, filter, sort, init, setup, render, refresh, retry, cleanup
-  if (/^(handle|on)/i.test(name)) return true;
+  if (/^(handle|on|toggle|update|refresh|open|close|show|hide|add|remove|delete|display|render|fetch|load|submit|set|get|create|make)/i.test(name)) return true;
   if (/(Click|Submit|Change|Toggle|Handler|Callback|Action|Request|Response)$/i.test(name)) return true;
-  return /^(click|submit|change|toggle|fetch|load|close|open|add|remove|delete|update|save|cancel|reset|search|filter|sort|init|setup|render|refresh|retry|cleanup)$/i.test(name);
+  return /^(click|submit|change|toggle|fetch|load|close|open|add|remove|delete|update|save|cancel|reset|search|filter|sort|init|setup|render|refresh|retry|cleanup|display|show|hide)$/i.test(name);
 }
 
 function isLifecycleMethod(name: string): boolean {

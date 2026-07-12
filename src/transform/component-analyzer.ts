@@ -142,9 +142,8 @@ class StreamingHtmlAnalyzer {
     // Find the matching open label from the stack
     for (let i = this.stack.length - 1; i >= 0; i--) {
       if (this.stack[i].tagName === tagName) {
-        // Find a match and pop to that location
-        this.stack.splice(i);
-        // Update outerHTML end position of matching tags (for subsequent extraction)
+        // Remove only this element from the stack (was: splice(i) removed i..end)
+        this.stack.splice(i, 1);
         break;
       }
     }
@@ -181,24 +180,20 @@ class StreamingHtmlAnalyzer {
     }
 
     // P2: Semantic Labeling
+    // Allow semantic tags to be recognized even if they're nested within other components
+    // Real websites often have: header > nav, article > section, etc.
     if (SEMANTIC_TAGS.has(tagName)) {
-      // Check if nested by other candidates
-      const isNested = this.candidates.some(c =>
-        c.startOffset < startOffset && this.isCandidateContaining(c, startOffset)
-      );
-      if (!isNested) {
-        return {
-          name: this.inferName(attrs, tagName),
-          tagName,
-          attrs,
-          depth,
-          startOffset,
-          type: 'semantic',
-          confidence: 0.85,
-          children: [],
-          parent: null,
-        };
-      }
+      return {
+        name: this.inferName(attrs, tagName),
+        tagName,
+        attrs,
+        depth,
+        startOffset,
+        type: 'semantic',
+        confidence: 0.85,
+        children: [],
+        parent: null,
+      };
     }
 
     // P3: Vue/Nuxt scoped style attribute (data-v-xxxxxxxx)
@@ -206,6 +201,7 @@ class StreamingHtmlAnalyzer {
     // Only register the first (outermost) occurrence of each hash.
     // Some elements carry MULTIPLE data-v-* attributes (nested Vue components),
     // so we must iterate ALL keys, not just the first one found by .find().
+    // Register each unique hash as a separate component
     const dataVKeys = Object.keys(attrs).filter(k => k.startsWith('data-v-'));
     for (const dataVKey of dataVKeys) {
       // The hash is in the attribute KEY, not its value.

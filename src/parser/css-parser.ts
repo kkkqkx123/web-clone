@@ -38,12 +38,15 @@ export function extractCssAssets(css: string, baseUrl: string): CssAssetRef[] {
     return refs;
   }
 
+  const seenUrls = new Set<string>();  // Track seen URLs to avoid duplicates
+
   walk(ast, (node: CssNode) => {
     if (node.type === 'Url') {
       const urlStr = node.value;
       if (urlStr) {
         const resolved = resolveUrl(urlStr, baseUrl);
-        if (resolved) {
+        if (resolved && !seenUrls.has(resolved)) {
+          seenUrls.add(resolved);
           refs.push({ url: resolved, type: classifyCssUrl(resolved) });
         }
       }
@@ -63,7 +66,8 @@ export function extractCssAssets(css: string, baseUrl: string): CssAssetRef[] {
         });
         if (importUrl) {
           const resolved = resolveUrl(importUrl, baseUrl);
-          if (resolved) {
+          if (resolved && !seenUrls.has(resolved)) {
+            seenUrls.add(resolved);
             refs.push({ url: resolved, type: 'css' });
           }
         }
@@ -76,7 +80,11 @@ export function extractCssAssets(css: string, baseUrl: string): CssAssetRef[] {
 
 export function rewriteCssUrls(css: string, urlMap: Map<string, string>): string {
   let result = css;
-  for (const [original, replacement] of urlMap) {
+  // Sort by URL length descending to replace longer URLs first
+  // This prevents partial replacements when one URL is a substring of another
+  const entries = Array.from(urlMap.entries()).sort((a, b) => b[0].length - a[0].length);
+
+  for (const [original, replacement] of entries) {
     const escaped = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     result = result.replace(new RegExp(escaped, 'g'), replacement);
   }

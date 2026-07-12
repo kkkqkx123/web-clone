@@ -151,10 +151,16 @@ function matchLogic(root: ComponentRoot, js: JsAnalysisResult) {
     });
   });
 
+  // Only return logic if we found specific matches
+  // Don't pollute component with unrelated page-level logic
+  if (matchedState.length === 0 && matchedMethods.length === 0 && matchedEvents.length === 0) {
+    return undefined;  // No match found - don't return all JS
+  }
+
   return {
-    state: matchedState.length > 0 ? matchedState : js.state,
-    methods: matchedMethods.length > 0 ? matchedMethods : js.methods,
-    events: matchedEvents.length > 0 ? matchedEvents : js.events,
+    state: matchedState,
+    methods: matchedMethods,
+    events: matchedEvents,
   };
 }
 

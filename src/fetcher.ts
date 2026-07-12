@@ -239,7 +239,24 @@ export async function downloadSingleAsset(
     try {
       const result = await fetchWithTimeout(ref.url, options.timeout, referer, maxSize);
 
-      if (!result.ok) {
+      const ext = extname(new URL(ref.url).pathname) || '.bin';
+      const filePath = `asset${ext}`;
+
+      // Content-first validation: check if response content is valid for the asset type
+      const isContentValid = isValidCachedResponse(filePath, result.mime, result.buffer);
+
+      // Determine if the status code is acceptable
+      // - Always accept 2xx
+      // - Strict mode: require 2xx for all asset types
+      // - Lenient mode (default): For CSS/JS: accept 4xx/5xx if content is valid (likely error pages with actual CSS/JS content)
+      // - For other types: always require 2xx
+      const isAcceptableStatus = options.strictStatusCodes
+        ? result.ok  // Strict: only 2xx
+        : (result.ok ||
+           (asset.type === 'css' && isContentValid && !result.isHtmlLike) ||
+           (asset.type === 'js' && isContentValid && !result.isHtmlLike));
+
+      if (!isAcceptableStatus) {
         asset.error = `HTTP ${result.status}`;
         if (attempt < maxAttempts) {
           const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
@@ -250,10 +267,7 @@ export async function downloadSingleAsset(
         return asset;
       }
 
-      const ext = extname(new URL(ref.url).pathname) || '.bin';
-      const filePath = `asset${ext}`;
-
-      if (!isValidCachedResponse(filePath, result.mime, result.buffer)) {
+      if (!isContentValid) {
         asset.error = 'Content validation failed';
         if (attempt < maxAttempts) {
           const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
@@ -267,6 +281,12 @@ export async function downloadSingleAsset(
       asset.status = 'fetched';
       asset.size = result.buffer.length;
       asset.mime = result.mime;
+      asset.statusCode = result.status;
+
+      // Mark if this resource was accepted with non-2xx status code
+      if (!result.ok && (asset.type === 'css' || asset.type === 'js')) {
+        asset.acceptedWithWarning = true;
+      }
 
       if (asset.type === 'css' || asset.type === 'js') {
         asset.textContent = result.buffer.toString('utf8');

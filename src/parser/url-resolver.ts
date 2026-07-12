@@ -1,11 +1,12 @@
 export function resolveUrl(raw: string, baseUrl: string): string | null {
-  if (!raw || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('javascript:') || raw.startsWith('mailto:')) {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('javascript:') || trimmed.startsWith('mailto:')) {
     return null;
   }
 
   try {
     // new URL() handles protocol-relative URLs (//example.com/path) natively
-    const resolved = new URL(raw, baseUrl);
+    const resolved = new URL(trimmed, baseUrl);
     // Security checks: only http and https protocols are allowed
     if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
       return null;

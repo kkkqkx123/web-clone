@@ -27,6 +27,7 @@ export interface CommanderOpts {
   skipTypes?: string;
   maxFileSize?: string;
   convertLocal?: string;
+  strictStatusCodes?: boolean; // Require 2xx status for all assets (default: false)
 }
 
 /**
@@ -55,6 +56,7 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
     extractComponents: isLocal ? true : (cmd.extractComponents || false),
     memoryLimit: safeInt(cmd.memoryLimit, DEFAULTS.memoryLimit),
     convertLocal: cmd.convertLocal || undefined,
+    strictStatusCodes: cmd.strictStatusCodes || false, // Default: lenient acceptance (false = allow 4xx/5xx for CSS/JS)
   };
 
   // Component extraction sub-options

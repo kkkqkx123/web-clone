@@ -73,39 +73,39 @@ export interface PlaywrightAdapterOptions {
 }
 
 /**
- * Playwright 浏览器适配器
+ * Playwright Browser Adapter
  *
- * 集成 Playwright 浏览器上下文，实现 FetcherAdapter 接口。
- * 支持认证、Cookie 继承、JavaScript 执行等高级功能。
+ * Integrates Playwright browser context to implement the FetcherAdapter interface.
+ * Supports advanced features such as authentication, cookie inheritance, and JavaScript execution.
  *
- * 生命周期管理：
- * - 页面由适配器创建和管理，dispose() 会关闭页面
- * - 浏览器上下文由调用者管理，适配器不关闭
- * - 浏览器本身由调用者管理
+ * Lifecycle Management:
+ * - The page is created and managed by the adapter; dispose() will close the page
+ * - The browser context is managed by the caller; the adapter does not close it
+ * - The browser itself is managed by the caller
  *
- * 使用示例：
+ * Usage example:
  * ```typescript
  * const browser = await chromium.launch();
  * const context = await browser.newContext();
  * const page = await context.newPage();
  *
- * // 登录流程
+ * // Login flow
  * await page.goto('https://example.com/login');
  * await page.fill('input[name="email"]', 'user@example.com');
  * await page.fill('input[name="password"]', 'password');
  * await page.click('button[type="submit"]');
  * await page.waitForNavigation();
  *
- * // 创建适配器
+ * // Create adapter
  * const adapter = new PlaywrightFetcherAdapter(page, context, {
  *   waitForLoadState: 'networkidle',
  *   customHeaders: { 'Authorization': 'Bearer token' }
  * });
  *
- * // 快照
+ * // Snapshot
  * const result = await snapshot(options, adapter);
  *
- * // 清理
+ * // Cleanup
  * await adapter.dispose();
  * await context.close();
  * await browser.close();

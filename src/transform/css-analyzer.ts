@@ -228,7 +228,7 @@ function analyzeCssVariablesOnly(css: string): CssAnalysisResult {
 
 /**
  * Group CSS rules by component name and extract global styles.
- * Supports BEM, ID-based, and tag-based patterns.
+ * Supports BEM, ID-based, class-based, and tag-based patterns.
  */
 function groupStylesByComponent(rules: CssRule[]): {
   globalStyles: string[];
@@ -266,14 +266,24 @@ function groupStylesByComponent(rules: CssRule[]): {
         }
         componentGroups[idName].push(rule.source);
       } else {
-        // Tag-based fallback
-        const tagMatch = selector.match(/^([a-z]+)/i);
-        if (tagMatch) {
-          const tagName = tagMatch[1];
-          if (!componentGroups[tagName]) {
-            componentGroups[tagName] = [];
+        // Try simple class selector (e.g., .card, .button)
+        const classMatch = selector.match(/^\.([a-z0-9][a-z0-9-]*?)(?:\s|:|,|$)/i);
+        if (classMatch) {
+          const className = classMatch[1];
+          if (!componentGroups[className]) {
+            componentGroups[className] = [];
           }
-          componentGroups[tagName].push(rule.source);
+          componentGroups[className].push(rule.source);
+        } else {
+          // Tag-based fallback (e.g., button, input)
+          const tagMatch = selector.match(/^([a-z]+)/i);
+          if (tagMatch) {
+            const tagName = tagMatch[1];
+            if (!componentGroups[tagName]) {
+              componentGroups[tagName] = [];
+            }
+            componentGroups[tagName].push(rule.source);
+          }
         }
       }
     }
