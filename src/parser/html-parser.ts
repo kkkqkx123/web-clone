@@ -1,4 +1,4 @@
-import { parseHTML } from 'linkedom';
+import { JSDOM } from 'jsdom';
 import { type AssetType, type AssetRef } from '../types.js';
 import { resolveUrl, parseSrcset } from './url-resolver.js';
 import { extractCssAssets } from './css-parser.js';
@@ -66,7 +66,8 @@ function processSrcsetElements(
 }
 
 export function parseHtml(html: string, baseUrl: string): ParsedHtml {
-  const { document } = parseHTML(html);
+  const dom = new JSDOM(html, { url: baseUrl });
+  const document = dom.window.document as unknown as Document;
   const assets: AssetRef[] = [];
   const seen = new Set<string>();
   const inlineStyles: ParsedHtml['inlineStyles'] = [];

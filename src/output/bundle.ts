@@ -2,6 +2,24 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, extname, relative, resolve } from 'node:path';
 import { type Asset, type SnapshotOptions } from '../types.js';
 
+/**
+ * Serialize Document to HTML string, compatible with both linkedom and jsdom
+ */
+function serializeDocument(document: Document): string {
+  // Try jsdom's serialization first
+  if ('documentElement' in document && document.documentElement) {
+    const defaultView = document.defaultView as any;
+    if (defaultView && defaultView.XMLSerializer) {
+      const serializer = new defaultView.XMLSerializer();
+      return serializer.serializeToString(document);
+    }
+    // Fallback: use outerHTML of documentElement
+    return document.documentElement.outerHTML;
+  }
+  // Fallback for linkedom or other implementations
+  return document.toString();
+}
+
 function prettyPrintHtml(html: string): string {
   const indentStr = '  ';
   const lines: string[] = [];
@@ -282,7 +300,7 @@ export function assembleBundle(
     el.removeAttribute('data-origin-url');
   }
 
-  let html = document.toString();
+  let html = serializeDocument(document);
   if (!html.startsWith('<!')) html = '<!DOCTYPE html>\n' + html;
 
   // Apply pretty-printing if requested

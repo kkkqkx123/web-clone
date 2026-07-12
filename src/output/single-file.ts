@@ -1,12 +1,35 @@
 import { type Asset, type SnapshotOptions } from '../types.js';
 
+/**
+ * Escape HTML special characters for safe text content
+ */
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/** Escape a string for use as a CSS attribute selector value (inside `[attr="..."]) */
+/**
+ * Escape a string for use as a CSS attribute selector value (inside `[attr="..."`)
+ */
 function escCssAttr(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * Serialize Document to HTML string, compatible with both linkedom and jsdom
+ */
+function serializeDocument(document: Document): string {
+  // Try jsdom's serialization first
+  if ('documentElement' in document && document.documentElement) {
+    const defaultView = document.defaultView as any;
+    if (defaultView && defaultView.XMLSerializer) {
+      const serializer = new defaultView.XMLSerializer();
+      return serializer.serializeToString(document);
+    }
+    // Fallback: use outerHTML of documentElement
+    return document.documentElement.outerHTML;
+  }
+  // Fallback for linkedom or other implementations
+  return document.toString();
 }
 
 
@@ -123,7 +146,7 @@ export function assembleSingleFile(
     el.removeAttribute('data-origin-url');
   }
 
-  let html = document.toString();
+  let html = serializeDocument(document);
   if (!html.startsWith('<!')) {
     html = '<!DOCTYPE html>\n' + html;
   }
