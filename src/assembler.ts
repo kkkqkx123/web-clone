@@ -12,6 +12,7 @@ import { postDownloadValidation, isHtmlLike } from './validators.js';
 import { convert } from './converter.js';
 import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js';
 import { runPool } from './worker/pool.js';
+import { ResourceFilter } from './core/resource-filter.js';
 import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
 import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
 import { PlaywrightFetcherAdapter } from './adapters/playwright-fetcher-adapter.js';
@@ -353,8 +354,23 @@ async function snapshotInternal(
 
   allRefs = dedupe(allRefs);
 
-  process.stdout.write(`Downloading ${allRefs.length} assets (max: ${options.maxAssets})...\n`);
-  const assets = await downloadAllAssets(allRefs, options, (asset, index, total) => {
+  // Apply resource filtering
+  const filter = new ResourceFilter({
+    skipExtensions: options.skipExtensions,
+    enableDefaultBlacklist: true,
+  });
+  const filteredRefs = filter.filter(allRefs);
+  const filterStats = filter.getStats();
+
+  if (filterStats.filtered > 0) {
+    process.stdout.write(`Filtered ${filterStats.filtered} resource(s):\n`);
+    for (const [reason, count] of Object.entries(filterStats.filterReasons)) {
+      process.stdout.write(`  • ${reason}: ${count}\n`);
+    }
+  }
+
+  process.stdout.write(`Downloading ${filteredRefs.length} assets (max: ${options.maxAssets})...\n`);
+  const assets = await downloadAllAssets(filteredRefs, options, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
   });

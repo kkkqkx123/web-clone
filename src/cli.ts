@@ -2,8 +2,11 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { snapshot, convertLocalSnapshot } from './assembler.js';
+import { snapshot, convertLocalSnapshot, snapshotWithPlaywright } from './assembler.js';
 import { fromCommander, type CommanderOpts } from './config/index.js';
+import { loadAuthScript, parseViewport, shouldUsePlaywright } from './config/cli-helper.js';
+import type { SnapshotResult } from './types.js';
+import type { BrowserContextOptions, LaunchOptions } from 'playwright';
 
 const program = new Command();
 
@@ -35,6 +38,16 @@ program
   .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4"); empty string "" disables filtering; default: archives/installers/docs/video (archives: .zip, .rar, .7z, .tar, .gz, .bz2; installers: .exe, .msi, .dmg, .apk, .deb, .rpm; docs: .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx; media: .mp4, .webm, .mp3, .wav, .m4v, .mkv, .avi, .mov, .flv, .aac, .flac, .ogg, .wma; other: .ts, .m3u8, .iso, .torrent, .wasm, .bin)')
   .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
+  // Playwright browser automation (Phase 0)
+  .option('--use-playwright', 'Use Playwright browser for snapshot (enables authentication, JS execution)')
+  .option('--headless <bool>', 'Run browser in headless mode (default: true)', 'true')
+  .option('--proxy <url>', 'HTTP proxy URL (e.g., http://proxy:8080)')
+  .option('--auth-script <path>', 'Login script file path (JavaScript with page and context parameters)')
+  .option('--auth-timeout <ms>', 'Authentication timeout in milliseconds (default: 30000)', '30000')
+  .option('--save-state <path>', 'Save browser state (cookies, localStorage) to file')
+  .option('--load-state <path>', 'Load browser state from file before snapshot')
+  .option('--user-agent <string>', 'Custom User-Agent header')
+  .option('--viewport <widthxheight>', 'Viewport size (e.g., 1920x1080)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
@@ -48,9 +61,17 @@ program
     const startTime = Date.now();
 
     try {
-      const result = isLocal
-        ? await convertLocalSnapshot(options)
-        : await snapshot(options.url, options);
+      let result: SnapshotResult;
+
+      if (isLocal) {
+        result = await convertLocalSnapshot(options);
+      } else if (shouldUsePlaywright(opts)) {
+        // Playwright-based snapshot
+        result = await performPlaywrightSnapshot(options, opts);
+      } else {
+        // HTTP-based snapshot (default)
+        result = await snapshot(options.url, options);
+      }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -85,6 +106,53 @@ program
   });
 
 program.parse(process.argv);
+
+/**
+ * Perform Playwright-based snapshot with optional authentication
+ */
+async function performPlaywrightSnapshot(
+  options: any,
+  opts: CommanderOpts
+): Promise<SnapshotResult> {
+  // Parse Playwright options
+  const launchOptions: LaunchOptions = {
+    headless: opts.headless !== 'false',
+    proxy: opts.proxy ? { server: opts.proxy } : undefined,
+  };
+
+  const contextOptions: BrowserContextOptions = {
+    userAgent: opts.userAgent,
+  };
+
+  // Parse viewport if provided
+  if (opts.viewport) {
+    try {
+      contextOptions.viewport = parseViewport(opts.viewport);
+    } catch (err) {
+      throw new Error(`Invalid viewport: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Load authentication script if provided
+  let setupAuth: ((page: any, context: any) => Promise<void>) | undefined;
+  if (opts.authScript) {
+    try {
+      const timeout = opts.authTimeout ? parseInt(opts.authTimeout, 10) : 30000;
+      console.log(chalk.gray(`  Loading auth script from: ${opts.authScript}`));
+      setupAuth = await loadAuthScript(opts.authScript, timeout);
+    } catch (err) {
+      throw new Error(`Failed to load auth script: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Perform snapshot with Playwright
+  console.log(chalk.gray('  Starting Playwright browser...'));
+  return snapshotWithPlaywright(options.url, options, {
+    browserLaunchOptions: launchOptions,
+    contextOptions,
+    setupAuth,
+  });
+}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
