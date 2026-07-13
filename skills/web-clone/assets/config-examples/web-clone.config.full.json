@@ -1,0 +1,116 @@
+{
+  "$schema": "https://example.com/web-clone/schema.json",
+
+  // ──────────────────────────────────────────────────────────────
+  // Resource Filtering Preset
+  // ──────────────────────────────────────────────────────────────
+  // Controls which file types are skipped during snapshot.
+  // Overridable by CLI --resource-preset.
+  //
+  // Available presets:
+  //   "none"       - No filtering, include everything
+  //   "minimal"    - Skip only archives (.zip, .rar, .7z, .tar, .gz, .bz2)
+  //   "default"    - Skip archives, installers, and documents (recommended)
+  //   "no-media"   - Skip all media (video + audio) on top of default
+  //   "aggressive" - Download only critical web assets
+  //
+  // Default: "default"
+  // ──────────────────────────────────────────────────────────────
+  "resourcePreset": "default",
+
+  // ──────────────────────────────────────────────────────────────
+  // Explicit Skip Extensions
+  // ──────────────────────────────────────────────────────────────
+  // Takes absolute priority over resourcePreset.
+  // When set, the preset is ignored entirely.
+  // Use empty array [] to disable all filtering for this project.
+  // ──────────────────────────────────────────────────────────────
+  // "skipExtensions": [".zip", ".mp4", ".wasm"],
+
+  // ──────────────────────────────────────────────────────────────
+  // Explicitly Include Extensions
+  // ──────────────────────────────────────────────────────────────
+  // Extensions to forcibly KEEP (removed from the preset's skip list).
+  // Merged with CLI --include-* flags (both apply).
+  // ──────────────────────────────────────────────────────────────
+  "includeExtensions": [".wasm", ".bin"],
+
+  // ──────────────────────────────────────────────────────────────
+  // Explicitly Exclude Extensions
+  // ──────────────────────────────────────────────────────────────
+  // Extensions to forcibly SKIP (added to the preset's skip list).
+  // Merged with CLI --exclude-* flags (both apply).
+  // ──────────────────────────────────────────────────────────────
+  "excludeExtensions": [],
+
+  // ──────────────────────────────────────────────────────────────
+  // Per-Category Include Toggles
+  // ──────────────────────────────────────────────────────────────
+  // Convenience overrides — a simpler alternative to listing individual
+  // extensions in includeExtensions above.
+  // Each toggle removes the corresponding category from the preset's skip list.
+  // ──────────────────────────────────────────────────────────────
+  "include": {
+    "wasm":      true,   // Include .wasm files
+    "bin":       true,   // Include .bin files
+    "video":     false,  // Keep video files (.mp4, .webm, .ts, .m3u8, etc.) in skip list
+    "audio":     false,  // Keep audio files (.mp3, .wav, .aac, etc.) in skip list
+    "fonts":     true,   // Include font files (.woff, .woff2, .ttf, .otf)
+    "documents": false,  // Keep documents (.pdf, .doc, .docx, etc.) in skip list
+    "archives":  false   // Keep archives (.zip, .rar, .7z, etc.) in skip list
+  },
+
+  // ──────────────────────────────────────────────────────────────
+  // Global Defaults (overridable by CLI flags)
+  // ──────────────────────────────────────────────────────────────
+  // These set the base values for SnapshotOptions.
+  // CLI flags override them at runtime.
+  // ──────────────────────────────────────────────────────────────
+  "defaults": {
+    // Output path (default: ./snapshot)
+    "output": "./my-snapshots",
+
+    // Snapshot mode: "bundle" (directory) or "single" (HTML file)
+    "mode": "bundle",
+
+    // Max assets to download (default: 100)
+    "maxAssets": 200,
+
+    // Parallel download concurrency (default: 6)
+    "concurrency": 8,
+
+    // Per-request timeout in ms (default: 15000)
+    "timeout": 30000,
+
+    // Retry count for failed downloads (default: 1)
+    "retryCount": 2,
+
+    // Retry backoff (ms)
+    "retryInitialDelay": 500,
+    "retryMaxDelay": 5000,
+
+    // Max file size per asset, e.g. "50MB", "10m", or bytes (default: 50MB)
+    "maxFileSize": "100MB",
+
+    // Whether to inline small assets as data URIs (default: true)
+    "inline": true,
+
+    // Pretty-print output HTML (default: false)
+    "pretty": true,
+
+    // Memory limit in MB for component extraction (default: 1536)
+    "memoryLimit": 2048,
+
+    // Strict HTTP status code validation (default: false)
+    "strictStatusCodes": false,
+
+    // Recursive resource scan depth (1=off, 2+ enables JS/JSON scanning)
+    "scanDepth": 2,
+
+    // Scan JS files for embedded URLs (default: true)
+    "scanJs": true,
+
+    // Scan JSON files for media URLs (default: false)
+    "scanJson": true
+  }
+}
