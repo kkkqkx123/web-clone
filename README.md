@@ -17,25 +17,25 @@
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run directly (no build required)
-npm run dev -- https://example.com -o ./snapshot
+pnpm dev:cli -- https://example.com -o ./snapshot
 
 # Or build first, then run
-npm run build
-node dist/cli.js https://example.com -o ./snapshot
+pnpm build
+node apps/cli/dist/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell users**: Use `npm run dev '--' <url>` (quote `--`) or `npx tsx src/cli.ts <url>` instead.
+> **PowerShell users**: Use `pnpm dev:cli '--' <url>` (quote `--`) or `pnpm --filter web-clone-cli exec tsx src/cli.ts <url>` instead.
 > **Proxy users**: The tool automatically detects `HTTPS_PROXY`/`HTTP_PROXY` env vars. See [docs/proxy.md](docs/proxy.md).
 
 ## CLI Usage
 
 ```bash
-npm run dev -- <url> [options]
-npx tsx src/cli.ts <url> [options]
-node dist/cli.js <url> [options]  # After build
+pnpm dev:cli -- <url> [options]
+pnpm --filter web-clone-cli dev -- <url> [options]
+node apps/cli/dist/cli.js <url> [options]  # After build
 ```
 
 ### Basic Options
@@ -95,36 +95,36 @@ By default, the following extensions are skipped to avoid wasting bandwidth on n
 
 ```bash
 # Bundle mode (default) - creates directory structure
-npm run dev -- https://example.com -o ./site
+pnpm dev:cli -- https://example.com -o ./site
 
 # Single file mode - creates self-contained HTML
-npm run dev -- https://example.com -o snapshot.html -m single
+pnpm dev:cli -- https://example.com -o snapshot.html -m single
 ```
 
 ### Snapshot with Component Extraction
 
 ```bash
 # Extract components to bundle
-npm run dev -- https://example.com -o ./project -m bundle --extract-components
+pnpm dev:cli -- https://example.com -o ./project -m bundle --extract-components
 
 # Extract components with single-file snapshot
-npm run dev -- https://example.com -o snapshot.html -m single --extract-components
+pnpm dev:cli -- https://example.com -o snapshot.html -m single --extract-components
 
 # With framework hint and depth limit
-npm run dev -- https://example.com --extract-components --framework vue --component-depth 5
+pnpm dev:cli -- https://example.com --extract-components --framework vue --component-depth 5
 ```
 
 ### Local-Only Conversion
 
 ```bash
 # Run conversion on existing bundle output (skips URL fetch)
-npm run dev -- --convert-local ./project --codegen-framework vue
+pnpm dev:cli -- --convert-local ./project --codegen-framework vue
 
 # Run on single-file output
-npm run dev -- --convert-local snapshot.html --codegen-framework react
+pnpm dev:cli -- --convert-local snapshot.html --codegen-framework react
 
 # Custom output directory
-npm run dev -- --convert-local ./project -o ./alt --codegen-framework vue \
+pnpm dev:cli -- --convert-local ./project -o ./alt --codegen-framework vue \
   --codegen-generate-drafts
 ```
 
@@ -132,19 +132,22 @@ npm run dev -- --convert-local ./project -o ./alt --codegen-framework vue \
 
 ```bash
 # Custom skip list
-npm run dev -- https://example.com --skip-types .zip,.mp4,.pdf
+pnpm dev:cli -- https://example.com --skip-types .zip,.mp4,.pdf
 
 # Disable type filtering (download all types)
-npm run dev -- https://example.com --skip-types ""
+pnpm dev:cli -- https://example.com --skip-types ""
 
 # Size limit per file
-npm run dev -- https://example.com --max-file-size 10MB
+pnpm dev:cli -- https://example.com --max-file-size 10MB
 
 # Disable size limit
-npm run dev -- https://example.com --max-file-size 0
+pnpm dev:cli -- https://example.com --max-file-size 0
+
+# Browser automation (requires optional package)
+pnpm dev:cli -- https://spa-site.com --browser playwright
 
 # Full example: bundle + components + React codegen
-npm run dev -- https://example.com \
+pnpm dev:cli -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -220,13 +223,13 @@ Optional component extraction pipeline:
 The `--` separator must be quoted to avoid PowerShell's stop-parsing:
 
 ```powershell
-npm run dev '--' "https://example.com" -o ./snapshot
+pnpm dev:cli '--' "https://example.com" -o ./snapshot
 ```
 
-Or use `npx tsx` directly:
+Or use a direct tsx approach:
 
 ```powershell
-npx tsx src/cli.ts "https://example.com" -o ./snapshot
+pnpm --filter web-clone-cli exec tsx src/cli.ts "https://example.com" -o ./snapshot
 ```
 
 ### Proxy
@@ -237,16 +240,22 @@ The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables 
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Build TypeScript
-npm run build
+# Build all packages
+pnpm build
 
-# Run without building
-npm run dev -- <url>
+# Run CLI without building
+pnpm dev:cli -- <url>
 
-# Run tests
-npm run test:run
+# Run all tests
+pnpm test
+
+# Run unit tests only
+pnpm test:unit
+
+# Clean all build artifacts
+pnpm clean
 ```
 
 ## License

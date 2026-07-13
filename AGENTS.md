@@ -5,6 +5,8 @@ Always use English in code files(include config files, comments) and use Simplif
 
 ## Project Overview
 
+**web-clone** — Monorepo (pnpm + Turborepo) — see [docs/architecture/MONOREPO_DESIGN.md](docs/architecture/MONOREPO_DESIGN.md)
+
 **web-clone** is a single-execution web page snapshot tool that downloads and bundles a complete webpage snapshot into either a self-contained HTML file or a directory structure. It can optionally extract and analyze component structure.
 
 **Core capabilities:**
@@ -15,20 +17,49 @@ Always use English in code files(include config files, comments) and use Simplif
 ## Build & Development
 
 ```bash
-npm run build         # TypeScript → dist/ (dist/cli.js is the binary)
-npm run dev           # Run via tsx without compilation
-npm run snapshot      # Alias for dev
+pnpm install              # Install all dependencies
+pnpm build                # Build all packages (turbo run build)
+pnpm dev:cli -- <url>     # Run CLI via tsx
+pnpm dev                  # All packages in watch mode
+pnpm test                 # Run all tests (turbo run test)
+pnpm clean                # Clean all dist directories
 ```
 
-Entry point for development: `src/cli.ts`
+Entry point for development: `apps/cli/src/cli.ts`
 
 ## CLI Usage
 
 ```bash
-npm run dev -- <url> [options]
-npx tsx src/cli.ts <url> [options]
-node dist/cli.js <url> [options]  # After npm run build
+pnpm dev:cli -- <url> [options]
+pnpm --filter web-clone-cli dev -- <url> [options]
+node apps/cli/dist/cli.js <url> [options]  # After pnpm build
 ```
+
+**Common options:**
+- `-o, --output <path>` — Output path (default: `./snapshot`)
+- `-m, --mode <type>` — `single` (HTML file) or `bundle` (directory, default)
+- `--extract-components` — Extract component structure (works with any mode)
+- `--framework <hint>` — Framework hint for component extraction: `vue`, `react`, or `svelte`
+- `--component-depth <n>` — Component recognition depth threshold (default: 4)
+- `--max-assets <n>` — Limit total assets (default: 100)
+- `--concurrency <n>` — Parallel downloads (default: 6)
+- `--timeout <ms>` — Per-resource timeout (default: 15000)
+- `--no-inline` — Skip data URI inlining
+- `--pretty` — Prettify HTML
+- `--skip-types <extensions>` — Comma-separated extensions to skip (e.g. `.zip,.mp4,.ts`); empty to disable; defaults to archives/installers/docs/video/audio/binaries
+- `--max-file-size <size>` — Hard size limit per file (e.g. `50MB`, `10m`, or bytes; default: 50MB; 0 = no limit)
+- `--browser <type>` — Browser automation engine: `playwright` | `puppeteer` (requires respective optional package)
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `@web-clone/core` | Core snapshot logic, HTTP adapter, types, component analysis |
+| `@web-clone/adapter-common` | Shared SPA hydration detection & automation types |
+| `@web-clone/adapter-playwright` | Playwright browser automation adapter |
+| `@web-clone/adapter-puppeteer` | Puppeteer browser automation adapter |
+| `@web-clone/codegen` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
+| `web-clone-cli` | CLI application |
 
 **Common options:**
 - `-o, --output <path>` — Output path (default: `./snapshot`)
@@ -46,61 +77,60 @@ node dist/cli.js <url> [options]  # After npm run build
 
 ## Architecture
 
-The snapshot workflow is orchestrated by `assembler.ts` in these stages:
+The snapshot workflow is orchestrated by `packages/core/src/assembler.ts` in these stages:
 
 ### Main Pipeline (Snapshot)
 
-1. **Fetch HTML** (`fetcher.ts:fetchWithTimeout`) — Fetch page with timeout and User-Agent header
-2. **Parse HTML** (`parser/html-parser.ts:parseHtml`) — Extract asset refs (CSS, JS, img, font, media)
-3. **Recursive CSS extraction** (`assembler.ts` → `parser/css-parser.ts`) — Download external CSS files, extract nested assets
-4. **Deduplicate** (`assembler.ts:dedupe`) — Remove duplicate URLs
-5. **Download assets** (`fetcher.ts:downloadAllAssets`) — Concurrent workers with retry and validation
+1. **Fetch HTML** (`packages/core/src/fetcher.ts:fetchWithTimeout`) — Fetch page with timeout and User-Agent header
+2. **Parse HTML** (`packages/core/src/parser/html-parser.ts:parseHtml`) — Extract asset refs (CSS, JS, img, font, media)
+3. **Recursive CSS extraction** (`packages/core/src/assembler.ts` → `packages/core/src/parser/css-parser.ts`) — Download external CSS files, extract nested assets
+4. **Deduplicate** (`packages/core/src/assembler.ts:dedupe`) — Remove duplicate URLs
+5. **Download assets** (`packages/core/src/fetcher.ts:downloadAllAssets`) — Concurrent workers with retry and validation
 6. **Assemble output**:
-   - **Bundle mode** (`output/bundle.ts:assembleBundle`) — Write assets to `assets/{css,js,img,fonts,data}/`, rewrite HTML paths
-   - **Single mode** (`output/single-file.ts:assembleSingleFile`) — Inline all CSS/JS, convert images/fonts to data URIs
+   - **Bundle mode** (`packages/core/src/output/bundle.ts:assembleBundle`) — Write assets to `assets/{css,js,img,fonts,data}/`, rewrite HTML paths
+   - **Single mode** (`packages/core/src/output/single-file.ts:assembleSingleFile`) — Inline all CSS/JS, convert images/fonts to data URIs
 
 ### Optional: Component Extraction Pipeline
 
 When `--extract-components` is specified:
 
-1. **Extract inline CSS/JS** (`assembler.ts:extractInlineCss/extractInlineJs`) — From `<style>` and `<script>` tags
-2. **Merge with downloaded assets** (`assembler.ts:extractCssFromAssets/extractJsFromAssets`) — Combine with downloaded CSS/JS
-3. **HTML Analysis** (`transform/component-analyzer.ts:enhanceHtmlAnalysis`)
+1. **Extract inline CSS/JS** (`packages/core/src/assembler.ts:extractInlineCss/extractInlineJs`) — From `<style>` and `<script>` tags
+2. **Merge with downloaded assets** (`packages/core/src/assembler.ts:extractCssFromAssets/extractJsFromAssets`) — Combine with downloaded CSS/JS
+3. **HTML Analysis** (`packages/core/src/transform/component-analyzer.ts:enhanceHtmlAnalysis`)
    - Identify component boundaries: explicit markers → semantic tags → (optionally) depth-based
    - **No implicit depth limit**: By default, all DOM depths are analyzed for component boundaries
    - **Optional depth constraint**: Use `--component-depth <n>` to limit recognition to specified depth
    - Extract dynamic points: bindings, events, conditions
    - Build component hierarchy
-4. **CSS Analysis** (`transform/css-analyzer.ts:enhanceCssAnalysis`)
+4. **CSS Analysis** (`packages/core/src/transform/css-analyzer.ts:enhanceCssAnalysis`)
    - Extract CSS variables
    - Group rules by component (BEM-based)
    - Mark dynamic styles
-5. **JS Analysis** (`transform/js-analyzer.ts:analyzeJavaScript`)
+5. **JS Analysis** (`packages/core/src/transform/js-analyzer.ts:analyzeJavaScript`)
    - Extract state variables (heuristic-based)
    - Identify event handlers and lifecycle hooks
    - Track DOM references
-6. **Correlation** (`transform/correlator.ts:correlateComponents`)
+6. **Correlation** (`packages/core/src/transform/correlator.ts:correlateComponents`)
    - Match HTML components with CSS rules (class/ID matching)
    - Match with JS logic (DOM ref matching)
    - Calculate match confidence scores
-7. **Generation** (`transform/generator.ts:generateComponentStructure`)
+7. **Generation** (`packages/core/src/transform/generator.ts:generateComponentStructure`)
    - Build component specs with manifests
    - Estimate migration effort
    - Generate suggestions
-8. **Output** (`output/convert.ts:assembleConvert`)
+8. **Output** (`packages/core/src/output/convert.ts:assembleConvert`)
    - Write component directories
    - Generate README, MIGRATION guide
    - **NEW**: Generate REVIEW_REQUIRED.md for low-confidence components
 
-### Key Modules
+### Key Modules (by package)
 
-- **`types.ts`** — Shared types: `SnapshotOptions`, `Asset`, `AssetRef`, `ComponentSpec`, etc.
-- **`fetcher.ts`** — HTTP fetching with AbortController timeout, concurrent worker pool, retry logic
-- **`validators.ts`** — MIME validation, file extension→MIME mapping, content integrity checks
-- **`parser/url-resolver.ts`** — URL resolution (relative→absolute), srcset parsing
-- **`parser/css-parser.ts`** — CSS tree parsing for `@import`, `url()` extraction
-- **`transform/*`** — Component analysis and correlation engines
-- **`cli.ts`** — Commander CLI with orthogonal options design
+- **@web-clone/core** — Core snapshot logic (assembler, fetcher, validators, types), HTML/CSS parsers, output assemblers, component analysis engines, HTTP adapter
+- **@web-clone/adapter-common** — Shared SPA hydration detection (`spa-detector.ts`), automation option types
+- **@web-clone/adapter-playwright** — Playwright browser automation adapter
+- **@web-clone/adapter-puppeteer** — Puppeteer browser automation adapter
+- **@web-clone/codegen** — Framework code generators for Vue/React/Angular/Svelte/jQuery
+- **web-clone-cli** — Commander CLI (`apps/cli/src/cli.ts`) with orthogonal options design
 
 ### Data Structures
 
@@ -168,12 +198,17 @@ interface ComponentSpec {
 
 **To generate complete project backup with components:**
 ```bash
-npm run dev -- https://example.com -o ./project -m bundle --extract-components
+pnpm dev:cli -- https://example.com -o ./project -m bundle --extract-components
 ```
 
 **To generate single-file snapshot with component analysis:**
 ```bash
-npm run dev -- https://example.com -o snapshot.html -m single --extract-components
+pnpm dev:cli -- https://example.com -o snapshot.html -m single --extract-components
+```
+
+**To generate snapshot with browser automation:**
+```bash
+pnpm dev:cli -- https://spa-site.com --browser playwright
 ```
 
 **To debug component extraction:**
@@ -217,34 +252,43 @@ snapshot_components/           # Component extraction
 
 ## Testing & Validation
 
-- No test suite in repo
-- Manual testing via `npm run dev -- <url>`
+- `pnpm test` — Run all tests via turbo
+- `pnpm test:unit` — Unit tests for @web-clone/core only
+- `pnpm test:integration` — Integration tests for CLI only
+- Manual testing via `pnpm dev:cli -- <url>`
 - Inspect output structure and HTTP status codes
 - Use `REVIEW_REQUIRED.md` to validate component extraction quality
 
-## Recent Changes (P0 Refactoring)
+## Recent Changes (Monorepo Migration)
 
 ### What Changed
 
-1. **Removed mutually exclusive modes**
-   - Deleted: `mode: 'convert'` from SnapshotMode
-   - Added: `extractComponents?: boolean` to SnapshotOptions
-   - Impact: Single command can now generate snapshot + components
+1. **Converted to pnpm + Turborepo monorepo**
+   - Root workspace: `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `vitest.workspace.ts`
+   - Package manager: pnpm (was npm)
+   - Build system: Turborepo (was direct tsc)
 
-2. **Enhanced component extraction**
-   - Supports CSS/JS from downloaded assets (not just inline)
-   - Generates `REVIEW_REQUIRED.md` for low-confidence components
-   - Confidence scoring passed to manifest generation
+2. **Split into 6 packages**
+   - **`@web-clone/core`** — Core snapshot logic, types, HTTP adapter, component analysis
+   - **`@web-clone/adapter-common`** — Shared SPA hydration detection & automation types
+   - **`@web-clone/adapter-playwright`** — Playwright browser adapter (hard dep on playwright)
+   - **`@web-clone/adapter-puppeteer`** — Puppeteer browser adapter (hard dep on puppeteer)
+   - **`@web-clone/codegen`** — Framework code generators (Vue/React/Angular/Svelte/jQuery)
+   - **`web-clone-cli`** — CLI application
 
-3. **Updated CLI**
-   - `--extract-components` flag (works with `-m single` and `-m bundle`)
-   - Component extraction options only recognized when flag is specified
-   - Clear help text showing option dependencies
+3. **CLI in its own app (`apps/cli/`)**
+   - `apps/cli/src/cli.ts` (was `src/cli.ts`)
+   - `apps/cli/src/config/` (was `src/config/`)
+   - Adapters are optional dependencies, dynamically loaded via `--browser` flag
 
-4. **Refactored pipeline**
-   - `snapshot()` handles snapshot generation, optionally followed by component extraction
-   - CSS/JS extraction helpers: `extractCssFromAssets()`, `extractJsFromAssets()`
-   - Component output goes to subdirectory of snapshot location
+4. **Removed `loadPlaywrightAdapter()` / `loadPuppeteerAdapter()`**
+   - These were dynamic loaders in `src/adapters/index.ts`
+   - Replaced by direct imports from `@web-clone/adapter-playwright` and `@web-clone/adapter-puppeteer`
+
+5. **Updated commands**
+   - `npm run dev` → `pnpm dev:cli`
+   - `npm run build` → `pnpm build` (turbo parallel build)
+   - `npm test` → `pnpm test` (turbo run test)
 
 ### Implementation Clarity
 

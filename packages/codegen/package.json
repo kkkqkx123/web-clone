@@ -1,0 +1,34 @@
+{
+  "name": "@web-clone/codegen",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./vue": "./dist/vue-generator.js",
+    "./react": "./dist/react-generator.js",
+    "./angular": "./dist/angular-generator.js",
+    "./svelte": "./dist/svelte-generator.js",
+    "./jquery": "./dist/jquery-generator.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@web-clone/core": "workspace:*",
+    "@babel/parser": "^8.0.4",
+    "@babel/traverse": "^8.0.4",
+    "@babel/types": "^8.0.4"
+  },
+  "devDependencies": {
+    "@types/babel__traverse": "^7.28.0",
+    "@types/node": "^26.1.1"
+  }
+}

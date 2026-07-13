@@ -1,0 +1,27 @@
+{
+  "name": "@web-clone/adapter-playwright",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@web-clone/core": "workspace:*",
+    "@web-clone/adapter-common": "workspace:*",
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
+  }
+}

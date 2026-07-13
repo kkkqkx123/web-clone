@@ -15,7 +15,7 @@ dist/
 build/
 target/
 
-# Package manager
+# Package manager locks
 package-lock.json
 
 # download
@@ -24,3 +24,17 @@ snapshot-test
 
 # Test outputs
 __tests__/outputs/
+coverage/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turbo
+.turbo

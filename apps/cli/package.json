@@ -1,0 +1,35 @@
+{
+  "name": "web-clone-cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "snapshot": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "snapshot": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:integration": "vitest run src/__tests__/integration --timeout 60000",
+    "test:coverage": "vitest run --coverage",
+    "test:clean": "rm -rf ./test-* ./coverage",
+    "lint": "eslint src/ --config ../../eslint.config.js",
+    "lint:fix": "eslint src/ --config ../../eslint.config.js --fix",
+    "clean": "rm -rf dist coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@web-clone/core": "workspace:*",
+    "@web-clone/codegen": "workspace:*",
+    "chalk": "^5.6.2",
+    "commander": "^15.0.0"
+  },
+  "optionalDependencies": {
+    "@web-clone/adapter-playwright": "workspace:*",
+    "@web-clone/adapter-puppeteer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0"
+  }
+}
