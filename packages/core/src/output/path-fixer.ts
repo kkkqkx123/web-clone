@@ -137,4 +137,3 @@ export function fixPathsForFileProtocol(document: Document, html: string): void 
     }
   }
 }
-

@@ -53,8 +53,8 @@ export {
   resolveGroupOverrides,
   RESOURCE_PRESETS,
   EXTENSION_GROUPS,
-} from './core/resource-filter.js';
-export type { ResourceFilterOptions, FilterStats } from './core/resource-filter.js';
+} from './resource-filter.js';
+export type { ResourceFilterOptions, FilterStats } from './resource-filter.js';
 
 // Adapter interfaces and implementations
 export { HttpFetcherAdapter } from './adapters/index.js';

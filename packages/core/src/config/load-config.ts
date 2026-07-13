@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import type { ResourcePreset } from '../core/resource-filter.js';
+import type { ResourcePreset } from '../resource-filter.js';
 import type { SnapshotOptions } from './schema.js';
 import { DEFAULTS } from './defaults.js';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ResourceFilter } from '../resource-filter.js';
-import type { AssetRef } from '../../types.js';
+import type { AssetRef } from '../types.js';
 
 describe('ResourceFilter', () => {
   describe('shouldInclude', () => {

@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import type { AssetRef } from '../types.js';
+import type { AssetRef } from './types.js';
 
 // ──────────────────────────────────────────────────────────────
 // Resource presets
