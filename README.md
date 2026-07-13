@@ -1,6 +1,6 @@
 # web-clone
 
-**Single-execution web page snapshot tool** — Download and bundle complete webpage snapshots with optional component structure extraction.
+**Single-execution web page snapshot tool** — Download and bundle complete webpage snapshots with optional component structure extraction and framework code generation.
 
 [中文文档](./README_zh.md)
 
@@ -10,8 +10,13 @@
 - **Flexible Output**: Single self-contained HTML file or directory bundle with separated assets
 - **Component Extraction**: Analyze and extract component structure with state/event analysis (optional)
 - **Framework CodeGen**: Generate Vue/React/Angular/Svelte/jQuery code from extracted components (optional)
-- **Smart Filtering**: Skip irrelevant resources (archives, installers, documents, media) by default
-- **Size Limits**: Hard file size limits to prevent bandwidth waste
+- **Browser Automation**: Playwright or Puppeteer support for SPA/SSR applications
+- **Smart Filtering**: Resource presets and fine-grained include/exclude controls
+- **Recursive Discovery**: Scan JS/JSON for embedded asset URLs (optional)
+- **Size & Budget Limits**: Hard file size limits, concurrency control, memory budgets
+- **Config Hierarchy**: Global `~/.config/web-clone/config.json` + project-level `web-clone.config.json` + CLI overrides
+- **Validation & Cleanup**: Validate snapshot integrity, remove corrupted files, re-download missing assets
+- **Page Diagnostics**: Inspect page structure, locate text, extract structured data (built-in query engine)
 
 ## Quick Start
 
@@ -27,15 +32,17 @@ pnpm build
 node apps/cli/dist/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell users**: Use `pnpm dev:cli '--' <url>` (quote `--`) or `pnpm --filter web-clone-cli exec tsx src/cli.ts <url>` instead.
+> **PowerShell users**: Quote `--` — `pnpm dev:cli '--' <url>` — or use `npx tsx apps/cli/src/cli.ts <url>` directly.
 > **Proxy users**: The tool automatically detects `HTTPS_PROXY`/`HTTP_PROXY` env vars. See [docs/proxy.md](docs/proxy.md).
 
 ## CLI Usage
 
 ```bash
-pnpm dev:cli -- <url> [options]
-pnpm --filter web-clone-cli dev -- <url> [options]
-node apps/cli/dist/cli.js <url> [options]  # After build
+pnpm dev:cli -- <url> [options]                         # Snapshot (default command)
+pnpm dev:cli inspect <url> [options]                    # Page structure analysis
+pnpm dev:cli query <url> <selector> [options]           # Structured data extraction
+pnpm dev:cli validate <output-dir>                      # Validate snapshot integrity
+pnpm dev:cli clean <output-dir> [options]               # Clean corrupted files
 ```
 
 ### Basic Options
@@ -44,10 +51,9 @@ node apps/cli/dist/cli.js <url> [options]  # After build
 |--------|---------|-------------|
 | `-o, --output <path>` | `./snapshot` | Output path |
 | `-m, --mode <type>` | `bundle` | Output format: `single` (HTML file) or `bundle` (directory) |
-| `--extract-components` | — | Extract component structure (works with any mode) |
-| `--convert-local <path>` | — | Run component extraction + codegen on an existing local bundle/single output (skips URL fetch. Implies `--extract-components`) |
+| `--convert-local <path>` | — | Run component extraction + codegen on existing snapshot (skips URL fetch) |
 
-### Download Options
+### Download & Performance
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -55,108 +61,177 @@ node apps/cli/dist/cli.js <url> [options]  # After build
 | `--concurrency <n>` | `6` | Concurrent downloads |
 | `--timeout <ms>` | `15000` | Per-resource timeout (milliseconds) |
 | `--retry-count <n>` | `1` | Retry attempts for failed downloads |
-| `--skip-types <exts>` | (see below) | Skip file extensions (comma-separated); `""` to disable |
-| `--max-file-size <size>` | `50MB` | Hard size limit per file; `0` to disable |
-| `--no-inline` | — | Skip data URI inlining (single mode only) |
-| `--pretty` | — | Prettify output HTML |
+| `--retry-initial-delay <ms>` | `200` | Initial retry backoff delay |
+| `--retry-max-delay <ms>` | `2000` | Maximum retry backoff delay |
+| `--max-file-size <size>` | `50MB` | Per-file size limit; `0` to disable |
+| `--no-inline` | (inline) | Skip data URI inlining (single mode only) |
+| `--pretty` | (minified) | Prettify output HTML |
+| `--strict-status-codes` | `false` | Require 2xx for all assets |
 
-### Default Skipped Extensions
+### Resource Filtering
 
-By default, the following extensions are skipped to avoid wasting bandwidth on non-rendering resources:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--resource-preset <name>` | `default` | Preset: `none` \| `minimal` \| `default` \| `no-media` \| `aggressive` |
+| `--skip-types <exts>` | (preset) | Explicit skip list (overrides preset); `""` to disable |
+| `--include-wasm` | — | Include `.wasm` files |
+| `--include-bin` | — | Include `.bin` files |
+| `--include-video` | — | Include video files |
+| `--include-media` | — | Include video + audio files |
+| `--include-fonts` | — | Include font files |
+| `--include-all` | — | Include all file types |
+| `--exclude-images` | — | Exclude image files |
+| `--exclude-css` | — | Exclude CSS files |
+| `--exclude-js` | — | Exclude JavaScript files |
 
-- **Archives**: `.zip`, `.rar`, `.7z`, `.tar`, `.gz`, `.bz2`
-- **Installers**: `.exe`, `.msi`, `.dmg`, `.apk`, `.deb`, `.rpm`
-- **Documents**: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`
-- **Video**: `.ts`, `.m3u8`, `.m4v`, `.mkv`, `.avi`, `.mov`, `.flv`, `.mp4`, `.webm`
-- **Audio**: `.mp3`, `.aac`, `.flac`, `.ogg`, `.wma`, `.wav`
-- **Other**: `.iso`, `.torrent`, `.wasm`, `.bin`
+### Recursive Scan
 
-### Component Extraction Options
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--scan-depth <n>` | `1` | Recursive scan depth (2+ scans JS/JSON for embedded URLs) |
+| `--scan-js` | `true` | Scan JS files for embedded URLs |
+| `--scan-json` | `false` | Scan JSON files for media URLs |
+
+### Browser Automation
 
 | Option | Description |
 |--------|-------------|
-| `--component-depth <n>` | Limit component recognition depth (default: unlimited) |
-| `--framework <hint>` | Framework hint: `vue`, `react`, or `svelte` |
-| `--extract-logic` | Extract JavaScript logic (default: `true`) |
+| `--browser <type>` | Browser engine: `playwright` \| `puppeteer` |
+| `--hybrid` | Browser renders HTML, HTTP pool downloads assets (requires `--browser`) |
 
-### Framework CodeGen Options
+### Component Extraction
 
-| Option | Description |
-|--------|-------------|
-| `--codegen-framework <type>` | Generate framework code: `vue`, `react`, `angular`, `svelte`, `jquery` |
-| `--codegen-typescript` | Use TypeScript (default: `true`) |
-| `--codegen-css-modules` | Use CSS Modules for React (default: `false`) |
-| `--codegen-generate-drafts` | Generate complete project templates in `__drafts__/` |
-| `--codegen-extract-shared` | Extract shared logic to `shared/` directory |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--extract-components` | — | Enable component extraction |
+| `--component-depth <n>` | unlimited | Limit component recognition depth |
+| `--framework <hint>` | — | Framework hint: `vue`, `react`, or `svelte` |
+| `--extract-logic` | `true` | Extract JavaScript logic |
+| `--component-filter <expr>` | — | Filter by expression, e.g. `"confidence >= 0.7"` |
+| `--memory-limit <mb>` | `1536` | Memory budget for extraction |
+
+### Framework Code Generation
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--codegen-framework <type>` | — | Target framework: `vue` \| `react` \| `angular` \| `svelte` \| `jquery` |
+| `--codegen-typescript` | `true` | Generate TypeScript |
+| `--codegen-css-modules` | `false` | CSS Modules for React |
+| `--codegen-generate-drafts` | — | Generate full project templates in `__drafts__/` |
+| `--codegen-extract-shared` | — | Extract shared logic to `shared/` |
+
+### Diagnostics Subcommands
+
+```
+# Page structure analysis
+pnpm dev:cli inspect <url> [--outline | --locate <text> | --count <sel> | --md]
+
+# Structured data extraction
+pnpm dev:cli query <url> <selector> [--row <spec> | --table | --attr <n> | --json]
+
+# Validate snapshot integrity
+pnpm dev:cli validate <output-dir>
+
+# Clean corrupted/zero-byte files
+pnpm dev:cli clean <output-dir> [--dry-run] [--re-download]
+```
+
+See [docs/commands.md](docs/commands.md) for the complete option reference.
 
 ## Examples
 
 ### Basic Snapshot
 
 ```bash
-# Bundle mode (default) - creates directory structure
+# Bundle mode (default) — directory structure with separated assets
 pnpm dev:cli -- https://example.com -o ./site
 
-# Single file mode - creates self-contained HTML
+# Single file mode — self-contained HTML
 pnpm dev:cli -- https://example.com -o snapshot.html -m single
 ```
 
-### Snapshot with Component Extraction
+### Browser Automation
 
 ```bash
-# Extract components to bundle
-pnpm dev:cli -- https://example.com -o ./project -m bundle --extract-components
+# Playwright (SPA/SSR sites)
+pnpm dev:cli -- https://spa-site.com --browser playwright
 
-# Extract components with single-file snapshot
-pnpm dev:cli -- https://example.com -o snapshot.html -m single --extract-components
+# Hybrid: browser renders HTML, HTTP pool downloads assets
+pnpm dev:cli -- https://spa-site.com --browser playwright --hybrid
+```
+
+### Component Extraction
+
+```bash
+# Extract component structure
+pnpm dev:cli -- https://example.com --extract-components
 
 # With framework hint and depth limit
 pnpm dev:cli -- https://example.com --extract-components --framework vue --component-depth 5
+
+# Generate framework code
+pnpm dev:cli -- https://example.com --extract-components --codegen-framework react
 ```
 
-### Local-Only Conversion
+### Resource Filtering
 
 ```bash
-# Run conversion on existing bundle output (skips URL fetch)
+# Use a preset
+pnpm dev:cli -- https://example.com --resource-preset no-media
+
+# Fine-grained control
+pnpm dev:cli -- https://example.com --include-video --include-fonts --exclude-images
+
+# Include all file types
+pnpm dev:cli -- https://example.com --include-all
+```
+
+### Recursive Scan
+
+```bash
+pnpm dev:cli -- https://example.com --scan-depth 3 --scan-json
+```
+
+### Local Conversion (skip URL fetch)
+
+```bash
 pnpm dev:cli -- --convert-local ./project --codegen-framework vue
-
-# Run on single-file output
-pnpm dev:cli -- --convert-local snapshot.html --codegen-framework react
-
-# Custom output directory
-pnpm dev:cli -- --convert-local ./project -o ./alt --codegen-framework vue \
-  --codegen-generate-drafts
 ```
 
-### Advanced Usage
+### Page Diagnostics
 
 ```bash
-# Custom skip list
-pnpm dev:cli -- https://example.com --skip-types .zip,.mp4,.pdf
+# Structure outline
+pnpm dev:cli inspect https://example.com --outline
 
-# Disable type filtering (download all types)
-pnpm dev:cli -- https://example.com --skip-types ""
+# Find elements containing text
+pnpm dev:cli inspect https://example.com --locate "Search"
 
-# Size limit per file
-pnpm dev:cli -- https://example.com --max-file-size 10MB
+# Extract table data
+pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100' --json
 
-# Disable size limit
-pnpm dev:cli -- https://example.com --max-file-size 0
+# Validate and clean
+pnpm dev:cli validate ./output
+pnpm dev:cli clean ./output --dry-run
+```
 
-# Browser automation (requires optional package)
-pnpm dev:cli -- https://spa-site.com --browser playwright
+### Full Example
 
-# Full example: bundle + components + React codegen
+```bash
 pnpm dev:cli -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
+  --framework react \
+  --component-depth 4 \
+  --max-assets 200 \
+  --concurrency 8 \
+  --pretty \
+  --resource-preset no-media \
+  --max-file-size 20MB \
   --codegen-framework react \
   --codegen-typescript \
-  --skip-types .zip,.exe \
-  --max-file-size 20MB \
-  --concurrency 8 \
-  --pretty
+  --codegen-extract-shared
 ```
 
 ## Output Structure
@@ -201,40 +276,78 @@ snapshot_components/            # (if --extract-components)
 
 ## Architecture
 
-The snapshot pipeline follows these stages:
+### Snapshot Pipeline
 
-1. **Fetch HTML** — Download page with timeout and User-Agent
+1. **Fetch HTML** — Download page with timeout and User-Agent header
 2. **Parse HTML** — Extract asset references (CSS, JS, images, fonts, media)
 3. **Recursive CSS Extraction** — Download external CSS, extract nested `@import` and `url()` references
-4. **Deduplicate** — Remove duplicate URLs
-5. **Filter & Download** — Apply extension/size filters, download remaining assets concurrently
-6. **Assemble Output** — Bundle mode writes files; Single mode inlines everything
+4. **Recursive JS/JSON Scan** (optional) — Scan downloaded JS/JSON for embedded asset URLs
+5. **Deduplicate** — Remove duplicate URLs
+6. **Filter & Download** — Apply extension/size filters, download remaining assets concurrently
+7. **Assemble Output** — Bundle mode writes files; Single mode inlines everything
 
-Optional component extraction pipeline:
-- Analyze HTML/CSS/JS for component boundaries
-- Correlate components with styles and logic
-- Generate component specs with confidence scores
-- Output framework-specific code (optional)
+### Component Extraction Pipeline (optional)
+
+1. **HTML Analysis** — Identify component boundaries (semantic tags, depth)
+2. **CSS Analysis** — Extract variables, group rules by component (BEM)
+3. **JS Analysis** — Extract state variables, event handlers, lifecycle hooks
+4. **Correlation** — Match HTML components with CSS rules and JS logic
+5. **Code Generation** (optional) — Generate Vue/React/Angular/Svelte/jQuery code
+
+## Library API
+
+web-clone can also be used as a library in your own Node.js/TypeScript projects:
+
+```bash
+pnpm add @web-clone/core
+# Optional: pnpm add @web-clone/adapter-playwright @web-clone/codegen
+```
+
+```typescript
+import { snapshot } from '@web-clone/core';
+import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+
+// HTTP snapshot
+const result = await snapshot('https://example.com', {
+  output: './snapshot',
+  mode: 'bundle',
+});
+
+// Browser automation snapshot
+const adapter = new PlaywrightFetcherAdapter(page, context);
+const result = await snapshot({ url: 'https://spa-site.com', ... }, adapter);
+```
+
+See [docs/library.md](docs/library.md) for the complete API reference.
+
+## Configuration
+
+web-clone supports multi-layer configuration (lowest → highest priority):
+
+| Priority | Location | Description |
+|----------|----------|-------------|
+| 0 | Built-in defaults | Hardcoded in `packages/core/src/config/defaults.ts` |
+| 1 | `~/.config/web-clone/config.json` | Global user config |
+| 2 | `./web-clone.config.json` / `.web-clonerc` | Project-level config |
+| 3 | CLI flags | Highest priority |
+
+See [examples/config-examples/config-README.md](examples/config-examples/config-README.md) for config file format details.
 
 ## Platform Notes
 
 ### PowerShell
 
-The `--` separator must be quoted to avoid PowerShell's stop-parsing:
+Quote the `--` separator to avoid PowerShell's stop-parsing:
 
 ```powershell
 pnpm dev:cli '--' "https://example.com" -o ./snapshot
-```
-
-Or use a direct tsx approach:
-
-```powershell
-pnpm --filter web-clone-cli exec tsx src/cli.ts "https://example.com" -o ./snapshot
+# Or bypass pnpm entirely:
+npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
 ```
 
 ### Proxy
 
-The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables for all HTTP(S) requests. See [docs/proxy.md](docs/proxy.md) for details.
+The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables. See [docs/proxy.md](docs/proxy.md) for details.
 
 ## Development
 
@@ -242,21 +355,50 @@ The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables 
 # Install dependencies
 pnpm install
 
-# Build all packages
+# Build all packages (turbo parallel)
 pnpm build
 
 # Run CLI without building
 pnpm dev:cli -- <url>
 
-# Run all tests
-pnpm test
+# Watch mode (all packages)
+pnpm dev
 
-# Run unit tests only
-pnpm test:unit
+# Run all tests
+pnpm test          # turbo run test
+pnpm test:unit     # @web-clone/core unit tests
+pnpm test:integration  # CLI integration tests
 
 # Clean all build artifacts
 pnpm clean
 ```
+
+## Project Structure
+
+```
+├── apps/cli/                     # CLI application (Commander)
+├── packages/
+│   ├── core/                     # @web-clone/core — Snapshot engine
+│   ├── adapter-common/           # Shared SPA hydration detection
+│   ├── adapter-playwright/       # Playwright browser adapter
+│   ├── adapter-puppeteer/        # Puppeteer browser adapter
+│   └── codegen/                  # Framework code generators
+├── docs/                         # Documentation
+├── examples/                     # Usage examples
+│   ├── config-examples/          # Config file examples
+│   └── playwright/               # Playwright integration examples
+└── pnpm-workspace.yaml           # Monorepo config
+```
+
+## Docs
+
+| Document | Description |
+|----------|-------------|
+| [docs/commands.md](docs/commands.md) | Full CLI command reference |
+| [docs/library.md](docs/library.md) | Library API reference for all packages |
+| [docs/proxy.md](docs/proxy.md) | Proxy configuration |
+| [docs/COMPONENT_TRANSFORM.md](docs/COMPONENT_TRANSFORM.md) | Component extraction details |
+| [docs/architecture/MONOREPO_DESIGN.md](docs/architecture/MONOREPO_DESIGN.md) | Monorepo architecture |
 
 ## License
 

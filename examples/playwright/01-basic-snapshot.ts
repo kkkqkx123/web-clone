@@ -6,8 +6,8 @@
  */
 
 import { chromium } from 'playwright';
-import { snapshot } from 'web-clone';
-import { PlaywrightFetcherAdapter } from 'web-clone/adapters';
+import { snapshot } from '@web-clone/core';
+import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
 
 async function main() {
   // Launch browser (user controls this)
