@@ -1,8 +1,111 @@
 # docs/plan 目录导引
 
-本目录包含 web-clone 库化和 Playwright 集成的完整设计方案。
+本目录包含 web-clone 库化设计方案和 Playwright 集成的完整规划。
 
 ## 📚 文档清单
+
+### 🆕 **NEW (2026-07-13)** - Library Architecture Refactoring（新库化方案）
+
+#### 1. [01-library-architecture.md](./01-library-architecture.md) - 完整架构设计
+**核心文档，推荐首先阅读**
+
+包含内容：
+- 🎯 核心设计原则（关切点分离、依赖最小化、适配器模式）
+- 🔧 4 个 Phase 实现方案详解
+- 📈 架构图和数据结构
+- 🎯 预期效果和优势总结
+- 📋 完整验证清单
+
+**时间**：15 分钟阅读，体验深入理解  
+**适合**：架构师、核心开发者、决策者
+
+---
+
+#### 2. [02-dependency-strategy.md](./02-dependency-strategy.md) - 依赖策略分析
+**深入解析为什么要这样做**
+
+包含内容：
+- ❌ 当前配置的问题分析
+- 🔍 根本原因分析
+- ✅ 最终决策（移除 peerDependencies）
+- 📊 改进前后对比表
+- 🛠️ 迁移影响分析和 FAQ
+
+**时间**：10 分钟阅读  
+**适合**：库维护者、有依赖困惑的用户、决策者
+
+**核心观点**：Playwright 应由用户在自己项目中安装，不应库强制
+
+---
+
+#### 3. [03-migration-checklist.md](./03-migration-checklist.md) - 详细实施清单
+**逐步实施指南，可打勾的任务列表**
+
+包含内容：
+- 📋 5 个 Phase（前置准备 → API 导出 → 依赖重构 → 逻辑分离 → 文档示例）
+- ✅ 每个 Phase 的具体可打勾任务项
+- 🧪 4 个完整的验证场景（带测试代码）
+- 🎯 最终验收清单
+- 🚀 推荐实施顺序（Day 1-4）
+
+**时间**：第一次 15 分钟审视，实施时分散查看  
+**适合**：项目经理、实施者、QA
+
+**用法**：逐项打勾，确保没有遗漏
+
+---
+
+#### 4. [04-quick-reference.md](./04-quick-reference.md) - 快速参考指南
+**简明版本，适合快速查阅和决策**
+
+包含内容：
+- 🎯 3 个核心决策总结
+- 📁 文件变更概览
+- 🚀 5 个 Phase 概览
+- 💡 4 个关键设计点
+- 📊 改进前后对比表
+- 🔍 7 个常见问题速查
+- 🎬 用户快速开始示例
+
+**时间**：5 分钟快速了解  
+**适合**：所有人（快速概览）、用户代码示例参考
+
+---
+
+---
+
+## 🎯 快速导航
+
+### 我是新用户，想快速了解
+→ 5 分钟快速浏览 [04-quick-reference.md](./04-quick-reference.md)
+
+### 我想理解完整的架构设计
+→ 15 分钟阅读 [01-library-architecture.md](./01-library-architecture.md)
+
+### 我需要理解为什么这样设计
+→ 10 分钟阅读 [02-dependency-strategy.md](./02-dependency-strategy.md)
+
+### 我要立即开始实施
+→ 按照 [03-migration-checklist.md](./03-migration-checklist.md) 逐项执行
+
+### 我想看代码示例
+→ 跳到 [04-quick-reference.md#快速开始用户视角](./04-quick-reference.md#快速开始用户视角)
+
+---
+
+## 📊 新文档与旧文档的关系
+
+**新文档（2026-07-13）** 对旧设计的改进：
+- ✅ 更清晰的架构设计（新的适配器模式）
+- ✅ 更深入的依赖分析（为什么 peerDependencies 有问题）
+- ✅ 更实用的实施清单（可打勾的任务）
+- ✅ 更快速的参考指南（5 分钟上手）
+
+**推荐**：优先使用新文档（01-04），旧文档作为补充参考
+
+---
+
+## 旧文档 (之前的设计方案 - 参考用)
 
 ### 1. [playwright-library-integration.md](./playwright-library-integration.md) - 总体设计方案
 **核心文档，应首先阅读**

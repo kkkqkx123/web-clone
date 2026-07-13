@@ -102,6 +102,13 @@ export interface FetchResult {
    * Final URL (after redirection)
    */
   url?: string;
+
+  /**
+   * Redirect history for this request
+   * Tracks all 3xx redirects that occurred before reaching the final resource
+   * Format: [{ from, to, status }, ...]
+   */
+  redirectHistory?: Array<{ from: string; to: string; status: number }>;
 }
 
 /**

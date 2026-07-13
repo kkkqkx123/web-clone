@@ -9,7 +9,7 @@ import * as path from 'path';
 /**
  * 创建临时测试目录
  */
-export async function createTestDir(basePath: string = './test-output'): Promise<string> {
+export async function createTestDir(basePath: string = './__tests__/outputs'): Promise<string> {
   const timestamp = Date.now();
   const testDir = path.join(basePath, `test-${timestamp}`);
 

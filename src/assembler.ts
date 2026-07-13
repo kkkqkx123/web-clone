@@ -264,7 +264,7 @@ async function snapshotInternal(
 
     // Collect child refs sequentially (safe: no race conditions on allRefs)
     for (const r of cssResults) {
-      if (r.ok && r.cssText && r.childRefs) {
+      if (r && r.ok && r.cssText && r.childRefs) {
         cssContentMap.set(r.url, r.cssText);
         for (const child of r.childRefs) {
           allRefs.push({
@@ -342,6 +342,9 @@ async function snapshotInternal(
   // This allows snapshots to work when opened directly in browsers without a server
   fixPathsForFileProtocol(parsed.document, html);
 
+  // NOTE: Vue hydration script injection has been moved to the CLI layer.
+  // The library stays framework-agnostic; CLI callers can post-process the output.
+
   if (options.mode === 'bundle') {
     mkdirSync(options.output, { recursive: true });
     assembleBundle(parsed.document, assets, options);
@@ -405,7 +408,7 @@ async function snapshotInternal(
     }
   }
 
-  return { sourceUrl: options.url, timestamp, html: '', assets, stats };
+  return { sourceUrl: options.url, timestamp, html, assets, stats };
 }
 
 /**

@@ -55,6 +55,7 @@ import {
   type AuthContext,
 } from '../../fetcher-adapter.js';
 import type { PlaywrightAdapterOptions } from './options.js';
+import { waitForSpaHydration, type SpaPageLike } from '../spa-detector.js';
 
 /**
  * Playwright Fetcher Adapter
@@ -164,6 +165,16 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
 
     if (!response) {
       throw new Error(`Failed to navigate to ${url}`);
+    }
+
+    // Additional wait for SPA frameworks (Vue/React/Angular) to initialize
+    // Uses the shared SPA hydration detector (framework-agnostic, works for
+    // both Playwright and Puppeteer adapters).
+    if (pwOptions.waitForLoadState === 'networkidle' || pwOptions.waitForLoadState === 'load') {
+      await waitForSpaHydration(this.page as unknown as SpaPageLike, {
+        timeout: options.timeout ?? 30000,
+        logPrefix: '[Playwright Adapter]',
+      });
     }
 
     // Optional: debug screenshot

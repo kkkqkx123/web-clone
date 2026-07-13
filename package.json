@@ -41,14 +41,6 @@
     "ora": "^9.4.1",
     "postcss": "^8.5.17"
   },
-  "peerDependencies": {
-    "playwright": ">=1.40.0"
-  },
-  "peerDependenciesMeta": {
-    "playwright": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/babel__parser": "^7.1.5",
@@ -60,6 +52,7 @@
     "eslint": "^10.7.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.58.2",
+    "puppeteer": "^25.3.0",
     "tsx": "^4.23.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.63.0",

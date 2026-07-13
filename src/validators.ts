@@ -31,10 +31,46 @@ export function hasExpectedMagic(filePath: string, buffer: Buffer): boolean {
   return magic.every((byte, index) => buffer[index] === byte);
 }
 
+/**
+ * Check if a buffer contains valid JavaScript code (basic heuristic)
+ * Returns false if the content looks like HTML
+ */
+function looksLikeValidJavaScript(buffer: Buffer): boolean {
+  const content = buffer.toString('utf8', 0, Math.min(1000, buffer.length));
+  const trimmed = content.trim();
+
+  // Reject if starts with HTML
+  if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.startsWith('<?xml')) {
+    return false;
+  }
+
+  // Reject if contains HTML tags
+  if (/<(html|head|body|script|meta|link)\b/i.test(trimmed)) {
+    return false;
+  }
+
+  // Accept common JavaScript patterns
+  // - Function declarations/expressions
+  // - Variable declarations
+  // - Imports/exports
+  // - Object/array literals
+  if (/^(function|const|let|var|class|async|export|import|\/\/|\/\*|\{|\[|[\w$]+\s*[:=])/m.test(trimmed)) {
+    return true;
+  }
+
+  // Accept if mostly looks like code (contains typical JS characters)
+  if (/[{}()\[\];:,.]/.test(trimmed) && !/^</.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function isValidCachedResponse(filePath: string, contentType: string, buffer: Buffer): boolean {
   const ext = extname(filePath).toLowerCase();
   const ct = contentType.toLowerCase();
 
+  // Strong HTML detection - reject any file that looks like HTML
   if (isHtmlLike(buffer) && ext !== '.html' && ext !== '' && ext !== '.bin') {
     return false;
   }
@@ -49,7 +85,22 @@ export function isValidCachedResponse(filePath: string, contentType: string, buf
   }
 
   if (ext === '.js' || ext === '.mjs') {
-    return !ct.includes('text/html');
+    // Reject if Content-Type explicitly says HTML
+    if (ct.includes('text/html')) {
+      return false;
+    }
+
+    // If buffer looks like HTML, reject it (catches server-returned error pages)
+    if (isHtmlLike(buffer)) {
+      return false;
+    }
+
+    // Do a basic syntax check for JavaScript
+    if (!looksLikeValidJavaScript(buffer)) {
+      return false;
+    }
+
+    return true;
   }
 
   if (IMAGE_EXTS.has(ext) && ct.startsWith('image/')) {

@@ -143,6 +143,3 @@ export interface GeneratedFramework {
     utils?: string;
   };
 }
-
-export { PlaywrightFetcherAdapter } from './adapters/automation/playwright/index.js';
-export type { PlaywrightAdapterOptions } from './adapters/automation/playwright/options.js';

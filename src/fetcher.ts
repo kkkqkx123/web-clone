@@ -47,6 +47,7 @@ export interface FetchResult {
   status: number;
   ok: boolean;
   isHtmlLike: boolean;
+  redirectHistory?: Array<{ from: string; to: string; status: number }>;
 }
 
 /**
@@ -77,6 +78,7 @@ export async function fetchWithTimeout(
   referer?: string,
   maxSize?: number,
   redirectCount = 0,
+  redirectHistory?: { from: string; to: string; status: number }[],
 ): Promise<FetchResult> {
   validateUrlScheme(url);
 
@@ -87,6 +89,8 @@ export async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   timer.unref(); // Don't let the abort timer keep the event loop alive
+
+  const history = redirectHistory || [];
 
   return new Promise<FetchResult>((resolve, reject) => {
     const proxyAgent = resolveProxyAgent(url);
@@ -118,13 +122,17 @@ export async function fetchWithTimeout(
       if (statusCode >= 300 && statusCode < 400 && res.headers.location) {
         clearTimeout(timer);
         const redirectUrl = new URL(res.headers.location, url).href;
+
+        // Record redirect
+        history.push({ from: url, to: redirectUrl, status: statusCode });
+
         if (redirectCount >= MAX_REDIRECTS) {
           reject(new Error(`Too many redirects for ${url}`));
           return;
         }
         // Consume the response body to free memory, then follow redirect
         res.resume();
-        fetchWithTimeout(redirectUrl, timeout, referer, maxSize, redirectCount + 1)
+        fetchWithTimeout(redirectUrl, timeout, referer, maxSize, redirectCount + 1, history)
           .then(resolve, reject);
         return;
       }
@@ -169,6 +177,7 @@ export async function fetchWithTimeout(
           status: statusCode,
           ok: statusCode >= 200 && statusCode < 300,
           isHtmlLike: contentType.includes('text/html'),
+          redirectHistory: history.length > 0 ? history : undefined,
         });
       });
 
@@ -283,6 +292,27 @@ export async function downloadSingleAsset(
 
       // Content-first validation: check if response content is valid for the asset type
       const isContentValid = isValidCachedResponse(filePath, result.mime, result.buffer);
+
+      // Log redirect information if it occurred
+      if (result.redirectHistory && result.redirectHistory.length > 0) {
+        const redirectChain = result.redirectHistory
+          .map((r: { from: string; to: string; status: number }) => `${r.from} (${r.status}) -> ${r.to}`)
+          .join(' -> ');
+        process.stdout.write(`  Redirects for ${ref.url}: ${redirectChain}\n`);
+
+        // For JavaScript files, verify that the final content after redirect is actually JavaScript
+        if ((asset.type === 'js' || asset.type === 'css') && !isContentValid && result.isHtmlLike) {
+          asset.error = `Content mismatch after ${result.redirectHistory.length} redirect(s): received HTML instead of ${asset.type.toUpperCase()}`;
+          if (attempt < maxAttempts) {
+            const delay = retryDelay(attempt, options.retryInitialDelay ?? 200, options.retryMaxDelay ?? 2000);
+            process.stdout.write(`  Retry ${attempt}/${maxAttempts} for ${ref.url} (${asset.error}, retry in ${delay}ms)\n`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          asset.status = 'failed';
+          return asset;
+        }
+      }
 
       // Determine if the status code is acceptable
       // - Always accept 2xx

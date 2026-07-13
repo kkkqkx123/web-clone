@@ -2,7 +2,19 @@
 
 ## 📚 文档列表
 
-### 1. **PLAYWRIGHT_INTEGRATION_TEST_PLAN.md** - 总体测试计划
+### 1. **LIBRARY_REFACTORING_TEST_PLAN.md** (NEW) — 库化改造测试方案
+   - 覆盖 Phase 1-4 的测试需求分析
+   - 10 个新增测试文件的完整用例设计
+   - 当前测试覆盖盲区分析（库 API 导出、依赖重构、逻辑分离）
+   - 8 个预存失败测试的根因分析和修复方案
+   - 逐日实施计划（4 天，~3 小时工作量）
+   - 验收标准和测试质量目标
+
+**何时阅读**：验证库化改造正确性、编写新测试
+
+---
+
+### 2. **PLAYWRIGHT_INTEGRATION_TEST_PLAN.md** - Playwright 集成测试计划
    - 项目当前状态
    - 三层测试金字塔（Mock / 集成 / E2E）
    - Mock 单元测试详细用例

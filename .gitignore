@@ -21,3 +21,6 @@ package-lock.json
 # download
 snapshot
 snapshot-test
+
+# Test outputs
+__tests__/outputs/

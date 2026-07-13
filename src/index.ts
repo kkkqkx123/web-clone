@@ -5,16 +5,17 @@
  * 1. snapshot() - web page snapshot with HTTP fetcher
  * 2. snapshot() with custom FetcherAdapter - advanced usage with Playwright/Puppeteer
  *
- * For Playwright integration, use the adapter directly:
+ * For Playwright integration, use loadPlaywrightAdapter():
  *   import { snapshot } from 'web-clone';
- *   import { PlaywrightFetcherAdapter } from 'web-clone/adapters';
+ *   import { loadPlaywrightAdapter } from 'web-clone/adapters';
  *
  *   const browser = await chromium.launch();
  *   const context = await browser.newContext();
  *   const page = await context.newPage();
  *
  *   // Your authentication logic here
- *   const adapter = new PlaywrightFetcherAdapter(page, context);
+ *   const PlaywrightAdapter = await loadPlaywrightAdapter();
+ *   const adapter = new PlaywrightAdapter(page, context);
  *   const result = await snapshot({ url, output, mode: 'bundle' }, adapter);
  */
 
@@ -46,13 +47,12 @@ export type {
 } from './types.js';
 
 // Adapter interfaces and implementations
-export { PlaywrightFetcherAdapter, HttpFetcherAdapter } from './adapters/index.js';
+export { HttpFetcherAdapter } from './adapters/index.js';
 export type {
   FetcherAdapter,
   FetchOptions,
   FetchResult,
   AuthContext,
-  PlaywrightAdapterOptions,
 } from './adapters/index.js';
 
 // Optional tool function export

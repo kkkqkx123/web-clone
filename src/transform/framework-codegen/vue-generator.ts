@@ -81,8 +81,8 @@ ${styles}`;
     return state
       .map((s) => {
         const typeHint = options.typescript !== false && s.type !== 'unknown'
-          ? `: ${s.type}` : '';
-        return `const ${s.name}${typeHint} = ref(${JSON.stringify(s.initial)})`;
+          ? `<${s.type}>` : '';
+        return `const ${s.name} = ref${typeHint}(${JSON.stringify(s.initial)})`;
       })
       .join('\n');
   }

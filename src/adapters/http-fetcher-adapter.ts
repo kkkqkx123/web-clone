@@ -55,6 +55,7 @@ export class HttpFetcherAdapter implements FetcherAdapter {
       isHtmlLike: result.isHtmlLike,
       headers: {},
       url: url,
+      redirectHistory: result.redirectHistory,
     };
   }
 
