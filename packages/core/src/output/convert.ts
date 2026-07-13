@@ -1,7 +1,9 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { JSDOM } from 'jsdom';
 import type { SnapshotOptions, ConvertResult, ComponentSpec } from '../types.js';
 import { codeGenerator, ConfigGenerator, SharedLogicExtractor } from '@web-clone/codegen';
+import { toMarkdown } from '../query/html-query.js';
 
 interface LowConfidenceComponent {
   name: string;
@@ -21,6 +23,62 @@ interface GlobalIndex {
   globalStyles?: Record<string, string>;
   globalRules?: string[];
   [key: string]: unknown;
+}
+
+/** A single node in the component tree JSON (nested hierarchy). */
+export interface ComponentTreeNode {
+  name: string;
+  type: 'stateful' | 'presentational' | 'unknown';
+  confidence: number;
+  children: ComponentTreeNode[];
+}
+
+/**
+ * Build a nested component tree from the flat components Map.
+ * Only includes components present in the map (respects --component-filter).
+ * Root nodes are those not referenced as children by any other surviving component.
+ */
+function buildComponentTreeJson(components: Map<string, ComponentSpec>): ComponentTreeNode[] {
+  // Collect all child names referenced by surviving components
+  const childNames = new Set<string>();
+  for (const spec of components.values()) {
+    for (const child of spec.children) {
+      childNames.add(child);
+    }
+  }
+
+  // Recursively build a tree node, filtering against the surviving set
+  const visited = new Set<string>();
+  function buildNode(name: string): ComponentTreeNode | null {
+    const spec = components.get(name);
+    if (!spec || visited.has(name)) return null;
+    visited.add(name);
+
+    const node: ComponentTreeNode = {
+      name: spec.name,
+      type: spec.type,
+      confidence: spec.matchConfidence ?? 0,
+      children: [],
+    };
+
+    for (const childName of spec.children) {
+      const childNode = buildNode(childName);
+      if (childNode) node.children.push(childNode);
+    }
+
+    return node;
+  }
+
+  // Roots: components not listed as children of any surviving component
+  const roots: ComponentTreeNode[] = [];
+  for (const name of components.keys()) {
+    if (!childNames.has(name) && !visited.has(name)) {
+      const node = buildNode(name);
+      if (node) roots.push(node);
+    }
+  }
+
+  return roots;
 }
 
 export function assembleConvert(result: ConvertResult, options: SnapshotOptions): ConvertResult {
@@ -44,6 +102,18 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
 
       writeFileSync(join(compDir, 'template.html'), comp.template);
       writeFileSync(join(compDir, 'style.css'), comp.styles || '');
+
+      // Generate template.md (Markdown version of component template)
+      try {
+        const fragDom = new JSDOM(`<div>${comp.template}</div>`, { url: result.sourceUrl });
+        const wrapper = fragDom.window.document.querySelector('div') as Element;
+        const md = toMarkdown(wrapper);
+        if (md.trim()) {
+          writeFileSync(join(compDir, 'template.md'), md);
+        }
+      } catch {
+        // Silently skip Markdown generation for invalid HTML fragments
+      }
 
       if (comp.logic?.state || comp.logic?.methods) {
         const logicContent = JSON.stringify(comp.logic, null, 2);
@@ -79,6 +149,39 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
     writeFileSync(join(outputDir, 'index.json'), JSON.stringify(result.index, null, 2));
     writeFileSync(join(outputDir, 'README.md'), generateReadme(result));
     writeFileSync(join(outputDir, 'MIGRATION.md'), generateMigrationGuide(result));
+
+    // Write page-content.md (original page as Markdown, for reference)
+    try {
+      const dom = new JSDOM(result.html);
+      const md = toMarkdown(dom.window.document.documentElement);
+      if (md.trim()) {
+        writeFileSync(join(outputDir, 'page-content.md'), md);
+      }
+    } catch {
+      // Silently skip Markdown generation if HTML is invalid
+    }
+
+    // Write component-tree.json (nested parent→children hierarchy)
+    const treeNodes = buildComponentTreeJson(result.components);
+    let maxDepth = 0;
+    function calcDepth(nodes: ComponentTreeNode[], d: number) {
+      for (const n of nodes) {
+        maxDepth = Math.max(maxDepth, d);
+        calcDepth(n.children, d + 1);
+      }
+    }
+    calcDepth(treeNodes, 1);
+    const treeJson = {
+      trees: treeNodes,
+      stats: {
+        total: result.components.size,
+        stateful: Array.from(result.components.values()).filter(c => c.type === 'stateful').length,
+        presentational: Array.from(result.components.values()).filter(c => c.type === 'presentational').length,
+        roots: treeNodes.length,
+        maxDepth,
+      },
+    };
+    writeFileSync(join(outputDir, 'component-tree.json'), JSON.stringify(treeJson, null, 2));
 
     // Write low-confidence report if needed
     if (lowConfidenceComponents.length > 0) {
@@ -444,6 +547,12 @@ Generated at: ${result.timestamp}
 - **Stateful**: ${components.filter(c => c.type === 'stateful').length}
 - **Presentational**: ${components.filter(c => c.type === 'presentational').length}
 
+## Reference
+
+- \`page-content.md\` — Original page content rendered as Markdown for easy reading
+- \`component-tree.json\` — Component hierarchy in nested JSON format
+- \`index.json\` — Full component index in JSON format
+
 ## Components
 
 ${components.map(c => {
@@ -453,10 +562,11 @@ ${components.map(c => {
 - **Confidence**: ${Math.round((c.matchConfidence ?? 0) * 100)}%
 - **Path**: \`components/${c.name}/\`
 - **Files**:
-  - \`template.html\` - Component template
-  - \`style.css\` - Component styles
-  - \`manifest.json\` - Component metadata
-${c.logic ? `  - \`logic.original.json\` - Original logic` : ''}
+  - \`template.html\` — Component template
+  - \`template.md\` — Component template as Markdown
+  - \`style.css\` — Component styles
+  - \`manifest.json\` — Component metadata
+${c.logic ? `  - \`logic.original.json\` — Original logic` : ''}
 
 **Estimated Effort**: ${c.manifest.migration.effort}
 - Extraction review: ${c.manifest.migration.effortBreakdown.extraction}

@@ -29,6 +29,7 @@ export interface CommanderOpts {
   inline: boolean;
   pretty: boolean;
   extractComponents: boolean;
+  componentFilter?: string;
   componentDepth?: string;
   framework?: string;
   extractLogic: string;
@@ -110,6 +111,7 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
 
   // Component extraction sub-options
   if (opts.extractComponents) {
+    opts.componentFilter = cmd.componentFilter || undefined;
     opts.componentDepth = cmd.componentDepth ? safeInt(cmd.componentDepth, NaN) : undefined;
     opts.frameworkHint = parseFrameworkHint(cmd.framework);
     opts.extractLogic = parseBool(cmd.extractLogic, DEFAULTS.extractLogic);

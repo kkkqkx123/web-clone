@@ -430,3 +430,137 @@ export async function downloadAllAssets(
 
   return results.filter(Boolean);
 }
+
+// ─── Phase 1: ax integration — charset detection & streaming capped read ───
+
+/**
+ * Decode a response body with best-effort charset detection.
+ *
+ * Detection order (matching browser behavior):
+ *   1. Byte-order mark (BOM)
+ *   2. Content-Type header charset
+ *   3. <meta charset> or <meta http-equiv> sniffed from first 1KB
+ *   4. UTF-8 fallback
+ *
+ * Unsupported/unknown labels gracefully fall back to UTF-8.
+ */
+export function decodeResponseBody(bytes: Uint8Array, contentType: string | null): string {
+  const label = bomLabel(bytes) ?? headerCharset(contentType) ?? metaCharset(bytes) ?? 'utf-8';
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch (e) {
+    if (!(e instanceof RangeError)) throw e;
+    // Unknown/unsupported label — never crash over a bad charset claim.
+    return new TextDecoder().decode(bytes);
+  }
+}
+
+function bomLabel(bytes: Uint8Array): string | null {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return 'utf-8';
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return 'utf-16le';
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return 'utf-16be';
+  return null;
+}
+
+function headerCharset(contentType: string | null): string | null {
+  const m = contentType ? /charset=("?)([^;"\s]+)\1/i.exec(contentType) : null;
+  return m?.[2] ?? null;
+}
+
+/**
+ * Sniff charset from <meta> tags in the first 1KB of the body.
+ * Uses latin1 decode (byte-for-codepoint) since the real charset is unknown.
+ */
+function metaCharset(bytes: Uint8Array): string | null {
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 1024));
+  const direct = /<meta\b[^>]*\bcharset\s*=\s*["']?([^"'\s/>;]+)/i.exec(head);
+  const httpEquiv =
+    /<meta\b[^>]*\bhttp-equiv\s*=\s*["']?content-type["']?[^>]*\bcontent\s*=\s*["'][^"']*charset=([^"'\s;]+)/i.exec(head);
+  const label = direct?.[1] ?? httpEquiv?.[1];
+  if (!label) return null;
+  // WHATWG: meta-declared UTF-16 is bogus (can't have valid ASCII meta tags)
+  return /^utf-16/i.test(label) ? 'utf-8' : label;
+}
+
+/**
+ * Stream a response body with a deadline, stopping at maxBytes.
+ * Never buffers an unbounded body just to truncate it afterwards.
+ */
+export async function fetchWithCappedBody(
+  url: string,
+  options?: { maxBytes?: number; timeoutMs?: number },
+): Promise<{ text: string; capped: boolean; encoding: string }> {
+  const maxBytes = options?.maxBytes ?? 20 * 1024 * 1024; // 20MB
+  const timeoutMs = options?.timeoutMs ?? 30_000;
+  const deadline = Date.now() + timeoutMs;
+
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), timeoutMs);
+  abortTimer.unref();
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`fetch failed: ${res.status} ${res.statusText} for ${url}`);
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) {
+      return { text: '', capped: false, encoding: 'utf-8' };
+    }
+
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    let capped = false;
+
+    while (true) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        await reader.cancel().catch(() => {});
+        throw new Error('body read timed out');
+      }
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let readResult: ReadableStreamReadResult<Uint8Array>;
+      try {
+        readResult = await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error('body read timed out')), remaining);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+
+      const { done, value } = readResult;
+      if (done || !value) break;
+
+      const room = maxBytes - total;
+      if (value.byteLength >= room) {
+        chunks.push(value.subarray(0, room));
+        total = maxBytes;
+        capped = true;
+        await reader.cancel().catch(() => {});
+        break;
+      }
+      chunks.push(value);
+      total += value.byteLength;
+    }
+
+    const bytes = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) {
+      bytes.set(c, off);
+      off += c.byteLength;
+    }
+
+    const contentType = res.headers.get('content-type');
+    const encoding = headerCharset(contentType) ?? bomLabel(bytes) ?? metaCharset(bytes) ?? 'utf-8';
+    const text = decodeResponseBody(bytes, contentType);
+
+    return { text, capped, encoding };
+  } finally {
+    clearTimeout(abortTimer);
+  }
+}

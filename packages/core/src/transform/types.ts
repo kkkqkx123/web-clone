@@ -20,6 +20,7 @@ export interface ComponentRoot {
   depth: number;
   type: 'explicit' | 'semantic' | 'implicit';
   confidence: number;
+  children?: ComponentRoot[];
 }
 
 export interface DynamicPoints {

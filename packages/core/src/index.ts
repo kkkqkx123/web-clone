@@ -99,3 +99,35 @@ export type {
   CssStrategy,
   JsStrategy,
 } from './config/schema.js';
+
+// Query module exports (ax integration)
+export {
+  compileWhere,
+  QueryError,
+  runQuery,
+  typeOf,
+  toTsv,
+  emitQueryResult,
+  collapse,
+  parseRowSpec,
+  signature,
+  selectorPath,
+  inlineToMd,
+  toMarkdown,
+  inspectStructure,
+  locateElement,
+  countElements,
+  tableToRows,
+  rowStats,
+  spaNote,
+} from './query/index.js';
+export type {
+  QueryEmitOptions,
+  OutlineEntry,
+  LocateHit,
+  TableResult,
+} from './query/index.js';
+
+// Output formatting (ax integration)
+export { sanitizeLine, emitLines, emitJson } from './output/emit.js';
+export type { EmitOptions, EmitResult } from './output/emit.js';

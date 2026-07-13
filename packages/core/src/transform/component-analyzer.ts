@@ -522,6 +522,13 @@ export function analyzeHtml(html: string, options?: { maxTagScan?: number; depth
         depth: c.depth,
         type: c.type,
         confidence: c.confidence,
+        children: _mapChildren(c.children).map(mc => ({
+          name: mc.name,
+          element: mc.element,
+          depth: mc.depth,
+          type: mc.type,
+          confidence: mc.confidence,
+        })),
       };
     });
 

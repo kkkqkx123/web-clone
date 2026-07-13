@@ -1,10 +1,27 @@
-import type { SnapshotOptions, ConvertResult, MemoryBudget } from './types.js';
+import type { SnapshotOptions, ConvertResult, MemoryBudget, ComponentSpec } from './types.js';
+import type { ComponentRoot } from './transform/types.js';
 import { analyzeHtml } from './transform/component-analyzer.js';
 import { analyzeCss } from './transform/css-analyzer.js';
 import { analyzeJavaScript } from './transform/js-analyzer.js';
 import { correlateComponents } from './transform/correlator.js';
 import { generateComponentStructure } from './transform/generator.js';
 import { MemoryWatchdog } from './memory-budget.js';
+import { compileWhere } from './query/expr.js';
+
+/** Walk nested ComponentRoot.children to build a parent→children name map. */
+function buildComponentHierarchy(roots: ComponentRoot[]): Map<string, string[]> {
+  const hierarchy = new Map<string, string[]>();
+  function walk(items: ComponentRoot[]) {
+    for (const item of items) {
+      if (item.children && item.children.length > 0) {
+        hierarchy.set(item.name, item.children.map(c => c.name));
+        walk(item.children);
+      }
+    }
+  }
+  walk(roots);
+  return hierarchy;
+}
 
 interface HtmlAnalysisOptions {
   depth?: number;
@@ -73,15 +90,37 @@ export async function convert(
   // Phase 2: Correlation
   const correlated = correlateComponents(htmlAnalysis, cssAnalysis, jsAnalysis);
 
-  // Phase 3: Generation
-  const components = generateComponentStructure(correlated);
+  // Phase 2b: Build parent→children hierarchy from the nested ComponentRoot tree
+  const componentHierarchy = buildComponentHierarchy(htmlAnalysis.componentRoots);
 
-  // Build component tree (simplified)
+  // Phase 3: Generation (with hierarchy so ComponentSpec.children is populated)
+  const components = generateComponentStructure(correlated, componentHierarchy);
+
+  // Phase 4: Apply component filter if specified
+  if (options.componentFilter && components.size > 0) {
+    const predicate = compileWhere(options.componentFilter);
+    for (const [name, spec] of components) {
+      const ctx = {
+        name: spec.name,
+        type: spec.type,
+        confidence: spec.matchConfidence ?? 0,
+        children: spec.children,
+      };
+      if (!predicate(ctx)) {
+        components.delete(name);
+      }
+    }
+  }
+
+  // Build component tree from the actual parent→children hierarchy
+  // (vs. the old flat `{ type, children, manifest }` which was always `children: []`)
   const componentTree: Record<string, unknown> = {};
   components.forEach((comp, name) => {
+    const compChildren = componentHierarchy.get(name) ?? [];
     componentTree[name] = {
       type: comp.type,
-      children: comp.children,
+      confidence: comp.matchConfidence,
+      children: compChildren,
       manifest: comp.manifest
     };
   });

@@ -32,6 +32,7 @@ export interface SnapshotOptions {
   inline: boolean;
   pretty: boolean;
   extractComponents?: boolean;
+  componentFilter?: string;
   componentDepth?: number;
   frameworkHint?: FrameworkHint;
   extractLogic?: boolean;

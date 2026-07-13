@@ -31,6 +31,7 @@ program
   .option('--component-depth <n>', 'Limit component recognition to specified depth (no limit if not specified, requires --extract-components)')
   .option('--framework <hint>', 'Framework hint: vue | react | svelte (requires --extract-components)')
   .option('--extract-logic', 'Extract JavaScript logic (default: true, requires --extract-components)')
+  .option('--component-filter <expr>', 'Filter components by expression, e.g. "confidence >= 0.7 && type == \'stateful\'" (requires --extract-components)')
   .option('--memory-limit <mb>', 'Memory budget in MB for component extraction (requires --extract-components)', '1536')
   .option('--codegen-framework <type>', 'Generate framework code: vue | react | angular | svelte | jquery (requires --extract-components)')
   .option('--codegen-typescript', 'Use TypeScript for generated code (default: true)')
@@ -122,6 +123,67 @@ program
     // Force exit to prevent idle sockets/agent timers from keeping the
     // event loop alive (Node.js 19+ default keepAlive with freeSocketTimeout=30s).
     process.exit(0);
+  });
+
+// ─── inspect subcommand ───────────────────────────────────
+program
+  .command('inspect')
+  .description('Analyze page structure — outline, locate, count, markdown')
+  .argument('<url>', 'Target page URL')
+  .option('--outline', 'Show structure outline (tag.class frequencies)')
+  .option('--locate <text>', 'Find which selectors contain the given text')
+  .option('--count <selector>', 'Count elements matching a CSS selector')
+  .option('--md', 'Convert page to Markdown')
+  .option('--json', 'Output in JSON format (for --locate)')
+  .option('--limit <n>', 'Limit output items', '50')
+  .option('--all', 'Show all results without limit')
+  .option('--budget <n>', 'Cap output at ~N tokens')
+  .action(async (url: string, opts: Record<string, unknown>) => {
+    const { inspect } = await import('./commands/inspect.js');
+    await inspect(url, {
+      outline: opts.outline === true,
+      locate: opts.locate as string | undefined,
+      count: opts.count as string | undefined,
+      md: opts.md === true,
+      json: opts.json === true,
+      limit: opts.limit ? Number(opts.limit) : 50,
+      all: opts.all === true,
+      budget: opts.budget ? Number(opts.budget) : 0,
+    });
+  });
+
+// ─── query subcommand ─────────────────────────────────────
+program
+  .command('query')
+  .description('Extract structured data from HTML using CSS selectors')
+  .argument('<url>', 'Target page URL')
+  .argument('<selector>', 'CSS selector to match elements')
+  .option('--row <spec>', 'Extract structured rows (name=selector, name2=sel@attr)')
+  .option('--table', 'Parse HTML table into structured rows')
+  .option('--where <expr>', 'Filter rows with expression language (e.g. "age >= 18")')
+  .option('--attr <name>', 'Extract a single attribute from each match')
+  .option('--count', 'Just count matching elements')
+  .option('--html', 'Extract inner HTML')
+  .option('--json', 'Output in JSON format')
+  .option('--tsv', 'Output in TSV format')
+  .option('--limit <n>', 'Limit output items', '50')
+  .option('--all', 'Show all results without limit')
+  .option('--budget <n>', 'Cap output at ~N tokens')
+  .action(async (url: string, selector: string, opts: Record<string, unknown>) => {
+    const { query } = await import('./commands/query.js');
+    await query(url, selector, {
+      row: opts.row as string | undefined,
+      table: opts.table === true,
+      where: opts.where as string | undefined,
+      attr: opts.attr as string | undefined,
+      count: opts.count === true,
+      html: opts.html === true,
+      json: opts.json === true,
+      tsv: opts.tsv === true,
+      limit: opts.limit ? Number(opts.limit) : 50,
+      all: opts.all === true,
+      budget: opts.budget ? Number(opts.budget) : 0,
+    });
   });
 
 // ─── validate subcommand ──────────────────────────────────
