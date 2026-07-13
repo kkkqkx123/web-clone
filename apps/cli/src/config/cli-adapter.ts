@@ -1,6 +1,6 @@
-import { DEFAULTS } from '@web-clone/core';
+import { DEFAULTS, loadMergedConfig } from '@web-clone/core';
 import { safeInt, parseBool, parseCodegenFramework, parseFrameworkHint, parseResourcePreset, parseFileSize, validateOptions, resolveGroupOverrides } from '@web-clone/core';
-import type { SnapshotOptions } from '@web-clone/core';
+import type { SnapshotOptions, MergedConfig } from '@web-clone/core';
 
 /**
  * Fallback to environment variable if the CLI value is still the default.
@@ -53,38 +53,60 @@ export interface CommanderOpts {
   scanDepth?: string;
   scanJs?: boolean;
   scanJson?: boolean;
+  hybrid?: boolean;
   convertLocal?: string;
   strictStatusCodes?: boolean;
 }
 
 /**
  * Transform Commander raw opts → validated SnapshotOptions.
+ *
+ * Merge order (lowest → highest priority):
+ *   1. Built-in DEFAULTS (hardcoded fallbacks)
+ *   2. Merged config (global ~/.config/web-clone/config.json → project-level config)
+ *   3. CLI flags (Commander opts)
+ *   4. CLI --include-* / --exclude-* overrides (applied last)
  */
 export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions {
   const isLocal = !!cmd.convertLocal;
   const localPath = cmd.convertLocal as string | undefined;
 
+  // ── Step 1: Load config file hierarchy ──────────────────────
+  const mergedConfig: MergedConfig = loadMergedConfig();
+
   const outputPath = isLocal && cmd.output === DEFAULTS.output
     ? (localPath ?? DEFAULTS.output)
     : cmd.output;
 
+  // ── Step 2: Build opts — config defaults as base, CLI overrides on top ──
   const opts: SnapshotOptions = {
+    // Config file option overrides (lowest priority after DEFAULTS)
+    ...mergedConfig.optionOverrides as Record<string, unknown>,
+
+    // Explicit CLI / DEFAULTS values (override config defaults)
     url: isLocal ? (localPath ?? '') : (url ?? ''),
-    output: outputPath || DEFAULTS.output,
+    output: outputPath || mergedConfig.optionOverrides.output || DEFAULTS.output,
     mode: (cmd.mode === 'single' ? 'single' : 'bundle'),
-    maxAssets: envFallback('MAX_ASSETS', safeInt(cmd.maxAssets, DEFAULTS.maxAssets)),
-    concurrency: envFallback('CONCURRENCY', safeInt(cmd.concurrency, DEFAULTS.concurrency)),
-    timeout: safeInt(cmd.timeout, DEFAULTS.timeout),
-    retryCount: safeInt(cmd.retryCount, DEFAULTS.retryCount),
-    retryInitialDelay: cmd.retryInitialDelay !== undefined ? safeInt(cmd.retryInitialDelay, DEFAULTS.retryInitialDelay) : DEFAULTS.retryInitialDelay,
-    retryMaxDelay: cmd.retryMaxDelay !== undefined ? safeInt(cmd.retryMaxDelay, DEFAULTS.retryMaxDelay) : DEFAULTS.retryMaxDelay,
+    maxAssets: envFallback('MAX_ASSETS', safeInt(cmd.maxAssets, mergedConfig.optionOverrides.maxAssets ?? DEFAULTS.maxAssets)),
+    concurrency: envFallback('CONCURRENCY', safeInt(cmd.concurrency, mergedConfig.optionOverrides.concurrency ?? DEFAULTS.concurrency)),
+    timeout: safeInt(cmd.timeout, mergedConfig.optionOverrides.timeout ?? DEFAULTS.timeout),
+    retryCount: safeInt(cmd.retryCount, mergedConfig.optionOverrides.retryCount ?? DEFAULTS.retryCount),
+    retryInitialDelay: cmd.retryInitialDelay !== undefined ? safeInt(cmd.retryInitialDelay, mergedConfig.optionOverrides.retryInitialDelay ?? DEFAULTS.retryInitialDelay) : (mergedConfig.optionOverrides.retryInitialDelay ?? DEFAULTS.retryInitialDelay),
+    retryMaxDelay: cmd.retryMaxDelay !== undefined ? safeInt(cmd.retryMaxDelay, mergedConfig.optionOverrides.retryMaxDelay ?? DEFAULTS.retryMaxDelay) : (mergedConfig.optionOverrides.retryMaxDelay ?? DEFAULTS.retryMaxDelay),
     inline: cmd.inline !== false,
     pretty: cmd.pretty || false,
     extractComponents: isLocal ? true : (cmd.extractComponents || false),
-    memoryLimit: safeInt(cmd.memoryLimit, DEFAULTS.memoryLimit),
+    memoryLimit: safeInt(cmd.memoryLimit, mergedConfig.optionOverrides.memoryLimit ?? DEFAULTS.memoryLimit),
     convertLocal: cmd.convertLocal || undefined,
     strictStatusCodes: cmd.strictStatusCodes || false,
   };
+
+  // Apply config's maxFileSize if CLI didn't specify one
+  if (cmd.maxFileSize === undefined && mergedConfig.optionOverrides.maxFileSize !== undefined) {
+    opts.maxFileSize = mergedConfig.optionOverrides.maxFileSize;
+  } else if (cmd.maxFileSize !== undefined) {
+    opts.maxFileSize = parseFileSize(cmd.maxFileSize);
+  }
 
   // Component extraction sub-options
   if (opts.extractComponents) {
@@ -107,23 +129,31 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
 
   // Resource filtering (fetch mode only)
   if (!isLocal) {
-    // If --skip-types is explicitly provided, use it as-is (backward compatible)
+    // If --skip-types is explicitly provided, use it as-is (backward compatible, highest priority)
     if (cmd.skipTypes !== undefined) {
       opts.skipExtensions = cmd.skipTypes
         ? cmd.skipTypes.split(',').map(s => s.trim()).filter(Boolean)
         : [];
     } else {
-      // Use preset-based resolution
-      const preset = parseResourcePreset(cmd.resourcePreset) ?? DEFAULTS.resourcePreset;
+      // Use config preset as base, CLI --resource-preset overrides
+      const preset = parseResourcePreset(cmd.resourcePreset) ?? mergedConfig.resourcePreset ?? DEFAULTS.resourcePreset;
       opts.resourcePreset = preset;
 
-      // Collect include/exclude group overrides from --include-* / --exclude-* flags
+      // Collect include/exclude from BOTH config file and CLI flags
+      const configIncludes = mergedConfig.includeExtensions.map(e => e.startsWith('.') ? e : '.' + e);
+      const configExcludes = mergedConfig.excludeExtensions.map(e => e.startsWith('.') ? e : '.' + e);
+
       const includes: string[] = [];
-      const excludes: string[] = [];
+      const excludes: string[] = [...configExcludes];
 
       if (cmd.includeAll) {
         opts.resourcePreset = 'none';
       } else {
+        // Config file includes apply regardless
+        for (const ext of configIncludes) {
+          includes.push(ext);
+        }
+        // CLI --include-* flags
         if (cmd.includeWasm) includes.push('wasm');
         if (cmd.includeBin) includes.push('bin');
         if (cmd.includeVideo) includes.push('video');
@@ -141,22 +171,30 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
       }
     }
 
-    opts.maxFileSize = cmd.maxFileSize !== undefined
-      ? parseFileSize(cmd.maxFileSize)
-      : undefined;
-
-    // Recursive scan options
+    // Recursive scan options (config defaults as base, CLI overrides)
     if (cmd.scanDepth !== undefined) {
       opts.scanDepth = safeInt(cmd.scanDepth, DEFAULTS.scanDepth);
+    } else if (mergedConfig.optionOverrides.scanDepth !== undefined) {
+      opts.scanDepth = mergedConfig.optionOverrides.scanDepth;
     }
     if (cmd.scanJs !== undefined) {
       opts.scanJs = cmd.scanJs;
+    } else if (mergedConfig.optionOverrides.scanJs !== undefined) {
+      opts.scanJs = mergedConfig.optionOverrides.scanJs;
     }
     if (cmd.scanJson !== undefined) {
       opts.scanJson = cmd.scanJson;
+    } else if (mergedConfig.optionOverrides.scanJson !== undefined) {
+      opts.scanJson = mergedConfig.optionOverrides.scanJson;
+    }
+
+    // Hybrid mode flag
+    if (cmd.hybrid !== undefined) {
+      opts.hybrid = cmd.hybrid;
     }
   }
 
+  // ── Step 3: Validate ────────────────────────────────────────
   validateOptions(opts);
   return opts;
 }

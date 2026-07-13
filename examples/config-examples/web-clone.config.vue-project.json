@@ -1,0 +1,23 @@
+{
+  "$schema": "https://example.com/web-clone/schema.json",
+
+  // Vue / Nuxt project config:
+  // - Uses aggressive preset (only critical assets)
+  // - Extracts Vue components automatically
+  // - Generates Vue SFC code from snapshot
+
+  "resourcePreset": "default",
+
+  "defaults": {
+    "output":             "./vue-snapshot",
+    "mode":               "bundle",
+    "extractComponents":  true,
+    "frameworkHint":      "vue",
+    "extractLogic":       true,
+    "scanDepth":          3,
+    "scanJs":             true,
+    "codegenFramework":   "vue",
+    "codegenTypescript":  true,
+    "codegenCssModules":  true
+  }
+}

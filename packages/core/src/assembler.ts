@@ -205,10 +205,20 @@ async function snapshotInternal(
 ): Promise<SnapshotResult> {
   const timestamp = new Date().toISOString();
 
+  // ── Hybrid mode: use provided adapter for HTML fetch (SPA rendering),
+  //    then switch to HTTP adapter for asset downloads (faster).
+  const downloadAdapter = (options.hybrid && adapter.constructor.name !== 'HttpFetcherAdapter')
+    ? new HttpFetcherAdapter()
+    : adapter;
+
   process.stdout.write(`Fetching HTML from ${options.url}...\n`);
   const html = await fetchHtml(options.url, options.timeout, options.maxFileSize, adapter);
   if (!html) {
     throw new Error('Failed to retrieve page content');
+  }
+
+  if (downloadAdapter !== adapter) {
+    process.stdout.write(`Using hybrid mode: browser for HTML, HTTP pool for asset downloads.\n`);
   }
 
   process.stdout.write(`Parsing HTML for assets...\n`);
@@ -243,7 +253,7 @@ async function snapshotInternal(
 
     const cssTasks = cssRefs.map(ref => async (): Promise<CssFetchResult> => {
       try {
-        const result = await adapter.fetch(ref.url, { timeout: options.timeout, maxSize: options.maxFileSize, referer: options.url });
+        const result = await downloadAdapter.fetch(ref.url, { timeout: options.timeout, maxSize: options.maxFileSize, referer: options.url });
         if (result.ok) {
           const cssText = result.buffer.toString('utf8');
           const childRefs = extractCssAssets(cssText, ref.url);
@@ -299,7 +309,7 @@ async function snapshotInternal(
   const assets = await downloadAllAssets(filteredRefs, options, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
-  }, adapter);
+  }, downloadAdapter);
 
   // Log resources accepted with non-2xx status codes (lenient acceptance)
   const lenientAcceptedAssets = assets.filter(a => a.acceptedWithWarning);
@@ -327,63 +337,84 @@ async function snapshotInternal(
     }
   }
 
-  // Recursive resource discovery (enabled when scanDepth > 1)
+  // Recursive resource discovery — multi-round scanning
   const scanDepth = options.scanDepth ?? 1;
   if (scanDepth > 1) {
     process.stdout.write(`\nRecursive resource scanning (depth: ${scanDepth})...\n`);
-    const discoveredRefs: AssetRef[] = [];
+
     const seenUrls = new Set(allRefs.map(r => r.url));
 
-    // Scan downloaded JS files for embedded URLs
-    if (options.scanJs !== false) {
-      for (const asset of assets) {
-        if (asset.status !== 'fetched') continue;
-        const ext = extname(new URL(asset.originUrl).pathname).toLowerCase();
-        if (ext === '.js' || ext === '.mjs' || ext === '.cjs') {
-          const text = asset.textContent || (asset.dataUri ? Buffer.from(asset.dataUri.split(',')[1], 'base64').toString('utf8') : '');
-          if (text) {
-            const urls = extractJsUrls(text, asset.originUrl);
-            for (const found of urls) {
-              if (!seenUrls.has(found.url)) {
-                seenUrls.add(found.url);
-                discoveredRefs.push({
-                  url: found.url,
-                  type: classifyByExt(found.url),
-                  origin: `js:${asset.originUrl}`,
-                });
+    // Determine which file extensions to scan for URLs in each round
+    const scanJsEnabled = options.scanJs !== false;
+    const scanJsonEnabled = options.scanJson === true;
+
+    // Helper: scan a list of assets for embedded URLs, returning newly discovered refs
+    const scanAssets = (assetsToScan: Asset[], round: number): AssetRef[] => {
+      const discovered: AssetRef[] = [];
+
+      if (scanJsEnabled) {
+        for (const asset of assetsToScan) {
+          if (asset.status !== 'fetched') continue;
+          const ext = extname(new URL(asset.originUrl).pathname).toLowerCase();
+          if (ext === '.js' || ext === '.mjs' || ext === '.cjs') {
+            const text = asset.textContent || (asset.dataUri ? Buffer.from(asset.dataUri.split(',')[1], 'base64').toString('utf8') : '');
+            if (text) {
+              const urls = extractJsUrls(text, asset.originUrl);
+              for (const found of urls) {
+                if (!seenUrls.has(found.url)) {
+                  seenUrls.add(found.url);
+                  discovered.push({
+                    url: found.url,
+                    type: classifyByExt(found.url),
+                    origin: `js:${asset.originUrl}`,
+                  });
+                }
               }
             }
           }
         }
       }
-    }
 
-    // Scan downloaded JSON files for media URLs
-    if (options.scanJson) {
-      for (const asset of assets) {
-        if (asset.status !== 'fetched') continue;
-        const ext = extname(new URL(asset.originUrl).pathname).toLowerCase();
-        if (ext === '.json') {
-          const text = asset.textContent || (asset.dataUri ? Buffer.from(asset.dataUri.split(',')[1], 'base64').toString('utf8') : '');
-          if (text) {
-            const urls = extractJsonUrls(text, asset.originUrl);
-            for (const found of urls) {
-              if (!seenUrls.has(found.url)) {
-                seenUrls.add(found.url);
-                discoveredRefs.push({
-                  url: found.url,
-                  type: classifyByExt(found.url),
-                  origin: `json:${asset.originUrl}`,
-                });
+      if (scanJsonEnabled) {
+        for (const asset of assetsToScan) {
+          if (asset.status !== 'fetched') continue;
+          const ext = extname(new URL(asset.originUrl).pathname).toLowerCase();
+          if (ext === '.json') {
+            const text = asset.textContent || (asset.dataUri ? Buffer.from(asset.dataUri.split(',')[1], 'base64').toString('utf8') : '');
+            if (text) {
+              const urls = extractJsonUrls(text, asset.originUrl);
+              for (const found of urls) {
+                if (!seenUrls.has(found.url)) {
+                  seenUrls.add(found.url);
+                  discovered.push({
+                    url: found.url,
+                    type: classifyByExt(found.url),
+                    origin: `json:${asset.originUrl}`,
+                  });
+                }
               }
             }
           }
         }
       }
-    }
 
-    if (discoveredRefs.length > 0) {
-      process.stdout.write(`  Discovered ${discoveredRefs.length} new asset(s) from JS/JSON scanning\n`);
+      return discovered;
+    };
+
+    // Round 2: scan the initially downloaded assets
+    let currentBatchAssets = assets;
+    let roundTotalDiscovered = 0;
+
+    for (let round = 2; round <= scanDepth; round++) {
+      const discoveredRefs = scanAssets(currentBatchAssets, round);
+
+      if (discoveredRefs.length === 0) {
+        process.stdout.write(`  Round ${round}/${scanDepth}: no new assets discovered, stopping early.\n`);
+        break;
+      }
+
+      roundTotalDiscovered += discoveredRefs.length;
+      process.stdout.write(`  Round ${round}/${scanDepth}: discovered ${discoveredRefs.length} new asset(s)\n`);
 
       // Apply resource filtering to discovered refs
       const filter = new ResourceFilter({
@@ -395,14 +426,39 @@ async function snapshotInternal(
       });
       const filteredNewRefs = filter.filter(discoveredRefs);
 
-      if (filteredNewRefs.length > 0) {
-        process.stdout.write(`  Downloading ${filteredNewRefs.length} newly discovered asset(s)...\n`);
-        const newAssets = await downloadAllAssets(filteredNewRefs, options, (asset, index, total) => {
-          const icon = asset.status === 'fetched' ? '✓' : '✗';
-          process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
-        }, adapter);
-        assets.push(...newAssets);
+      if (filteredNewRefs.length === 0) {
+        process.stdout.write(`    All filtered out by resource rules, stopping early.\n`);
+        break;
       }
+
+      process.stdout.write(`    Downloading ${filteredNewRefs.length} asset(s)...\n`);
+      const newAssets = await downloadAllAssets(filteredNewRefs, options, (asset, index, total) => {
+        const icon = asset.status === 'fetched' ? '✓' : '✗';
+        process.stdout.write(`    ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
+      }, downloadAdapter);
+
+      assets.push(...newAssets);
+
+      // Prepare next round: only scan newly downloaded JS/CSS/JSON assets
+      currentBatchAssets = newAssets.filter(a => {
+        if (a.status !== 'fetched') return false;
+        const ext = extname(new URL(a.originUrl).pathname).toLowerCase();
+        return (
+          (scanJsEnabled && (ext === '.js' || ext === '.mjs' || ext === '.cjs')) ||
+          (scanJsonEnabled && ext === '.json') ||
+          ext === '.css'   // Also scan CSS files in subsequent rounds for nested @import/url()
+        );
+      });
+
+      // Stop if nothing scannable was downloaded
+      if (currentBatchAssets.length === 0) {
+        process.stdout.write(`    No scannable assets (JS/CSS/JSON) in this round, stopping.\n`);
+        break;
+      }
+    }
+
+    if (roundTotalDiscovered > 0) {
+      process.stdout.write(`  Total discovered: ${roundTotalDiscovered} new asset(s) across recursive scanning.\n`);
     }
   }
 

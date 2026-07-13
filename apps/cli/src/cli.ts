@@ -52,6 +52,7 @@ program
   .option('--scan-depth <n>', 'Recursive resource scan depth (1 = current behavior; 2+ scans JS/CSS/JSON for hidden URLs)', '1')
   .option('--scan-js', 'Scan JS files for embedded URLs during recursive discovery (default: true)')
   .option('--scan-json', 'Scan JSON files for media URLs during recursive discovery (default: false)')
+  .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --browser)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
@@ -141,15 +142,53 @@ program
   .option('--dry-run', 'Show what would be removed without actually removing')
   .option('--no-zero-byte', 'Skip zero-length file removal')
   .option('--no-corrupted', 'Skip corrupted file removal')
-  .action((outputDir: string, opts: { dryRun?: boolean; zeroByte?: boolean; corrupted?: boolean }) => {
+  .option('--re-download', 'Re-download removed assets if origin URL is known (reads snapshot.json)')
+  .action(async (outputDir: string, opts: { dryRun?: boolean; zeroByte?: boolean; corrupted?: boolean; reDownload?: boolean }) => {
     console.log(chalk.cyan('\n◉ Cleaning snapshot...\n'));
-    const result = cleanSnapshot(outputDir, {
+
+    // Prepare download function if re-download is enabled
+    let downloadFn: import('@web-clone/core').DownloadFn | undefined;
+    if (opts.reDownload) {
+      const { HttpFetcherAdapter } = await import('@web-clone/core');
+      const { writeFile } = await import('node:fs/promises');
+      const adapter = new HttpFetcherAdapter();
+      downloadFn = async (url: string, localPath: string) => {
+        try {
+          const result = await adapter.fetch(url, { timeout: 15000 });
+          if (result.ok) {
+            await writeFile(localPath, result.buffer);
+            return true;
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      };
+    }
+
+    const result = await cleanSnapshot(outputDir, {
       dryRun: opts.dryRun ?? false,
       removeZeroByte: opts.zeroByte !== false,
       removeCorrupted: opts.corrupted !== false,
       removeExternalRefs: false,
-    });
+      reDownload: opts.reDownload ?? false,
+    }, downloadFn);
     console.log(formatCleanResult(result));
+
+    // Log re-download results
+    if (result.reDownloadedFiles && result.reDownloadedFiles.length > 0) {
+      console.log(chalk.green(`\n✓ Re-downloaded ${result.reDownloadedFiles.length} asset(s):`));
+      for (const f of result.reDownloadedFiles) {
+        console.log(`  ✓ ${f.url} → ${f.localPath}`);
+      }
+    }
+    if (result.reDownloadErrors && result.reDownloadErrors.length > 0) {
+      console.log(chalk.red(`\n✗ Failed to re-download ${result.reDownloadErrors.length} asset(s):`));
+      for (const f of result.reDownloadErrors) {
+        console.log(`  ✗ ${f.url}: ${f.error}`);
+      }
+    }
+
     process.exit(result.errors.length > 0 ? 1 : 0);
   });
 

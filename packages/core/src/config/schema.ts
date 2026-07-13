@@ -54,6 +54,8 @@ export interface SnapshotOptions {
   scanJs?: boolean;
   /** Whether to scan JSON files for media URLs during recursive discovery. */
   scanJson?: boolean;
+  /** Hybrid mode: use browser adapter for HTML rendering, HTTP pool for asset downloads. */
+  hybrid?: boolean;
 }
 
 /**

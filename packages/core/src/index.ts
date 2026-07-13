@@ -75,7 +75,7 @@ export {
   formatValidationReport,
   formatCleanResult,
 } from './validation/asset-validator.js';
-export type { ValidationReport, ValidationIssue, ValidationSeverity, CleanOptions, CleanResult } from './validation/asset-validator.js';
+export type { ValidationReport, ValidationIssue, ValidationSeverity, CleanOptions, CleanResult, DownloadFn } from './validation/asset-validator.js';
 
 // Config exports (used by CLI)
 export { DEFAULTS } from './config/defaults.js';

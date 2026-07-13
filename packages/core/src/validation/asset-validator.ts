@@ -45,6 +45,8 @@ export interface CleanOptions {
   removeZeroByte: boolean;
   removeCorrupted: boolean;
   removeExternalRefs: boolean;
+  /** Re-download removed assets if a snapshot.json manifest exists. */
+  reDownload?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -152,23 +154,61 @@ export interface CleanResult {
   removedBytes: number;
   errors: string[];
   dryRun: boolean;
+  /** Files that were successfully re-downloaded (only when reDownload is true). */
+  reDownloadedFiles?: Array<{ url: string; localPath: string }>;
+  /** Re-download failures. */
+  reDownloadErrors?: Array<{ url: string; localPath: string; error: string }>;
 }
 
 /**
- * Clean up corrupted or unwanted files from a snapshot directory.
+ * Re-download callback type. Returns true on success.
  */
-export function cleanSnapshot(outputDir: string, options: CleanOptions): CleanResult {
+export type DownloadFn = (url: string, localPath: string) => Promise<boolean>;
+
+/**
+ * Clean up corrupted or unwanted files from a snapshot directory.
+ * Optionally re-downloads removed assets if reDownload is enabled and
+ * a snapshot.json manifest exists in the output directory.
+ */
+export async function cleanSnapshot(
+  outputDir: string,
+  options: CleanOptions,
+  downloadFn?: DownloadFn,
+): Promise<CleanResult> {
   const removedFiles: string[] = [];
   const errors: string[] = [];
+  const reDownloadedFiles: Array<{ url: string; localPath: string }> = [];
+  const reDownloadErrors: Array<{ url: string; localPath: string; error: string }> = [];
   let removedBytes = 0;
 
-  const walkDir = (dir: string): void => {
+  // Build localPath → originUrl map from snapshot.json (for re-download)
+  const localPathToUrl = new Map<string, string>();
+  if (options.reDownload) {
+    try {
+      const manifestPath = joinPaths(outputDir, 'snapshot.json');
+      if (existsSync(manifestPath)) {
+        const raw = readFileSync(manifestPath, 'utf8');
+        const meta = JSON.parse(raw);
+        if (meta.assets && Array.isArray(meta.assets)) {
+          for (const asset of meta.assets) {
+            if (asset.localPath && asset.originUrl) {
+              localPathToUrl.set(asset.localPath, asset.originUrl);
+            }
+          }
+        }
+      }
+    } catch {
+      // Silently ignore manifest read errors
+    }
+  }
+
+  const walkDir = async (dir: string): Promise<void> => {
     if (!existsSync(dir)) return;
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = dir + '/' + entry.name;
       if (entry.isDirectory()) {
-        walkDir(fullPath);
+        await walkDir(fullPath);
         continue;
       }
       if (!entry.isFile()) continue;
@@ -202,6 +242,28 @@ export function cleanSnapshot(outputDir: string, options: CleanOptions): CleanRe
           try {
             unlinkSync(fullPath);
             removedFiles.push(`${fullPath} (${reason})`);
+
+            // Re-download if enabled and we know the original URL
+            if (options.reDownload && downloadFn) {
+              const localRelPath = toRelativePath(fullPath, outputDir);
+              const originUrl = localPathToUrl.get(localRelPath) || localPathToUrl.get(fullPath);
+              if (originUrl) {
+                try {
+                  const success = await downloadFn(originUrl, fullPath);
+                  if (success) {
+                    reDownloadedFiles.push({ url: originUrl, localPath: fullPath });
+                  } else {
+                    reDownloadErrors.push({ url: originUrl, localPath: fullPath, error: 'Download returned failure' });
+                  }
+                } catch (err) {
+                  reDownloadErrors.push({
+                    url: originUrl,
+                    localPath: fullPath,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                }
+              }
+            }
           } catch (err) {
             errors.push(`Failed to remove ${fullPath}: ${err instanceof Error ? err.message : String(err)}`);
           }
@@ -210,9 +272,35 @@ export function cleanSnapshot(outputDir: string, options: CleanOptions): CleanRe
     }
   };
 
-  walkDir(outputDir);
+  await walkDir(outputDir);
 
-  return { removedFiles, removedBytes, errors, dryRun: options.dryRun };
+  return {
+    removedFiles,
+    removedBytes,
+    errors,
+    dryRun: options.dryRun,
+    reDownloadedFiles: options.reDownload ? reDownloadedFiles : undefined,
+    reDownloadErrors: options.reDownload ? reDownloadErrors : undefined,
+  };
+}
+
+/**
+ * Join path segments using forward slashes (cross-platform safe for relative paths within the project).
+ */
+function joinPaths(...parts: string[]): string {
+  return parts.join('/').replace(/\\/g, '/');
+}
+
+/**
+ * Compute a relative path from baseDir to targetPath (forward-slash normalized).
+ */
+function toRelativePath(targetPath: string, baseDir: string): string {
+  const normalizedTarget = targetPath.replace(/\\/g, '/');
+  const normalizedBase = baseDir.replace(/\\/g, '/');
+  if (normalizedTarget.startsWith(normalizedBase + '/')) {
+    return normalizedTarget.slice(normalizedBase.length + 1);
+  }
+  return normalizedTarget;
 }
 
 /**

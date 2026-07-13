@@ -1,0 +1,12 @@
+{
+  "resourcePreset": "default",
+  "include": {
+    "wasm":  true,
+    "fonts": true
+  },
+  "defaults": {
+    "maxAssets": 150,
+    "concurrency": 8,
+    "timeout": 25000
+  }
+}

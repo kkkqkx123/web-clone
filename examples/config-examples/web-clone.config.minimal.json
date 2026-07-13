@@ -1,0 +1,21 @@
+{
+  "$schema": "https://example.com/web-clone/schema.json",
+
+  // Minimal config: quick snapshot with WASM + fonts included,
+  // media skipped, larger budget.
+
+  "resourcePreset": "no-media",
+  "include": {
+    "wasm":  true,
+    "fonts": true
+  },
+  "defaults": {
+    "output":      "./snapshots",
+    "mode":        "bundle",
+    "maxAssets":   300,
+    "concurrency": 10,
+    "timeout":     30000,
+    "maxFileSize": "200MB",
+    "scanDepth":   2
+  }
+}
