@@ -54,6 +54,20 @@ const TAG_ATTR_MAP: Record<string, TagAttrRule[]> = {
   audio: [
     { sel: 'audio[src]', attr: 'src', type: 'media' },
   ],
+  object: [
+    { sel: 'object[data]', attr: 'data', type: 'img' },
+  ],
+  embed: [
+    { sel: 'embed[src]', attr: 'src', type: 'img' },
+  ],
+  use: [
+    { sel: 'use[href]', attr: 'href', type: 'img' },
+    { sel: 'use[*|href]', attr: 'href', type: 'img' },
+  ],
+  image: [
+    { sel: 'image[href]', attr: 'href', type: 'img' },
+    { sel: 'image[*|href]', attr: 'href', type: 'img' },
+  ],
 };
 
 function addSnapshotAttrs(el: Element, originUrl: string): void {

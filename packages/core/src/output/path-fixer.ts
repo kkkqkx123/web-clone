@@ -15,7 +15,7 @@ export interface PathFixerOptions {
 
 /**
  * Fix Nuxt framework configuration
- * Converts assetsPath from /_nuxt/ to ./assets/js/_nuxt/
+ * Converts assetsPath from /_nuxt/ to ./assets/
  * Handles both literal and Unicode-encoded versions
  */
 export function fixNuxtConfig(document: Document): void {
@@ -33,10 +33,10 @@ export function fixNuxtConfig(document: Document): void {
     let fixed = content;
 
     // 1. Handle Unicode-encoded: assetsPath:"/_nuxt/"
-    fixed = fixed.replace(/assetsPath:"\\u002F_nuxt\\u002F"/g, 'assetsPath:".\\u002Fassets\\u002Fjs\\u002F_nuxt\\u002F"');
+    fixed = fixed.replace(/assetsPath:"\\u002F_nuxt\\u002F"/g, 'assetsPath:".\\u002Fassets\\u002F_nuxt\\u002F"');
 
     // 2. Handle literal: assetsPath:"/_nuxt/"
-    fixed = fixed.replace(/assetsPath:"\/[^"]*\/"/g, 'assetsPath:"./assets/js/_nuxt/"');
+    fixed = fixed.replace(/assetsPath:"\/[^"]*\/"/g, 'assetsPath:"./assets/_nuxt/"');
 
     // If assetsPath was modified, update the script
     if (fixed !== content) {

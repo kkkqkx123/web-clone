@@ -1,7 +1,9 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, extname, relative, resolve, dirname } from 'node:path';
+import { parse, walk } from 'css-tree';
 import { type Asset, type SnapshotOptions } from '../types.js';
 import { rewriteCssUrls } from '../parser/css-parser.js';
+import { resolveUrl } from '../parser/url-resolver.js';
 
 /**
  * Serialize Document to HTML string, compatible with both linkedom and jsdom
@@ -189,10 +191,6 @@ export function assembleBundle(
     const a = assets[i];
     if (a.status !== 'fetched') continue;
 
-    const cat = assetCategory(a.type);
-    const catDir = join(assetsDir, cat);
-    mkdirSync(catDir, { recursive: true });
-
     let fn;
     if (isRoutePath(a.originUrl)) {
       fn = routeToIndexPath(a.originUrl, i);
@@ -201,12 +199,15 @@ export function assembleBundle(
     }
     
     // Path traversal protection
-    const safeLocalPath = safeJoin(catDir, fn);
+    const safeLocalPath = safeJoin(assetsDir, fn);
     if (!safeLocalPath) {
       a.status = 'failed';
       a.error = 'Path traversal attempt blocked';
       continue;
     }
+    
+    // Ensure parent directory exists
+    mkdirSync(dirname(safeLocalPath), { recursive: true });
     
     const relPath = relative(outDir, safeLocalPath).replace(/\\/g, '/');
 
@@ -240,12 +241,51 @@ export function assembleBundle(
       try {
         const urlObj = new URL(originUrl);
         const absolutePath = urlObj.pathname;
-        if (absolutePath.startsWith('/')) {
+        if (absolutePath.startsWith('/') && absolutePath.length > 1) {
           cssUrlMap.set(absolutePath, relFromCss);
         }
       } catch {
         // Skip if originUrl is not a valid URL (should not happen in practice)
       }
+    }
+
+    // Map 3: relative paths in CSS (e.g. url(../icons/icon.svg)) →
+    // correct relative path from the CSS file's local directory.
+    // These are not covered by Map 1 (full URL) or Map 2 (absolute path)
+    // because the CSS literally uses the relative form.
+    // We parse the CSS AST to find all url() references, resolve each
+    // relative path to its full URL, look it up in assetMap, and compute
+    // the correct relative path from the CSS file's directory.
+    let cssAst: ReturnType<typeof parse> | null = null;
+    try {
+      cssAst = parse(a.textContent, { positions: false });
+    } catch {
+      // Malformed CSS — skip relative-path mapping
+    }
+    if (cssAst) {
+      walk(cssAst, (node) => {
+        if (node.type !== 'Url' || !node.value) return;
+        const urlStr = node.value;
+        // Skip inline / fragment-only URLs
+        if (urlStr.startsWith('data:') || urlStr.startsWith('blob:') ||
+            urlStr.startsWith('javascript:') || urlStr.startsWith('#')) return;
+        // Only handle relative paths (not full URLs or absolute paths)
+        if (urlStr.startsWith('http://') || urlStr.startsWith('https://') ||
+            urlStr.startsWith('/') || urlStr.startsWith('//')) return;
+        // Resolve the relative path against the CSS file's origin URL
+        const resolved = resolveUrl(urlStr, a.originUrl);
+        if (!resolved) return;
+        const assetRelPath = assetMap.get(resolved);
+        if (!assetRelPath) return;
+        // Skip if the CSS file *is* the resolved asset (shouldn't happen)
+        if (resolved === a.originUrl) return;
+        const relFromCss = relative(cssDir, assetRelPath).replace(/\\/g, '/');
+        // Only add if the original text is different from what we'd compute
+        // (avoid redundant entries that would cause no-op replacements)
+        if (urlStr !== relFromCss) {
+          cssUrlMap.set(urlStr, relFromCss);
+        }
+      });
     }
 
     if (cssUrlMap.size > 0) {
@@ -266,8 +306,12 @@ export function assembleBundle(
       const tag = el.tagName.toLowerCase();
       if (tag === 'link') {
         el.setAttribute('href', relPath);
-      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio') {
+      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio' || tag === 'embed') {
         el.setAttribute('src', relPath);
+      } else if (tag === 'object') {
+        el.setAttribute('data', relPath);
+      } else if (tag === 'use' || tag === 'image') {
+        el.setAttribute('href', relPath);
       }
 
       // Rewrite URLs inside srcset attribute (responsive images, picture elements)
@@ -312,8 +356,12 @@ export function assembleBundle(
       // Remove the resource attribute so the browser doesn't attempt to load it
       if (tag === 'link') {
         el.removeAttribute('href');
-      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio') {
+      } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio' || tag === 'embed') {
         el.removeAttribute('src');
+      } else if (tag === 'object') {
+        el.removeAttribute('data');
+      } else if (tag === 'use' || tag === 'image') {
+        el.removeAttribute('href');
       }
       // For srcset, also clear it since all candidates would fail
       if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
