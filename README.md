@@ -18,6 +18,53 @@
 - **Validation & Cleanup**: Validate snapshot integrity, remove corrupted files, re-download missing assets
 - **Page Diagnostics**: Inspect page structure, locate text, extract structured data (built-in query engine)
 
+## Installation
+
+### CLI (Global Install)
+
+Install the CLI tool globally via npm:
+
+```bash
+npm install -g @kkkqkx123/web-clone-cli
+```
+
+After installation, the `snapshot` command is available globally:
+
+```bash
+snapshot https://example.com -o ./snapshot
+```
+
+### Library (for Project Use)
+
+Use web-clone as a library in your Node.js/TypeScript project:
+
+```bash
+# Core snapshot engine
+pnpm add @web-clone/core
+
+# Optional: Browser automation adapters
+pnpm add @web-clone/adapter-playwright
+pnpm add @web-clone/adapter-puppeteer
+
+# Optional: Framework code generators
+pnpm add @web-clone/codegen
+
+# Optional: Shared types
+pnpm add @web-clone/types
+```
+
+### Package Overview
+
+| Package | npm Scope | Description |
+|---------|-----------|-------------|
+| `@kkkqkx123/web-clone-cli` | `@kkkqkx123` (personal) | CLI application with `snapshot` binary |
+| `@web-clone/core` | `@web-clone` (org) | Core snapshot engine |
+| `@web-clone/adapter-common` | `@web-clone` (org) | Shared SPA hydration detection & automation types |
+| `@web-clone/adapter-playwright` | `@web-clone` (org) | Playwright browser automation adapter |
+| `@web-clone/adapter-puppeteer` | `@web-clone` (org) | Puppeteer browser automation adapter |
+| `@web-clone/codegen` | `@web-clone` (org) | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
+| `@web-clone/types` | `@web-clone` (org) | Shared TypeScript type definitions |
+
 ## Quick Start
 
 ```bash

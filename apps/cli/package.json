@@ -1,6 +1,9 @@
 {
-  "name": "web-clone-cli",
+  "name": "@kkkqkx123/web-clone-cli",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "snapshot": "dist/cli.js"

@@ -18,6 +18,53 @@
 - **验证与清理**：检查快照完整性、删除损坏文件、重新下载缺失资源
 - **页面诊断**：分析页面结构、定位文本、提取结构化数据（内置查询引擎）
 
+## 安装
+
+### CLI（全局安装）
+
+通过 npm 全局安装 CLI 工具：
+
+```bash
+npm install -g @kkkqkx123/web-clone-cli
+```
+
+安装后，`snapshot` 命令即可全局使用：
+
+```bash
+snapshot https://example.com -o ./snapshot
+```
+
+### 库（项目中使用）
+
+在您的 Node.js/TypeScript 项目中以库的方式使用 web-clone：
+
+```bash
+# 核心快照引擎
+pnpm add @web-clone/core
+
+# 可选：浏览器自动化适配器
+pnpm add @web-clone/adapter-playwright
+pnpm add @web-clone/adapter-puppeteer
+
+# 可选：框架代码生成器
+pnpm add @web-clone/codegen
+
+# 可选：共享类型
+pnpm add @web-clone/types
+```
+
+### 包一览
+
+| 包名 | npm 作用域 | 说明 |
+|------|-----------|------|
+| `@kkkqkx123/web-clone-cli` | `@kkkqkx123`（个人） | CLI 应用，提供 `snapshot` 命令 |
+| `@web-clone/core` | `@web-clone`（组织） | 核心快照引擎 |
+| `@web-clone/adapter-common` | `@web-clone`（组织） | 共享 SPA 水合检测与自动化类型 |
+| `@web-clone/adapter-playwright` | `@web-clone`（组织） | Playwright 浏览器自动化适配器 |
+| `@web-clone/adapter-puppeteer` | `@web-clone`（组织） | Puppeteer 浏览器自动化适配器 |
+| `@web-clone/codegen` | `@web-clone`（组织） | 框架代码生成器（Vue/React/Angular/Svelte/jQuery） |
+| `@web-clone/types` | `@web-clone`（组织） | 共享 TypeScript 类型定义 |
+
 ## 快速开始
 
 ```bash

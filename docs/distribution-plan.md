@@ -553,6 +553,8 @@ cd packages/adapter-puppeteer && npm publish
 cd apps/cli && npm publish
 ```
 
+cli包为个人作用域，其余为web-clone组织作用域
+
 ### 7.2 版本更新策略
 
 ```

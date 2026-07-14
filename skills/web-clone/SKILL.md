@@ -12,6 +12,27 @@ description: >-
 
 This skill provides guidance for using the web-clone CLI and library API.
 
+## Installation
+
+### CLI (Global Install)
+
+```bash
+npm install -g @kkkqkx123/web-clone-cli
+# Then use the `snapshot` command directly:
+snapshot https://example.com -o ./snapshot
+```
+
+### Library (Project Use)
+
+```bash
+# Core engine
+pnpm add @web-clone/core
+# Optional: browser adapters & codegen
+pnpm add @web-clone/adapter-playwright @web-clone/codegen
+```
+
+See [references/cli-usage.md](references/cli-usage.md) for more entry commands.
+
 ## Quick Start
 
 ```bash

@@ -1,16 +1,44 @@
 # CLI Usage
 
+## Installation
+
+### Global Install (npm)
+
+```bash
+npm install -g @kkkqkx123/web-clone-cli
+```
+After installation, the `snapshot` command is available globally.
+
+### Library (as project dependency)
+
+```bash
+pnpm add @web-clone/core
+# Optional: browser adapters
+pnpm add @web-clone/adapter-playwright
+pnpm add @web-clone/adapter-puppeteer
+# Optional: code generators
+pnpm add @web-clone/codegen
+```
+
 ## Entry Commands
 
 ```bash
-pnpm dev:cli -- <url> [options]                 # Dev mode (tsx)
-pnpm --filter web-clone-cli snapshot -- <url>    # Via filter
-node apps/cli/dist/cli.js <url> [options]        # After build
+# Global install (npm)
+snapshot <url> [options]
+
+# Dev mode (tsx, inside monorepo)
+pnpm dev:cli -- <url> [options]
+
+# Via filter
+pnpm --filter web-clone-cli snapshot -- <url>
+
+# After build (direct node)
+node apps/cli/dist/cli.js <url> [options]
 ```
 
-After `pnpm build`, also available as bin:
+After `pnpm build`, the dist binary is also callable as:
 ```bash
-snapshot <url> [options]
+pnpm --filter web-clone-cli snapshot <url> [options]
 ```
 
 ## Subcommands
