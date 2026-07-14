@@ -63,6 +63,8 @@ export interface CommanderOpts {
   serve?: boolean;
   /** Port for the HTTP server */
   servePort?: string;
+  /** Enable reverse proxy for runtime API requests in --serve mode */
+  proxy?: boolean;
 }
 
 /**

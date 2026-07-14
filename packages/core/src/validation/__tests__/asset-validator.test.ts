@@ -11,18 +11,22 @@ interface MockFile {
 
 const mockFiles = new Map<string, MockFile>();
 
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^[a-zA-Z]:/, '');
+}
+
 function addMockFile(path: string, content: string | Buffer): void {
-  mockFiles.set(path, { content, isDirectory: false });
+  mockFiles.set(normalizePath(path), { content, isDirectory: false });
 }
 
 function addMockDir(path: string): void {
-  mockFiles.set(path, { content: '', isDirectory: true });
+  mockFiles.set(normalizePath(path), { content: '', isDirectory: true });
 }
 
 vi.mock('node:fs', () => ({
-  existsSync: (path: string) => mockFiles.has(path),
+  existsSync: (path: string) => mockFiles.has(normalizePath(path)),
   readFileSync: (path: string, encoding?: string) => {
-    const file = mockFiles.get(path);
+    const file = mockFiles.get(normalizePath(path));
     if (!file || file.isDirectory) throw new Error(`ENOENT: ${path}`);
     if (encoding === 'utf8' || encoding === 'utf-8') {
       return file.content.toString('utf8');
@@ -31,9 +35,9 @@ vi.mock('node:fs', () => ({
   },
   readdirSync: (path: string, options?: { withFileTypes?: boolean }) => {
     const entries: Array<{ name: string; isDirectory: () => boolean; isFile: () => boolean }> = [];
-    const prefix = path.endsWith('/') ? path : path + '/';
+    const prefix = normalizePath(path).replace(/\/?$/, '/');
     for (const [filePath, meta] of mockFiles) {
-      if (filePath.startsWith(prefix) && filePath !== path) {
+      if (filePath.startsWith(prefix) && filePath !== normalizePath(path)) {
         const rest = filePath.slice(prefix.length);
         // Only direct children (no deeper nesting)
         if (!rest.includes('/')) {
@@ -48,14 +52,15 @@ vi.mock('node:fs', () => ({
     return entries;
   },
   statSync: (path: string) => {
-    const file = mockFiles.get(path);
+    const file = mockFiles.get(normalizePath(path));
     if (!file) throw new Error(`ENOENT: ${path}`);
     const size = Buffer.isBuffer(file.content) ? file.content.length : Buffer.byteLength(file.content);
     return { size, isDirectory: () => file.isDirectory, isFile: () => !file.isDirectory };
   },
   unlinkSync: (path: string) => {
-    if (!mockFiles.has(path)) throw new Error(`ENOENT: ${path}`);
-    mockFiles.delete(path);
+    const normalPath = normalizePath(path);
+    if (!mockFiles.has(normalPath)) throw new Error(`ENOENT: ${path}`);
+    mockFiles.delete(normalPath);
   },
 }));
 
@@ -166,6 +171,7 @@ describe('validateSnapshot', () => {
     addMockDir('/snap');
     addMockDir('/snap/assets');
     addMockDir('/snap/assets/js');
+    addMockDir('/snap/assets/css');
     addMockFile('/snap/assets/js/app.js', '');
     addMockFile('/snap/assets/css/style.css', 'body { color: red; }');
 
@@ -214,12 +220,12 @@ describe('cleanSnapshot', () => {
     mockFiles.clear();
   });
 
-  it('should remove zero-byte files', () => {
+  it('should remove zero-byte files', async () => {
     addMockDir('/snap');
     addMockFile('/snap/empty.js', '');
     addMockFile('/snap/valid.js', 'console.log("ok");');
 
-    const result = cleanSnapshot('/snap', defaultOptions);
+    const result = await cleanSnapshot('/snap', defaultOptions);
     expect(result.removedFiles).toHaveLength(1);
     expect(result.removedFiles[0]).toContain('empty.js');
     expect(result.removedBytes).toBe(0);
@@ -228,24 +234,24 @@ describe('cleanSnapshot', () => {
     expect(mockFiles.has('/snap/valid.js')).toBe(true);
   });
 
-  it('should remove corrupted files (magic mismatch)', () => {
+  it('should remove corrupted files (magic mismatch)', async () => {
     addMockDir('/snap');
     addMockFile('/snap/corrupted.png', Buffer.from([0x00, 0x00, 0x00, 0x00]));
     addMockFile('/snap/valid.png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 
-    const result = cleanSnapshot('/snap', defaultOptions);
+    const result = await cleanSnapshot('/snap', defaultOptions);
     expect(result.removedFiles).toHaveLength(1);
     expect(result.removedFiles[0]).toContain('corrupted.png');
     expect(mockFiles.has('/snap/corrupted.png')).toBe(false);
     expect(mockFiles.has('/snap/valid.png')).toBe(true);
   });
 
-  it('should not remove files on dry-run', () => {
+  it('should not remove files on dry-run', async () => {
     addMockDir('/snap');
     addMockFile('/snap/empty.js', '');
 
     const options: CleanOptions = { ...defaultOptions, dryRun: true };
-    const result = cleanSnapshot('/snap', options);
+    const result = await cleanSnapshot('/snap', options);
     expect(result.dryRun).toBe(true);
     expect(result.removedFiles).toHaveLength(1);
     expect(result.removedFiles[0]).toContain('dry run');
@@ -253,31 +259,31 @@ describe('cleanSnapshot', () => {
     expect(mockFiles.has('/snap/empty.js')).toBe(true);
   });
 
-  it('should skip zero-byte removal when disabled', () => {
+  it('should skip zero-byte removal when disabled', async () => {
     addMockDir('/snap');
     addMockFile('/snap/empty.js', '');
 
-    const result = cleanSnapshot('/snap', { ...defaultOptions, removeZeroByte: false });
+    const result = await cleanSnapshot('/snap', { ...defaultOptions, removeZeroByte: false });
     expect(result.removedFiles).toHaveLength(0);
     expect(mockFiles.has('/snap/empty.js')).toBe(true);
   });
 
-  it('should skip corrupted removal when disabled', () => {
+  it('should skip corrupted removal when disabled', async () => {
     addMockDir('/snap');
     addMockFile('/snap/bad.png', Buffer.from([0x00, 0x00, 0x00, 0x00]));
 
-    const result = cleanSnapshot('/snap', { ...defaultOptions, removeCorrupted: false });
+    const result = await cleanSnapshot('/snap', { ...defaultOptions, removeCorrupted: false });
     expect(result.removedFiles).toHaveLength(0);
     expect(mockFiles.has('/snap/bad.png')).toBe(true);
   });
 
-  it('should handle missing directory gracefully', () => {
-    const result = cleanSnapshot('/nonexistent', defaultOptions);
+  it('should handle missing directory gracefully', async () => {
+    const result = await cleanSnapshot('/nonexistent', defaultOptions);
     expect(result.removedFiles).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
   });
 
-  it('should track removed bytes correctly', () => {
+  it('should track removed bytes correctly', async () => {
     addMockDir('/snap');
     const content = Buffer.alloc(100, 0x42);
     addMockFile('/snap/empty.js', '');
@@ -291,7 +297,7 @@ describe('cleanSnapshot', () => {
     addMockDir('/snap');
     addMockFile('/snap/empty.js', '');
 
-    const result = cleanSnapshot('/snap', defaultOptions);
+    const result = await cleanSnapshot('/snap', defaultOptions);
     expect(result.removedBytes).toBe(0);
     expect(result.removedFiles).toHaveLength(1);
   });

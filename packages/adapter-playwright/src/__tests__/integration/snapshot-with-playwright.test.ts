@@ -11,24 +11,12 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
-import {
-  setupBrowser,
-  createBrowserContext,
-  createPage,
-  teardownBrowser,
-} from './helpers/browser-setup';
-import { mkdtempSync, existsSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { PlaywrightFetcherAdapter } from '../../adapter.js';
+import { mkdtempSync, existsSync, readFileSync, mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-
-/**
- * Check if Playwright browser is available in the environment.
- * Skips all tests if no browser can be launched.
- */
-let browserAvailable = false;
+import { setupBrowser, createBrowserContext, createPage, teardownBrowser } from './helpers/browser-setup.js';
 
 // ─── Inline helpers (replaces missing snapshot-helpers / file-helpers) ───
 
@@ -142,32 +130,13 @@ async function extractSnapshotStats(filePath: string): Promise<SnapshotStats> {
   };
 }
 
-import { readdirSync, statSync } from 'node:fs';
-
-beforeAll(async () => {
-  try {
-    const testBrowser = await chromium.launch({ headless: true, timeout: 10000 });
-    await testBrowser.close();
-    browserAvailable = true;
-  } catch {
-    console.warn('⚠ Playwright browser not available — skipping all Playwright integration tests');
-    console.warn('  Install browsers with: npx playwright install chromium');
-    browserAvailable = false;
-  }
-});
-
 describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
-  let browser: Browser;
-  let context: BrowserContext;
-  let page: Page;
+  let browser: any;
+  let context: any;
+  let page: any;
   let testOutputDir: string;
 
   beforeAll(async () => {
-    // Skip if no Playwright browser available
-    if (!browserAvailable) {
-      return;
-    }
-    // 一次性启动浏览器（昂贵操作）
     browser = await setupBrowser({
       headless: true,
       timeout: 30000,
@@ -175,11 +144,6 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   });
 
   beforeEach(async () => {
-    // Skip individual test setup if no browser available
-    if (!browserAvailable) {
-      return;
-    }
-    // 每个测试创建新的 context 和 page（轻量级）
     context = await createBrowserContext(browser);
     page = await createPage(context);
 
@@ -204,10 +168,6 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   });
 
   afterAll(async () => {
-    // Skip teardown if no browser was launched
-    if (!browserAvailable) {
-      return;
-    }
     // 关闭浏览器（仅一次）
     await teardownBrowser(browser);
   });

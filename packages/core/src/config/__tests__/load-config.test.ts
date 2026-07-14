@@ -6,10 +6,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockFiles = new Map<string, string>();
 
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^[a-zA-Z]:/, '');
+}
+
 vi.mock('node:fs', () => ({
-  existsSync: (path: string) => mockFiles.has(path),
+  existsSync: (path: string) => mockFiles.has(normalizePath(path)),
   readFileSync: (path: string, encoding?: string) => {
-    const content = mockFiles.get(path);
+    const content = mockFiles.get(normalizePath(path));
     if (content === undefined) throw new Error(`ENOENT: ${path}`);
     return content;
   },

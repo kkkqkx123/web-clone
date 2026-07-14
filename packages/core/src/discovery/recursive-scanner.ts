@@ -30,39 +30,22 @@ export function extractJsUrls(jsText: string, baseUrl: string): DiscoveredUrl[] 
   const found = new Map<string, DiscoveredUrl>();
   const absoluteUrlRe = /https?:\/\/[^\s"'`)\]}>]+\.\w{2,}(?:\/[^\s"'`)\]}>]*)?/gi;
 
-  // Pattern 1: Absolute URLs in string literals
+  /**
+   * Reject captured URLs that contain template expressions (${...}).
+   * These are dynamic template literals and should not be treated as static URLs.
+   */
+  function hasTemplateExpr(s: string): boolean {
+    return s.includes('${');
+  }
+
   let match: RegExpExecArray | null;
-  const re1 = /['"`](https?:\/\/[^\s"'`]+)['"`]/g;
+
+  // Pattern 1: src/href/postMessage assignments (runs before generic URL pattern
+  // so that the more specific src/href confidence takes precedence)
+  const re1 = /(?:src|href)\s*[=:]\s*['"`]([^\s"'`]+)['"`]/g;
   while ((match = re1.exec(jsText)) !== null) {
-    const url = normalizeUrl(match[1]);
-    if (url && !found.has(url)) {
-      found.set(url, { url, source: baseUrl, confidence: 'high' });
-    }
-  }
-
-  // Pattern 2: url(...) calls (CSS-in-JS)
-  const re2 = /url\(\s*['"]?(https?:\/\/[^\s"'`)]+)['"]?\s*\)/g;
-  while ((match = re2.exec(jsText)) !== null) {
-    const url = normalizeUrl(match[1]);
-    if (url && !found.has(url)) {
-      found.set(url, { url, source: baseUrl, confidence: 'high' });
-    }
-  }
-
-  // Pattern 3: fetch(), import(), require() with string literal
-  const re3 = /(?:fetch|import|require)\s*\(\s*['"`]([^\s"'`]+)['"`]\s*\)/g;
-  while ((match = re3.exec(jsText)) !== null) {
     const raw = match[1].trim();
-    const url = resolveMaybeRelative(raw, baseUrl);
-    if (url && !found.has(url)) {
-      found.set(url, { url, source: baseUrl, confidence: 'medium' });
-    }
-  }
-
-  // Pattern 4: src/href/postMessage assignments
-  const re4 = /(?:src|href)\s*[=:]\s*['"`]([^\s"'`]+)['"`]/g;
-  while ((match = re4.exec(jsText)) !== null) {
-    const raw = match[1].trim();
+    if (hasTemplateExpr(raw)) continue;
     if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('//')) {
       const url = normalizeUrl(raw);
       if (url && !found.has(url)) {
@@ -71,10 +54,42 @@ export function extractJsUrls(jsText: string, baseUrl: string): DiscoveredUrl[] 
     }
   }
 
+  // Pattern 2: Absolute URLs in string literals
+  const re2 = /['"`](https?:\/\/[^\s"'`]+)['"`]/g;
+  while ((match = re2.exec(jsText)) !== null) {
+    const url = match[1];
+    if (hasTemplateExpr(url)) continue;
+    const normalized = normalizeUrl(url);
+    if (normalized && !found.has(normalized)) {
+      found.set(normalized, { url: normalized, source: baseUrl, confidence: 'high' });
+    }
+  }
+
+  // Pattern 3: url(...) calls (CSS-in-JS)
+  const re3 = /url\(\s*['"]?(https?:\/\/[^\s"'`)]+)['"]?\s*\)/g;
+  while ((match = re3.exec(jsText)) !== null) {
+    const url = normalizeUrl(match[1]);
+    if (url && !found.has(url)) {
+      found.set(url, { url, source: baseUrl, confidence: 'high' });
+    }
+  }
+
+  // Pattern 4: fetch(), import(), require() with string literal
+  const re4 = /(?:fetch|import|require)\s*\(\s*['"`]([^\s"'`]+)['"`]\s*\)/g;
+  while ((match = re4.exec(jsText)) !== null) {
+    const raw = match[1].trim();
+    if (hasTemplateExpr(raw)) continue;
+    const url = resolveMaybeRelative(raw, baseUrl);
+    if (url && !found.has(url)) {
+      found.set(url, { url, source: baseUrl, confidence: 'medium' });
+    }
+  }
+
   // Pattern 5: new URL(..., import.meta.url) — second arg is import.meta.url
   const re5 = /new\s+URL\s*\(\s*['"`]([^\s"'`]+)['"`]\s*,\s*(?:import\.meta\.url|location\.href|document\.baseURI)\s*\)/g;
   while ((match = re5.exec(jsText)) !== null) {
     const raw = match[1].trim();
+    if (hasTemplateExpr(raw)) continue;
     const url = resolveMaybeRelative(raw, baseUrl);
     if (url && !found.has(url)) {
       found.set(url, { url, source: baseUrl, confidence: 'low' });

@@ -131,3 +131,7 @@ export type {
 // Output formatting (ax integration)
 export { sanitizeLine, emitLines, emitJson } from './output/emit.js';
 export type { EmitOptions, EmitResult } from './output/emit.js';
+
+// Snapshot HTTP server (static serving + cache control + optional reverse proxy)
+export { startSnapshotServer } from './server/index.js';
+export type { SnapshotServerOptions } from './server/index.js';

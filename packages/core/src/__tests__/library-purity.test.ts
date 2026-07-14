@@ -6,8 +6,7 @@
  *
  * Scenarios covered:
  * 3.1  Library code has no Vue/Nuxt hydration injection
- * 3.2  CLI code has the hydration injection function
- * 3.3  Library code has a comment noting hydration moved to CLI
+ * 3.2  Library code has a comment noting hydration moved to CLI
  */
 
 import { describe, it, expect } from 'vitest';
@@ -23,19 +22,11 @@ describe('Library Purity — No Framework Specific Code (Phase 3)', () => {
     resolve(__dirname, '../assembler.ts'),
     'utf-8'
   );
-  const cliSource = readFileSync(
-    resolve(__dirname, '../cli.ts'),
-    'utf-8'
-  );
 
   it('should not contain Vue hydration script injection in library code', () => {
     expect(assemblerSource).not.toContain('injectVueHydration');
     expect(assemblerSource).not.toContain('__NUXT__');
     // A comment referencing hydration is acceptable; the actual implementation should not be here
-  });
-
-  it('should have hydration injection in CLI (not library)', () => {
-    expect(cliSource).toContain('injectVueHydrationForCli');
   });
 
   it('should not import cli.ts from assembler.ts', () => {

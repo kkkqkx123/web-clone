@@ -229,7 +229,23 @@ export function assembleBundle(
       // e.g. CSS at assets/css/foo.css → assets/img/bar.png → ../img/bar.png
       if (originUrl === a.originUrl) continue;
       const relFromCss = relative(cssDir, assetRelPath).replace(/\\/g, '/');
+
+      // Map 1: full URL → relative path (covers CSS using full URLs like url(https://...))
       cssUrlMap.set(originUrl, relFromCss);
+
+      // Map 2: absolute path → relative path (covers Nuxt/Vue CSS using
+      // url(/_nuxt/fonts/xxx.woff) instead of full URLs). The pathname
+      // extracted from the origin URL matches the absolute-path reference
+      // used in the CSS content since they share the same origin.
+      try {
+        const urlObj = new URL(originUrl);
+        const absolutePath = urlObj.pathname;
+        if (absolutePath.startsWith('/')) {
+          cssUrlMap.set(absolutePath, relFromCss);
+        }
+      } catch {
+        // Skip if originUrl is not a valid URL (should not happen in practice)
+      }
     }
 
     if (cssUrlMap.size > 0) {

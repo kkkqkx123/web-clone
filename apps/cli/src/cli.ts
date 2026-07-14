@@ -2,11 +2,10 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { readFileSync, writeFileSync, createReadStream } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { snapshot, convertLocalSnapshot } from '@web-clone/core';
+import { snapshot, convertLocalSnapshot, startSnapshotServer } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
 import type { SnapshotOptions, SnapshotResult } from '@web-clone/core';
 import { validateSnapshot, cleanSnapshot, formatValidationReport, formatCleanResult } from '@web-clone/core';
@@ -59,6 +58,7 @@ program
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
   .option('--serve', 'Start a local HTTP server to serve the snapshot (avoids file:// protocol restrictions)')
   .option('--serve-port <port>', 'Port for the HTTP server (default: 8080)', '8080')
+  .option('--proxy', 'Enable reverse proxy for runtime API requests in --serve mode (requires --adapter playwright|puppeteer)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
@@ -160,10 +160,18 @@ program
     if (opts.serve && !isLocal) {
       const port = opts.servePort ? parseInt(opts.servePort, 10) : 8080;
       if (Number.isFinite(port) && port > 0 && port < 65536) {
-        startStaticServer(options.output, port);
+        startSnapshotServer(options.output, {
+          port,
+          originUrl: opts.proxy ? options.url : undefined,
+          proxy: !!opts.proxy,
+        });
       } else {
         console.error(chalk.red(`Invalid --serve-port: "${opts.servePort}". Using 8080.`));
-        startStaticServer(options.output, 8080);
+        startSnapshotServer(options.output, {
+          port: 8080,
+          originUrl: opts.proxy ? options.url : undefined,
+          proxy: !!opts.proxy,
+        });
       }
     } else {
       // Force exit to prevent idle sockets/agent timers from keeping the
@@ -325,66 +333,6 @@ function formatBytes(bytes: number): string {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Static file server for --serve mode
-// ──────────────────────────────────────────────────────────────
-
-const MIME_TYPES: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.mjs': 'application/javascript; charset=utf-8',
-  '.cjs': 'application/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.eot': 'application/vnd.ms-fontobject',
-  '.wasm': 'application/wasm',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-};
-
-function startStaticServer(rootDir: string, port: number): void {
-  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-    let urlPath = req.url || '/';
-    // Strip query string for file lookup
-    const queryIdx = urlPath.indexOf('?');
-    if (queryIdx !== -1) urlPath = urlPath.substring(0, queryIdx);
-
-    // Normalize: default to index.html for directories
-    const filePath = urlPath.endsWith('/')
-      ? join(rootDir, urlPath, 'index.html')
-      : join(rootDir, urlPath);
-
-    const ext = filePath.substring(filePath.lastIndexOf('.')).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    const stream = createReadStream(filePath);
-    stream.on('open', () => {
-      res.writeHead(200, { 'Content-Type': contentType });
-      stream.pipe(res);
-    });
-    stream.on('error', () => {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not Found');
-    });
-  });
-
-  server.listen(port, () => {
-    process.stdout.write(`\n  Snapshot served at: ${chalk.green(`http://localhost:${port}`)}\n`);
-    process.stdout.write(`  Press ${chalk.bold('Ctrl+C')} to stop.\n\n`);
-  });
-}
 
 /**
  * CLI post-processing: inject Vue/Nuxt hydration script into the output HTML.

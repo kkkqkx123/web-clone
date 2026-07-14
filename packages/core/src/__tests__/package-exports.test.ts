@@ -46,8 +46,8 @@ describe('package.json exports configuration — Phase 1', () => {
     expect(pkg.exports['./types']).toBe('./dist/types.js');
   });
 
-  it('should export "./cli" pointing to dist/cli.js', () => {
-    expect(pkg.exports['./cli']).toBe('./dist/cli.js');
+  it('should export "./server" pointing to dist/server/index.js', () => {
+    expect(pkg.exports['./server']).toBe('./dist/server/index.js');
   });
 
   it('should have main pointing to dist/index.js', () => {
@@ -55,19 +55,10 @@ describe('package.json exports configuration — Phase 1', () => {
   });
 });
 
-describe('Dependency configuration — Phase 2', () => {
+describe('Dependency configuration', () => {
   const pkg = getPackageJson();
 
-  it('should NOT have peerDependencies (Phase 2)', () => {
-    expect(pkg.peerDependencies).toBeUndefined();
-  });
-
-  it('should NOT have peerDependenciesMeta (Phase 2)', () => {
-    expect(pkg.peerDependenciesMeta).toBeUndefined();
-  });
-
-  it('should have playwright in devDependencies (not dependencies)', () => {
-    expect(pkg.devDependencies.playwright).toBeDefined();
-    expect(pkg.dependencies?.playwright).toBeUndefined();
+  it('should have peerDependenciesMeta with optional jsdom', () => {
+    expect(pkg.peerDependenciesMeta?.jsdom?.optional).toBe(true);
   });
 });

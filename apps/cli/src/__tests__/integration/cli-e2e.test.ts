@@ -14,6 +14,13 @@
 import { describe, it, expect } from 'vitest';
 import { execSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Path to cli.ts, relative to this test file: __tests__/integration/ → cli.ts
+const CLI_PATH = resolve(__dirname, '../../cli.ts');
 
 describe('CLI E2E — Full Pipeline (Phase 3)', () => {
   const testDir = './test-cli-e2e-output';
@@ -30,7 +37,7 @@ describe('CLI E2E — Full Pipeline (Phase 3)', () => {
 
   it('should run bundle mode via npx tsx', () => {
     const output = execSync(
-      `npx tsx src/cli.ts https://example.com -o ${testDir} -m bundle --max-assets 10`,
+      `npx tsx ${CLI_PATH} https://example.com -o ${testDir} -m bundle --max-assets 10`,
       { encoding: 'utf-8', timeout: 60000 }
     );
 
@@ -41,7 +48,7 @@ describe('CLI E2E — Full Pipeline (Phase 3)', () => {
   it('should support single file mode', () => {
     const outputFile = `${testDir}.html`;
     const output = execSync(
-      `npx tsx src/cli.ts https://example.com -o ${outputFile} -m single --max-assets 10 --no-inline`,
+      `npx tsx ${CLI_PATH} https://example.com -o ${outputFile} -m single --max-assets 10 --no-inline`,
       { encoding: 'utf-8', timeout: 60000 }
     );
 
@@ -51,7 +58,7 @@ describe('CLI E2E — Full Pipeline (Phase 3)', () => {
 
   it('should support --pretty flag', () => {
     const output = execSync(
-      `npx tsx src/cli.ts https://example.com -o ${testDir} -m bundle --pretty --max-assets 10`,
+      `npx tsx ${CLI_PATH} https://example.com -o ${testDir} -m bundle --pretty --max-assets 10`,
       { encoding: 'utf-8', timeout: 60000 }
     );
 
