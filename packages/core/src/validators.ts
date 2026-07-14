@@ -38,9 +38,10 @@ export function hasExpectedMagic(filePath: string, buffer: Buffer): boolean {
 function looksLikeValidJavaScript(buffer: Buffer): boolean {
   const content = buffer.toString('utf8', 0, Math.min(1000, buffer.length));
   const trimmed = content.trim();
+  const lower = trimmed.toLowerCase();
 
-  // Reject if starts with HTML
-  if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.startsWith('<?xml')) {
+  // Reject if starts with HTML (case-insensitive)
+  if (lower.startsWith('<!doctype') || lower.startsWith('<html') || lower.startsWith('<?xml')) {
     return false;
   }
 

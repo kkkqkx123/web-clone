@@ -146,6 +146,42 @@ npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
 
 Vue/Nuxt SSR 快照会自动注入 hydration 脚本（CLI 层优化），帮助本地打开时正确水合。
 
+### 服务模式选项
+
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--serve` | - | 生成独立服务文件（`server.js` + `package.json` + 启动脚本），输出目录可独立部署 |
+| `--run` | - | 立即启动 HTTP 服务器（仅与 `--serve` 配合使用） |
+| `--serve-port <port>` | `8080` | 服务器端口（仅与 `--serve --run` 配合使用） |
+| `--proxy` | `on` | 反向代理运行时 API 请求到原始域名（仅与 `--serve --run` 配合使用） |
+| `--no-proxy` | - | 禁用反向代理，仅提供静态文件服务 |
+
+**使用示例**：
+
+```bash
+# 仅生成服务文件（不启动服务器）
+pnpm dev:cli https://example.com -o ./site --serve
+
+# 生成服务文件并立即启动服务器
+pnpm dev:cli https://example.com -o ./site --serve --run
+
+# 使用反向代理（处理运行时 API 请求）
+pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+
+# 自定义端口，禁用代理
+pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+```
+
+生成服务文件后，输出目录可直接独立部署：
+
+```bash
+cd ./site
+node server.js          # 启动服务器
+npm run serve           # 通过 package.json 启动
+./start.sh              # Unix
+start.bat               # Windows
+```
+
 ### 组件提取选项
 
 | 选项 | 默认值 | 说明 |

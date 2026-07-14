@@ -13,6 +13,11 @@ output/
 │   └── data/
 ├── snapshot.json               # Resource manifest and status
 ├── manifest.json               # Resource validation info
+├── server.js                   # Standalone server (when --serve)
+├── package.json                # npm scripts (when --serve)
+├── proxy-config.json           # Proxy configuration (when --serve)
+├── start.bat                   # Windows launcher (when --serve)
+├── start.sh                    # Unix launcher (when --serve)
 └── components/                 # Component extraction (when --extract-components)
     ├── components/
     │   ├── Header/
@@ -26,6 +31,15 @@ output/
     ├── README.md
     ├── MIGRATION.md
     └── REVIEW_REQUIRED.md      # Low-confidence components
+```
+
+The `server.js` is a standalone Node.js script using only built-in modules (`http`, `fs`, `path`). No npm dependencies required. Run with:
+
+```bash
+cd output/
+node server.js              # Start on port 8080
+PORT=3000 node server.js    # Custom port
+npm run serve               # Via package.json
 ```
 
 ## Single Mode

@@ -178,6 +178,42 @@ pnpm dev:cli clean <output-dir> [options]
 
 Vue/Nuxt SSR snapshots automatically inject hydration scripts (CLI-level optimization).
 
+### Serve Mode
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--serve` | — | Generate server files (`server.js` + `package.json` + startup scripts) for self-contained serving |
+| `--run` | — | Start the HTTP server immediately (only valid with `--serve`) |
+| `--serve-port <port>` | `8080` | Server port (only with `--serve --run`) |
+| `--proxy` | `on` | Reverse proxy runtime API requests to original domain (only with `--serve --run`) |
+| `--no-proxy` | — | Disable reverse proxy, serve only static files |
+
+**Examples:**
+
+```bash
+# Generate server files only (no server started)
+pnpm dev:cli https://example.com -o ./site --serve
+
+# Generate server files and start the server
+pnpm dev:cli https://example.com -o ./site --serve --run
+
+# With reverse proxy (handles runtime API calls)
+pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+
+# Custom port, no proxy
+pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+```
+
+After `--serve` generates the files, the output is self-contained:
+
+```bash
+cd ./site
+node server.js          # Start the server
+npm run serve           # Via package.json
+./start.sh              # Unix
+start.bat               # Windows
+```
+
 ### Component Extraction
 
 All options below require `--extract-components`.

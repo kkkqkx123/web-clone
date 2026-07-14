@@ -2,13 +2,13 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { snapshot, convertLocalSnapshot, startSnapshotServer } from '@web-clone/core';
+import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
-import type { SnapshotOptions, SnapshotResult } from '@web-clone/core';
+import type { SnapshotResult } from '@web-clone/core';
 import { validateSnapshot, cleanSnapshot, formatValidationReport, formatCleanResult } from '@web-clone/core';
+import { injectVueHydrationForCli } from './hydration.js';
 
 const program = new Command();
 
@@ -56,12 +56,19 @@ program
   .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --adapter playwright|puppeteer)')
   .option('--adapter <type>', 'Browser automation adapter: playwright | puppeteer (default: http)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
-  .option('--serve', 'Start a local HTTP server to serve the snapshot (avoids file:// protocol restrictions)')
+  .option('--serve', 'Generate server files for self-contained snapshot serving (use --run to start the server)')
   .option('--serve-port <port>', 'Port for the HTTP server (default: 8080)', '8080')
-  .option('--proxy', 'Enable reverse proxy for runtime API requests in --serve mode (requires --adapter playwright|puppeteer)')
+  .option('--run', 'Start the HTTP server immediately (only valid with --serve)')
+  .option('--proxy', 'Enable reverse proxy for runtime API requests (default: on, only with --serve --run)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
+
+    // --run requires --serve
+    if (opts.run && !opts.serve) {
+      console.error(chalk.red('--run is only valid with --serve. Use --serve --run to generate server files and start the server.'));
+      process.exit(1);
+    }
 
     if (isLocal) {
       console.log(chalk.cyan('\n◉ Local Conversion\n'));
@@ -150,27 +157,39 @@ program
           console.log(chalk.yellow(`\n  ⚠ ${result.stats.failed} asset(s) failed to download`));
         }
       }
+
+      // Generate standalone server files when --serve is used
+      if (opts.serve && !isLocal && options.mode === 'bundle') {
+        const proxyEnabled = opts.proxy !== false;
+        generateStandaloneServerFiles(options.output, {
+          url: options.url,
+          proxy: proxyEnabled,
+        });
+        console.log(chalk.green(`  ✓ Server files generated`));
+        console.log(chalk.gray(`  Run 'node server.js' or 'npm run serve' in the output directory to start the server`));
+      }
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       console.error(chalk.red(`\n✗ Error: ${error.message}`));
       process.exit(1);
     }
 
-    // ── Serve mode: start local HTTP server instead of exiting ──
-    if (opts.serve && !isLocal) {
+    // ── Run mode: start local HTTP server (only with --serve --run) ──
+    if (opts.serve && opts.run && !isLocal) {
       const port = opts.servePort ? parseInt(opts.servePort, 10) : 8080;
+      const proxyEnabled = opts.proxy !== false;
       if (Number.isFinite(port) && port > 0 && port < 65536) {
         startSnapshotServer(options.output, {
           port,
-          originUrl: opts.proxy ? options.url : undefined,
-          proxy: !!opts.proxy,
+          originUrl: proxyEnabled ? options.url : undefined,
+          proxy: proxyEnabled,
         });
       } else {
         console.error(chalk.red(`Invalid --serve-port: "${opts.servePort}". Using 8080.`));
         startSnapshotServer(options.output, {
           port: 8080,
-          originUrl: opts.proxy ? options.url : undefined,
-          proxy: !!opts.proxy,
+          originUrl: proxyEnabled ? options.url : undefined,
+          proxy: proxyEnabled,
         });
       }
     } else {
@@ -330,87 +349,4 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
-
-// ──────────────────────────────────────────────────────────────
-
-/**
- * CLI post-processing: inject Vue/Nuxt hydration script into the output HTML.
- *
- * This was moved from the library (assembler.ts) to the CLI layer to keep the
- * library framework-agnostic. It performs string-based injection (no JSDOM
- * dependency needed in the CLI).
- *
- * The script helps Vue/Nuxt SSR snapshots hydrate properly when opened locally.
- *
- * @internal Exported for unit testing purposes.
- */
-export function injectVueHydrationForCli(options: SnapshotOptions): void {
-  // Determine the output HTML file path
-  const htmlPath = options.mode === 'bundle'
-    ? join(options.output, 'index.html')
-    : options.output;
-
-  let html: string;
-  try {
-    html = readFileSync(htmlPath, 'utf8');
-  } catch {
-    // File not found or unreadable — silently skip
-    return;
-  }
-
-  // Only inject if the page has Vue/Nuxt app markers
-  if (!html.includes('id="__nuxt"') && !html.includes('id="app"')) {
-    return;
-  }
-
-  const hydrationScript = `<script type="text/javascript">
-(function() {
-  var retries = 0;
-  var maxRetries = 20;
-  var delay = 500;
-
-  function tryHydrate() {
-    var appEl = document.querySelector('#__nuxt') || document.querySelector('#app');
-    if (!appEl) return;
-    if (appEl.__vue__) {
-      console.log('[Snapshot Hydration] Vue already hydrated');
-      return;
-    }
-    if (window.__NUXT__) {
-      console.log('[Snapshot Hydration] Attempting to trigger Vue hydration...');
-      if (window.$nuxt && window.$nuxt.$mount) {
-        try {
-          window.$nuxt.$mount('#__nuxt');
-          console.log('[Snapshot Hydration] Nuxt 2.x mount triggered');
-          return;
-        } catch (e) {
-          console.log('[Snapshot Hydration] Nuxt 2.x mount failed:', e.message);
-        }
-      }
-      if (window.$nuxt && window.$nuxt.$el) {
-        console.log('[Snapshot Hydration] Nuxt 3.x already initialized');
-        return;
-      }
-    }
-    retries++;
-    if (retries < maxRetries) {
-      setTimeout(tryHydrate, delay);
-    } else {
-      console.log('[Snapshot Hydration] Max retries reached, hydration may be incomplete');
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryHydrate);
-  } else {
-    setTimeout(tryHydrate, 100);
-  }
-})();
-<\/script>`;
-
-  // Inject before </body>
-  const modifiedHtml = html.replace('</body>', hydrationScript + '\n</body>');
-  if (modifiedHtml !== html) {
-    writeFileSync(htmlPath, modifiedHtml, 'utf8');
-  }
 }

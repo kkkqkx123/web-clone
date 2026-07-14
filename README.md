@@ -146,6 +146,16 @@ pnpm dev:cli clean <output-dir> [options]               # Clean corrupted files
 | `--adapter <type>` | Browser engine: `playwright` \| `puppeteer` |
 | `--hybrid` | Browser renders HTML, HTTP pool downloads assets (requires `--adapter`) |
 
+### Serve Mode
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--serve` | — | Generate server files (`server.js` + `package.json` + startup scripts) for self-contained snapshot serving |
+| `--run` | — | Start the HTTP server immediately (only valid with `--serve`) |
+| `--serve-port <port>` | `8080` | Server port (only with `--serve --run`) |
+| `--proxy` | `on` | Reverse proxy runtime API requests to original domain (only with `--serve --run`) |
+| `--no-proxy` | — | Disable reverse proxy, serve only static files |
+
 ### Component Extraction
 
 | Option | Default | Description |
@@ -260,6 +270,32 @@ pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100' --
 # Validate and clean
 pnpm dev:cli validate ./output
 pnpm dev:cli clean ./output --dry-run
+```
+
+### Serve Mode
+
+```bash
+# Generate server files in the output (no server started)
+pnpm dev:cli https://example.com -o ./site --serve
+
+# Generate server files and start the server immediately
+pnpm dev:cli https://example.com -o ./site --serve --run
+
+# Serve with reverse proxy (handles runtime API requests)
+pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+
+# Serve on custom port, disable proxy
+pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+```
+
+After `--serve` generates the files, the output directory is self-contained:
+
+```bash
+cd ./site
+node server.js          # Start the server
+npm run serve           # Alternative via package.json
+./start.sh              # Unix
+start.bat               # Windows
 ```
 
 ### Full Example

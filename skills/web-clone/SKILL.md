@@ -53,7 +53,7 @@ pnpm dev:cli https://spa-site.com --adapter playwright
 
 ### CLI Usage → [references/cli-usage.md](references/cli-usage.md)
 - Entry commands and subcommands (`snapshot`, `inspect`, `query`, `validate`, `clean`)
-- All options: basic, download, resource filtering, recursive scan, browser automation, component extraction, code generation
+- All options: basic, download, resource filtering, recursive scan, browser automation, **serve mode**, component extraction, code generation
 - Many examples (snapshot, browser automation, component extraction, code gen, resource filtering, subcommands)
 - Config hierarchy (built-in → global → project → CLI args)
 - Platform notes (PowerShell, proxy), testing commands

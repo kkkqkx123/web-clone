@@ -231,6 +231,67 @@ interface ConvertResult extends SnapshotResult {
 
 ---
 
+#### ▸ `startSnapshotServer(outputDir, options)`
+
+Start a local HTTP server to serve a snapshot directory. Supports static file serving with ETag/Last-Modified cache control, CORS headers, and optional reverse proxy.
+
+```typescript
+import { startSnapshotServer } from '@web-clone/core';
+
+const server = startSnapshotServer('./snapshot', {
+  port: 8080,
+  originUrl: 'https://example.com',
+  proxy: true,
+});
+```
+
+**SnapshotServerOptions:**
+
+```typescript
+interface SnapshotServerOptions {
+  port: number;
+  originUrl?: string;
+  proxy?: boolean;
+}
+```
+
+---
+
+#### ▸ `generateStandaloneServerFiles(outputDir, options)`
+
+Generate standalone server files (`server.js`, `package.json`, `proxy-config.json`, `start.bat`, `start.sh`) in the output directory. The generated `server.js` uses only Node.js built-in modules — zero npm dependencies.
+
+```typescript
+import { generateStandaloneServerFiles } from '@web-clone/core';
+
+generateStandaloneServerFiles('./snapshot', {
+  url: 'https://example.com',
+  proxy: true,
+});
+```
+
+**GenerateServerOptions:**
+
+```typescript
+interface GenerateServerOptions {
+  /** The original source URL (used as proxy origin) */
+  url: string;
+  /** Enable reverse proxy for runtime API requests (default: false) */
+  proxy?: boolean;
+}
+```
+
+After generation, the output directory is self-contained:
+
+```bash
+cd ./snapshot
+node server.js              # Start on port 8080
+PORT=3000 node server.js    # Custom port
+npm run serve               # Via package.json
+```
+
+---
+
 #### ▸ FetcherAdapter Interface
 
 ```typescript

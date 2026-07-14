@@ -135,3 +135,7 @@ export type { EmitOptions, EmitResult } from './output/emit.js';
 // Snapshot HTTP server (static serving + cache control + optional reverse proxy)
 export { startSnapshotServer } from './server/index.js';
 export type { SnapshotServerOptions } from './server/index.js';
+
+// Snapshot output server file generator (self-contained snapshot output)
+export { generateStandaloneServerFiles } from './server/index.js';
+export type { GenerateServerOptions } from './server/index.js';

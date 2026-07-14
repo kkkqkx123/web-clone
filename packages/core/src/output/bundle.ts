@@ -348,6 +348,7 @@ export function assembleBundle(
 
   // Clean up failed/skipped assets: remove their src/href to avoid dangling
   // external requests in offline mode and potential privacy leaks.
+  const processedOriginUrls = new Set(assets.map(a => a.originUrl));
   for (const a of assets) {
     if (a.status === 'fetched') continue;
     const els = [...document.querySelectorAll(`[data-origin-url="${escCssAttr(a.originUrl)}"]`)];
@@ -367,6 +368,28 @@ export function assembleBundle(
       if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
         el.removeAttribute('srcset');
       }
+    }
+  }
+
+  // Catch-all: remove src/href from elements whose data-origin-url was registered
+  // by parseHtml() but never appeared in the assets array (e.g., filtered out by
+  // the script[src] filter). Without this, those elements retain their original
+  // absolute paths, causing 404 errors in serve mode or broken paths in file://.
+  for (const el of document.querySelectorAll('[data-origin-url]')) {
+    const originUrl = el.getAttribute('data-origin-url');
+    if (!originUrl || processedOriginUrls.has(originUrl)) continue;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'link') {
+      el.removeAttribute('href');
+    } else if (tag === 'script' || tag === 'img' || tag === 'source' || tag === 'video' || tag === 'audio' || tag === 'embed') {
+      el.removeAttribute('src');
+    } else if (tag === 'object') {
+      el.removeAttribute('data');
+    } else if (tag === 'use' || tag === 'image') {
+      el.removeAttribute('href');
+    }
+    if ((tag === 'img' || tag === 'source') && el.hasAttribute('srcset')) {
+      el.removeAttribute('srcset');
     }
   }
 

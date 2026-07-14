@@ -146,6 +146,16 @@ pnpm dev:cli clean <output-dir> [options]               # 清理损坏文件
 | `--adapter <type>` | 浏览器引擎：`playwright` \| `puppeteer` |
 | `--hybrid` | 浏览器渲染 HTML + HTTP 池下载资源（需配合 `--adapter`） |
 
+### 服务模式
+
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--serve` | — | 生成独立服务文件（`server.js` + `package.json` + 启动脚本），输出目录可独立部署 |
+| `--run` | — | 立即启动 HTTP 服务器（仅与 `--serve` 配合使用） |
+| `--serve-port <port>` | `8080` | 服务器端口（仅与 `--serve --run` 配合使用） |
+| `--proxy` | `on` | 反向代理运行时 API 请求到原始域名（仅与 `--serve --run` 配合使用） |
+| `--no-proxy` | — | 禁用反向代理，仅提供静态文件服务 |
+
 ### 组件提取
 
 | 选项 | 默认值 | 说明 |
@@ -245,6 +255,38 @@ pnpm dev:cli https://example.com --scan-depth 3 --scan-json
 pnpm dev:cli --convert-local ./project --codegen-framework vue
 ```
 
+### 本地转换（无需重新拉取）
+
+```bash
+pnpm dev:cli --convert-local ./project --codegen-framework vue
+```
+
+### 服务模式
+
+```bash
+# 仅生成服务文件（不启动服务器）
+pnpm dev:cli https://example.com -o ./site --serve
+
+# 生成服务文件并立即启动服务器
+pnpm dev:cli https://example.com -o ./site --serve --run
+
+# 使用反向代理（处理运行时 API 请求）
+pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+
+# 自定义端口，禁用代理
+pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+```
+
+生成服务文件后，输出目录可直接独立部署：
+
+```bash
+cd ./site
+node server.js          # 启动服务器
+npm run serve           # 通过 package.json 启动
+./start.sh              # Unix
+start.bat               # Windows
+```
+
 ### 页面诊断
 
 ```bash
@@ -296,6 +338,11 @@ output/
 │   └── data/                   # 其它数据（媒体等）
 ├── snapshot.json               # 资源清单与状态
 ├── manifest.json               # 资源校验信息
+├── server.js                   # 独立服务器（当 --serve）
+├── package.json                # npm 脚本（当 --serve）
+├── proxy-config.json           # 代理配置（当 --serve）
+├── start.bat                   # Windows 启动脚本（当 --serve）
+├── start.sh                    # Unix 启动脚本（当 --serve）
 └── components/                 # （如果 --extract-components）
     ├── components/
     │   ├── Header/
