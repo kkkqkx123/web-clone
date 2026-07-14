@@ -1,0 +1,38 @@
+{
+  "name": "@web-clone/types",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kkkqkx123/web-clone.git"
+  },
+  "homepage": "https://github.com/kkkqkx123/web-clone#readme",
+  "bugs": {
+    "url": "https://github.com/kkkqkx123/web-clone/issues"
+  },
+  "keywords": [
+    "types",
+    "web-clone"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  }
+}

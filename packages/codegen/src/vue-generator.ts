@@ -1,6 +1,6 @@
-import type { ComponentSpec } from '@web-clone/core';
-import type { FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/core';
-import type { StateVariable, EventBinding } from '@web-clone/core';
+import type { ComponentSpec } from '@web-clone/types';
+import type { FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/types';
+import type { StateVariable, EventBinding } from '@web-clone/types';
 import { BaseFrameworkGenerator } from './base-generator.js';
 import { frameworkRules, templateRules } from './framework-rules.js';
 

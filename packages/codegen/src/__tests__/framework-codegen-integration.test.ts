@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ComponentSpec, FrameworkCodeGenOptions } from '@web-clone/core';
+import type { ComponentSpec, FrameworkCodeGenOptions } from '@web-clone/types';
 import { FrameworkCodeGenerator } from '../index.js';
 
 const mockComponents: ComponentSpec[] = [

@@ -1,4 +1,4 @@
-import type { FrameworkCodeGenOptions as _FrameworkCodeGenOptions } from '@web-clone/core';
+import type { FrameworkCodeGenOptions as _FrameworkCodeGenOptions } from '@web-clone/types';
 
 /**
  * Generates build and runtime configuration files for project scaffolds

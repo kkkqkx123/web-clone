@@ -1,4 +1,4 @@
-import type { ComponentSpec } from '@web-clone/core';
+import type { ComponentSpec } from '@web-clone/types';
 
 /**
  * Extracts shared logic from multiple components

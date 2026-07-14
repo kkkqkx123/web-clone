@@ -50,7 +50,7 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
-    "@web-clone/core": "workspace:*",
+    "@web-clone/types": "workspace:*",
     "@babel/parser": "^8.0.4",
     "@babel/traverse": "^8.0.4",
     "@babel/types": "^8.0.4"

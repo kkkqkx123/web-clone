@@ -1,14 +1,9 @@
+import type { CodegenFramework, FrameworkCodeGenOptions } from '@web-clone/types';
+
+export type { CodegenFramework, FrameworkCodeGenOptions } from '@web-clone/types';
+
 export type SnapshotMode = 'single' | 'bundle';
 export type FrameworkHint = 'vue' | 'react' | 'svelte';
-export type CodegenFramework = 'vue' | 'react' | 'angular' | 'svelte' | 'jquery';
-
-export interface FrameworkCodeGenOptions {
-  framework?: CodegenFramework;
-  typescript?: boolean;
-  cssModules?: boolean;
-  generateDrafts?: boolean;
-  extractSharedLogic?: boolean;
-}
 
 /**
  * Unified config for all operations:

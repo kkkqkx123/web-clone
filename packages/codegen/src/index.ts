@@ -1,5 +1,5 @@
-import type { ComponentSpec } from '@web-clone/core';
-import type { FrameworkCodeGenOptions, GeneratedComponent, GeneratedFramework } from '@web-clone/core';
+import type { ComponentSpec } from '@web-clone/types';
+import type { FrameworkCodeGenOptions, GeneratedComponent, GeneratedFramework } from '@web-clone/types';
 import { VueGenerator } from './vue-generator.js';
 import { ReactGenerator } from './react-generator.js';
 import { AngularGenerator } from './angular-generator.js';

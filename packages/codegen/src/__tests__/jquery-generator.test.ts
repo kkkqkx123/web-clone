@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ComponentSpec } from '@web-clone/core';
+import type { ComponentSpec } from '@web-clone/types';
 import { JQueryGenerator } from '../jquery-generator.js';
 
 const mockComponent: ComponentSpec = {

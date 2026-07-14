@@ -51,6 +51,8 @@
     "@babel/parser": "^8.0.4",
     "@babel/traverse": "^8.0.4",
     "@babel/types": "^8.0.4",
+    "@web-clone/codegen": "workspace:*",
+    "@web-clone/types": "workspace:*",
     "css-tree": "^3.2.1",
     "global-agent": "^4.1.3",
     "http-proxy-agent": "^9.1.0",
@@ -59,14 +61,10 @@
     "postcss": "^8.5.17"
   },
   "peerDependencies": {
-    "@web-clone/codegen": "workspace:*",
     "jsdom": "^29.0.0"
   },
   "peerDependenciesMeta": {
     "jsdom": {
-      "optional": true
-    },
-    "@web-clone/codegen": {
       "optional": true
     }
   },

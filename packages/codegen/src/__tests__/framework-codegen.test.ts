@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ComponentSpec } from '@web-clone/core';
+import type { ComponentSpec } from '@web-clone/types';
 import { VueGenerator } from '../vue-generator.js';
 
 // Mock component for testing
