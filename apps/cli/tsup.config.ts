@@ -19,5 +19,8 @@ export default defineConfig({
     '@web-clone/codegen',
     '@web-clone/adapter-playwright',
     '@web-clone/adapter-puppeteer',
+    // browser automation packages — optional deps, loaded dynamically at runtime
+    'playwright',
+    'puppeteer',
   ],
 });

@@ -138,8 +138,8 @@ npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
 
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
-| `--browser <type>` | - | 浏览器自动化引擎：`playwright` \| `puppeteer`（需安装对应可选包） |
-| `--hybrid` | - | 混合模式：浏览器渲染 HTML，HTTP 池下载资源（需配合 `--browser`） |
+| `--adapter <type>` | - | 浏览器自动化引擎：`playwright` \| `puppeteer`（需安装对应可选包） |
+| `--hybrid` | - | 混合模式：浏览器渲染 HTML，HTTP 池下载资源（需配合 `--adapter`） |
 
 Vue/Nuxt SSR 快照会自动注入 hydration 脚本（CLI 层优化），帮助本地打开时正确水合。
 
@@ -245,13 +245,13 @@ pnpm dev:cli -- https://example.com --pretty
 
 ```bash
 # 使用 Playwright 渲染 SPA 页面
-pnpm dev:cli -- https://spa-site.com --browser playwright
+pnpm dev:cli -- https://spa-site.com --adapter playwright
 
 # 使用 Puppeteer
-pnpm dev:cli -- https://spa-site.com --browser puppeteer
+pnpm dev:cli -- https://spa-site.com --adapter puppeteer
 
 # 混合模式：Playwright 渲染 HTML，HTTP 池下载资源
-pnpm dev:cli -- https://spa-site.com --browser playwright --hybrid
+pnpm dev:cli -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### 组件提取
@@ -565,10 +565,10 @@ pnpm dev:cli -- https://example.com \
 
 ```bash
 # 使用 Playwright 渲染 SPA 页面
-pnpm dev:cli -- https://spa-app.com --browser playwright
+pnpm dev:cli -- https://spa-app.com --adapter playwright
 
 # 使用 Puppeteer
-pnpm dev:cli -- https://spa-app.com --browser puppeteer
+pnpm dev:cli -- https://spa-app.com --adapter puppeteer
 ```
 
 ### 场景 4：仅提取组件（不重新拉取）

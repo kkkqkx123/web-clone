@@ -544,7 +544,8 @@ pnpm -r pack --dry-run
 # 3. 登录 npm（如未登录）
 npm login
 
-# 4. 逐个发布（确保 @web-clone/core 第一个，因为其他包依赖它）
+# 4. 逐个发布（确保 @web-clone/types 第一个，因为其他包依赖它）
+cd packages/types && npm publish
 cd packages/core && npm publish
 cd packages/adapter-common && npm publish
 cd packages/codegen && npm publish

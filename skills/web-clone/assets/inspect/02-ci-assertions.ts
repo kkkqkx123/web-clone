@@ -119,7 +119,7 @@ async function runAssertions(url: string, assertions: Assertions): Promise<Asser
   } else if (spa) {
     // SPA not expected but detected
     console.log(`  ⚠  SPA detection: ${spa}`);
-    console.log(`     (consider using --browser playwright for accurate results)\n`);
+    console.log(`     (consider using --adapter playwright for accurate results)\n`);
     // Not a hard fail, just a warning
   }
 

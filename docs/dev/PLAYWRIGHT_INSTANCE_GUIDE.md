@@ -24,23 +24,35 @@ export PLAYWRIGHT_BROWSERS_PATH="D:\\Source\\pw-browsers"
 ### 2. 验证环境
 
 ```bash
-npm run check-browsers
+pnpm browsers:check          # 总览 — 同时检查 Playwright + Puppeteer
+pnpm browsers:check:playwright  # 仅 Playwright（含二进制路径检测）
 ```
 
 输出应该显示：
 ```
-✅ Chromium (chrome.exe) - 2.87 MB
-✅ Chromium Headless Shell - 183.18 MB
-✅ Playwright 1.58.2 installed
+✅  playwright        1.58.2
+✅  Chromium found       Path: D:\Source\pw-browsers\chromium-1208\chrome-win64\chrome.exe
+✅  Headless Shell   183.18 MB
+✅  Browser launched successfully
 ```
 
 ### 3. 测试 Playwright 功能
 
 ```bash
-npm run test-playwright
+pnpm verify-playwright
 ```
 
 输出应该显示所有测试通过。
+
+### 4. CLI 使用
+
+```bash
+# 使用 Playwright 适配器快照 SPA 页面
+pnpm dev:cli -- https://example.com --adapter playwright
+
+# 混合模式：Playwright 渲染 HTML，HTTP 下载子资源
+pnpm dev:cli -- https://example.com --adapter playwright --hybrid
+```
 
 ---
 

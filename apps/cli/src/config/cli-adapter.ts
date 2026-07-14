@@ -57,6 +57,8 @@ export interface CommanderOpts {
   hybrid?: boolean;
   convertLocal?: string;
   strictStatusCodes?: boolean;
+  /** Browser automation adapter: 'playwright' | 'puppeteer' | undefined */
+  adapter?: string;
 }
 
 /**

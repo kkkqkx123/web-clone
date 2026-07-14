@@ -46,7 +46,7 @@ pnpm dev:cli -- https://example.com -o ./project -m bundle --extract-components
 pnpm dev:cli -- https://example.com -o snapshot.html -m single
 
 # With browser automation
-pnpm dev:cli -- https://spa-site.com --browser playwright
+pnpm dev:cli -- https://spa-site.com --adapter playwright
 ```
 
 ## Reference Files

@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { join, extname, relative, resolve } from 'node:path';
+import { join, extname, relative, resolve, dirname } from 'node:path';
 import { type Asset, type SnapshotOptions } from '../types.js';
+import { rewriteCssUrls } from '../parser/css-parser.js';
 
 /**
  * Serialize Document to HTML string, compatible with both linkedom and jsdom
@@ -213,6 +214,29 @@ export function assembleBundle(
     assetMap.set(a.originUrl, relPath);
   }
 
+  // ── Rewrite CSS content: replace remote url() references with local paths ──
+  // This ensures that CSS files (url(font.woff2), url(image.png), etc.)
+  // point to the local assets/ directory instead of the original remote URLs.
+  for (const a of assets) {
+    if (a.status !== 'fetched' || a.type !== 'css' || !a.textContent) continue;
+    const cssLocalPath = assetMap.get(a.originUrl);
+    if (!cssLocalPath) continue;
+    const cssDir = dirname(cssLocalPath);
+
+    const cssUrlMap = new Map<string, string>();
+    for (const [originUrl, assetRelPath] of assetMap.entries()) {
+      // Compute relative path from the CSS file's directory to the referenced asset
+      // e.g. CSS at assets/css/foo.css → assets/img/bar.png → ../img/bar.png
+      if (originUrl === a.originUrl) continue;
+      const relFromCss = relative(cssDir, assetRelPath).replace(/\\/g, '/');
+      cssUrlMap.set(originUrl, relFromCss);
+    }
+
+    if (cssUrlMap.size > 0) {
+      a.textContent = rewriteCssUrls(a.textContent, cssUrlMap);
+    }
+  }
+
   for (const a of assets) {
     if (a.status !== 'fetched') continue;
     const relPath = assetMap.get(a.originUrl);
@@ -236,10 +260,18 @@ export function assembleBundle(
         if (srcset) {
           // srcset format: "url descriptor, url descriptor, ..."
           // e.g. "img/hero-1x.jpg 1x, img/hero-2x.jpg 2x"
+          // Browsers may percent-encode the URL in srcset (e.g. ? → %3F),
+          // so we try matching both the raw originUrl and its encoded form.
+          const rawEscaped = escRegex(a.originUrl);
+          const encodedUrl = a.originUrl.replace(/[^a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=]/g, c =>
+            encodeURIComponent(c)
+          );
+          const encodedEscaped = encodedUrl !== a.originUrl ? escRegex(encodedUrl) : null;
+          const pattern = encodedEscaped
+            ? `(?:${rawEscaped}|${encodedEscaped})`
+            : rawEscaped;
           const replaced = srcset.replace(
-            // Match the origin URL in any descriptor position
-            // The URL may have been percentage-encoded in srcset vs raw in originUrl
-            new RegExp(escRegex(a.originUrl), 'g'),
+            new RegExp(pattern, 'g'),
             relPath,
           );
           el.setAttribute('srcset', replaced);

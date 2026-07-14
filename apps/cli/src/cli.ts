@@ -53,7 +53,8 @@ program
   .option('--scan-depth <n>', 'Recursive resource scan depth (1 = current behavior; 2+ scans JS/CSS/JSON for hidden URLs)', '1')
   .option('--scan-js', 'Scan JS files for embedded URLs during recursive discovery (default: true)')
   .option('--scan-json', 'Scan JSON files for media URLs during recursive discovery (default: false)')
-  .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --browser)')
+  .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --adapter playwright|puppeteer)')
+  .option('--adapter <type>', 'Browser automation adapter: playwright | puppeteer (default: http)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
@@ -80,6 +81,37 @@ program
 
       if (isLocal) {
         result = await convertLocalSnapshot(options);
+      } else if (opts.adapter) {
+        // ── Browser-based snapshot (Playwright / Puppeteer) ──
+        const adapterType = opts.adapter.toLowerCase();
+        if (adapterType !== 'playwright' && adapterType !== 'puppeteer') {
+          console.error(chalk.red(`Invalid adapter type: "${opts.adapter}". Use "playwright" or "puppeteer".`));
+          process.exit(1);
+        }
+
+        const { createBrowserAdapter, ensureBrowserDeps } = await import('./browser.js');
+
+        // Check dependencies are installed before launching
+        await ensureBrowserDeps(adapterType);
+
+        console.log(chalk.gray(`  Adapter: ${adapterType}`));
+        if (options.hybrid) {
+          console.log(chalk.gray(`  Hybrid:  browser for HTML, HTTP for assets`));
+        }
+
+        const handle = await createBrowserAdapter(adapterType, {
+          timeout: options.timeout,
+        });
+
+        try {
+          // Use library-style overload: snapshot(options, adapter)
+          result = await snapshot(options, handle.adapter);
+        } finally {
+          await handle.cleanup();
+        }
+
+        // Post-process: inject Vue/Nuxt hydration script for SSR snapshots.
+        injectVueHydrationForCli(options);
       } else {
         // HTTP-based snapshot
         result = await snapshot(options.url, options);

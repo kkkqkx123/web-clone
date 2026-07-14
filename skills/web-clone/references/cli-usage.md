@@ -173,8 +173,8 @@ pnpm dev:cli clean <output-dir> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--browser <type>` | Browser engine: `playwright` \| `puppeteer` (requires optional dep) |
-| `--hybrid` | Hybrid mode: browser renders HTML, HTTP pool downloads assets (requires `--browser`) |
+| `--adapter <type>` | Browser automation adapter: `playwright` \| `puppeteer` (requires optional dep) |
+| `--hybrid` | Hybrid mode: browser renders HTML, HTTP pool downloads assets (requires `--adapter`) |
 
 Vue/Nuxt SSR snapshots automatically inject hydration scripts (CLI-level optimization).
 
@@ -219,9 +219,9 @@ pnpm dev:cli -- https://example.com --pretty
 
 ### Browser Automation
 ```bash
-pnpm dev:cli -- https://spa-site.com --browser playwright
-pnpm dev:cli -- https://spa-site.com --browser puppeteer
-pnpm dev:cli -- https://spa-site.com --browser playwright --hybrid
+pnpm dev:cli -- https://spa-site.com --adapter playwright
+pnpm dev:cli -- https://spa-site.com --adapter puppeteer
+pnpm dev:cli -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### Component Extraction

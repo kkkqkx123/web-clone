@@ -12,33 +12,137 @@
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
-import { snapshot } from '../../assembler';
-import { PlaywrightFetcherAdapter } from '../../adapters/automation/playwright/adapter';
+import { snapshot } from '@web-clone/core';
+import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
 import {
   setupBrowser,
   createBrowserContext,
   createPage,
   teardownBrowser,
 } from './helpers/browser-setup';
-import {
-  validateBundleStructure,
-  validateSingleFileSnapshot,
-  validateAssetPaths,
-  extractSnapshotStats,
-} from './helpers/snapshot-helpers';
-import {
-  createTestDir,
-  cleanupTestDir,
-  fileExists,
-  readFile,
-  listFiles,
-} from './helpers/file-helpers';
+import { mkdtempSync, existsSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 /**
  * Check if Playwright browser is available in the environment.
  * Skips all tests if no browser can be launched.
  */
 let browserAvailable = false;
+
+// ─── Inline helpers (replaces missing snapshot-helpers / file-helpers) ───
+
+function createTestDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'pw-test-'));
+  return dir;
+}
+
+function cleanupTestDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch { /* best effort */ }
+}
+
+function fileExists(filePath: string): boolean {
+  return existsSync(filePath);
+}
+
+function readFile(filePath: string): string {
+  return readFileSync(filePath, 'utf8');
+}
+
+function listFiles(dir: string, recursive: boolean): string[] {
+  const results: string[] = [];
+  function walk(current: string) {
+    const entries = readdirSync(current);
+    for (const entry of entries) {
+      const full = join(current, entry);
+      if (statSync(full).isDirectory()) {
+        if (recursive) walk(full);
+      } else {
+        results.push(full);
+      }
+    }
+  }
+  walk(dir);
+  return results;
+}
+
+interface BundleValidation {
+  valid: boolean;
+  errors: string[];
+}
+
+async function validateBundleStructure(outputPath: string): Promise<BundleValidation> {
+  const errors: string[] = [];
+  if (!existsSync(outputPath)) {
+    errors.push('Output directory does not exist');
+    return { valid: false, errors };
+  }
+  if (!existsSync(join(outputPath, 'index.html'))) {
+    errors.push('Missing index.html');
+  }
+  if (!existsSync(join(outputPath, 'assets'))) {
+    errors.push('Missing assets directory');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+interface SingleFileValidation {
+  valid: boolean;
+  hasHtml: boolean;
+  hasHead: boolean;
+  hasBody: boolean;
+}
+
+async function validateSingleFileSnapshot(filePath: string): Promise<SingleFileValidation> {
+  if (!existsSync(filePath)) {
+    return { valid: false, hasHtml: false, hasHead: false, hasBody: false };
+  }
+  const content = readFileSync(filePath, 'utf8');
+  return {
+    valid: true,
+    hasHtml: /<html/i.test(content),
+    hasHead: /<head/i.test(content),
+    hasBody: /<body/i.test(content),
+  };
+}
+
+interface PathValidation {
+  valid: boolean;
+  assetCount: number;
+}
+
+async function validateAssetPaths(indexPath: string, prefix: string): Promise<PathValidation> {
+  if (!existsSync(indexPath)) {
+    return { valid: false, assetCount: 0 };
+  }
+  const content = readFileSync(indexPath, 'utf8');
+  const assetCount = (content.match(new RegExp(prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+  return { valid: assetCount > 0, assetCount };
+}
+
+interface SnapshotStats {
+  textLength: number;
+  linkCount: number;
+  scriptCount: number;
+  imageCount: number;
+}
+
+async function extractSnapshotStats(filePath: string): Promise<SnapshotStats> {
+  if (!existsSync(filePath)) {
+    return { textLength: 0, linkCount: 0, scriptCount: 0, imageCount: 0 };
+  }
+  const content = readFileSync(filePath, 'utf8');
+  return {
+    textLength: content.length,
+    linkCount: (content.match(/<a\s/gi) || []).length,
+    scriptCount: (content.match(/<script\s/gi) || []).length,
+    imageCount: (content.match(/<img\s/gi) || []).length,
+  };
+}
+
+import { readdirSync, statSync } from 'node:fs';
 
 beforeAll(async () => {
   try {
@@ -80,7 +184,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
     page = await createPage(context);
 
     // 创建临时输出目录
-    testOutputDir = await createTestDir();
+    testOutputDir = createTestDir();
   });
 
   afterEach(async () => {
@@ -95,7 +199,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     // 清理测试目录
     if (testOutputDir) {
-      await cleanupTestDir(testOutputDir);
+      cleanupTestDir(testOutputDir);
     }
   });
 
@@ -114,7 +218,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         waitForLoadState: 'networkidle',
       });
 
-      const outputPath = `${testOutputDir}/bundle-snapshot`;
+      const outputPath = join(testOutputDir, 'bundle-snapshot');
 
       const result = await snapshot(
         {
@@ -126,7 +230,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
       );
 
       // 验证输出存在
-      expect(await fileExists(outputPath)).toBe(true);
+      expect(fileExists(outputPath)).toBe(true);
 
       // 验证目录结构
       const validation = await validateBundleStructure(outputPath);
@@ -142,7 +246,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should create index.html in bundle mode', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/bundle-with-html`;
+      const outputPath = join(testOutputDir, 'bundle-with-html');
 
       await snapshot(
         {
@@ -153,17 +257,17 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         adapter
       );
 
-      const indexPath = `${outputPath}/index.html`;
-      expect(await fileExists(indexPath)).toBe(true);
+      const indexPath = join(outputPath, 'index.html');
+      expect(fileExists(indexPath)).toBe(true);
 
-      const content = await readFile(indexPath);
+      const content = readFile(indexPath);
       expect(content).toContain('<html');
       expect(content).toContain('</html>');
     });
 
     it('should create assets directory', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/bundle-with-assets`;
+      const outputPath = join(testOutputDir, 'bundle-with-assets');
 
       const result = await snapshot(
         {
@@ -174,12 +278,12 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         adapter
       );
 
-      const assetsDir = `${outputPath}/assets`;
-      expect(await fileExists(assetsDir)).toBe(true);
+      const assetsDir = join(outputPath, 'assets');
+      expect(fileExists(assetsDir)).toBe(true);
 
       // 列出 assets 中的文件
       if (result.stats.fetched > 1) {
-        const files = await listFiles(assetsDir, true);
+        const files = listFiles(assetsDir, true);
         // 应该有至少一个资源文件（除了 index.html）
         expect(files.length).toBeGreaterThan(0);
       }
@@ -187,7 +291,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should rewrite relative paths in bundle mode', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/bundle-paths`;
+      const outputPath = join(testOutputDir, 'bundle-paths');
 
       await snapshot(
         {
@@ -198,7 +302,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         adapter
       );
 
-      const indexPath = `${outputPath}/index.html`;
+      const indexPath = join(outputPath, 'index.html');
 
       // 验证路径是相对路径
       const pathValidation = await validateAssetPaths(
@@ -214,7 +318,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   describe('Single File Mode', () => {
     it('should create single HTML file', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/snapshot.html`;
+      const outputPath = join(testOutputDir, 'snapshot.html');
 
       const result = await snapshot(
         {
@@ -225,7 +329,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         adapter
       );
 
-      expect(await fileExists(outputPath)).toBe(true);
+      expect(fileExists(outputPath)).toBe(true);
       // Validate result structure, not asset counts
       expect(result).toHaveProperty('sourceUrl');
       expect(result).toHaveProperty('html');
@@ -233,7 +337,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should have valid HTML structure in single file', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/snapshot-valid.html`;
+      const outputPath = join(testOutputDir, 'snapshot-valid.html');
 
       await snapshot(
         {
@@ -253,7 +357,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should contain expected HTML tags', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/snapshot-content.html`;
+      const outputPath = join(testOutputDir, 'snapshot-content.html');
 
       await snapshot(
         {
@@ -264,7 +368,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         adapter
       );
 
-      const content = await readFile(outputPath);
+      const content = readFile(outputPath);
 
       expect(content).toMatch(/<!DOCTYPE html/i);
       expect(content).toMatch(/<html/i);
@@ -274,7 +378,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should provide content statistics', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/snapshot-stats.html`;
+      const outputPath = join(testOutputDir, 'snapshot-stats.html');
 
       await snapshot(
         {
@@ -330,7 +434,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   describe('Component Extraction', () => {
     it('should work with extract-components flag', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/component-snapshot`;
+      const outputPath = join(testOutputDir, 'component-snapshot');
 
       const result = await snapshot(
         {
@@ -345,7 +449,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
       );
 
       // 验证快照被创建
-      expect(await fileExists(outputPath)).toBe(true);
+      expect(fileExists(outputPath)).toBe(true);
 
       // 验证返回结果 — validate result structure, not asset counts
       expect(result).toHaveProperty('sourceUrl');
@@ -356,7 +460,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   describe('Error Handling', () => {
     it('should handle navigation to valid URL', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/valid-snapshot`;
+      const outputPath = join(testOutputDir, 'valid-snapshot');
 
       // 这不应该抛出错误
       const result = await snapshot(
@@ -375,7 +479,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should complete even if some sub-resources fail', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/partial-snapshot`;
+      const outputPath = join(testOutputDir, 'partial-snapshot');
 
       // 即使某些资源加载失败，快照应该完成
       const result = await snapshot(
@@ -395,7 +499,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   describe('Performance', () => {
     it('should complete snapshot within reasonable time', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/perf-snapshot`;
+      const outputPath = join(testOutputDir, 'perf-snapshot');
 
       const startTime = Date.now();
 
@@ -419,7 +523,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   describe('Options Handling', () => {
     it('should respect concurrency option', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/concurrency-snapshot`;
+      const outputPath = join(testOutputDir, 'concurrency-snapshot');
 
       const result = await snapshot(
         {
@@ -436,7 +540,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should respect timeout option', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/timeout-snapshot`;
+      const outputPath = join(testOutputDir, 'timeout-snapshot');
 
       const result = await snapshot(
         {
@@ -453,7 +557,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
     it('should respect max-assets option', async () => {
       const adapter = new PlaywrightFetcherAdapter(page, context);
-      const outputPath = `${testOutputDir}/max-assets-snapshot`;
+      const outputPath = join(testOutputDir, 'max-assets-snapshot');
 
       const result = await snapshot(
         {

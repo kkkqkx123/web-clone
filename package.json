@@ -20,7 +20,13 @@
     "clean": "turbo run clean",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "snapshot": "pnpm dev:cli --"
+    "snapshot": "pnpm dev:cli --",
+    "browsers:check": "node scripts/check-browsers.mjs",
+    "browsers:check:playwright": "node scripts/check-playwright.mjs",
+    "browsers:check:puppeteer": "node scripts/check-puppeteer.mjs",
+    "browsers:install": "npx playwright install chromium",
+    "browsers:install:all": "npx playwright install",
+    "verify-playwright": "node scripts/verify-playwright.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
