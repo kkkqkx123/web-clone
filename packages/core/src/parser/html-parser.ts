@@ -11,7 +11,16 @@ export interface ParsedHtml {
   inlineStyles: { text: string; baseUrl: string; element: Element }[];
 }
 
-const TAG_ATTR_MAP: Record<string, { sel: string; attr: string; type: AssetType }[]> = {
+// Item descriptor for TAG_ATTR_MAP entries
+interface TagAttrRule {
+  sel: string;
+  attr: string;
+  type: AssetType;
+  /** Optional filter: return false to skip downloading this resource (but still mark data-origin-url) */
+  filter?: (url: string) => boolean;
+}
+
+const TAG_ATTR_MAP: Record<string, TagAttrRule[]> = {
   link: [
     { sel: 'link[rel="stylesheet"][href]', attr: 'href', type: 'css' },
     { sel: 'link[rel="preload"][href]', attr: 'href', type: 'other' },
@@ -19,7 +28,19 @@ const TAG_ATTR_MAP: Record<string, { sel: string; attr: string; type: AssetType 
     { sel: 'link[rel="apple-touch-icon"][href]', attr: 'href', type: 'img' },
   ],
   script: [
-    { sel: 'script[src]', attr: 'src', type: 'js' },
+    {
+      sel: 'script[src]',
+      attr: 'src',
+      type: 'js',
+      // Only download resources that look like actual JS files.
+      // Route paths (e.g. /web_auto_login_v2/index.html) return HTML, not JS,
+      // and would cause "Unexpected token '<'" errors if loaded as scripts.
+      filter: (url: string) => {
+        const pathname = new URL(url).pathname;
+        // Must have a .js/.mjs/.cjs extension or look like a hashed file
+        return /\.(?:js|mjs|cjs)(?:\?[^#]*)?(?:#.*)?$/i.test(pathname);
+      },
+    },
   ],
   img: [
     { sel: 'img[src]', attr: 'src', type: 'img' },
@@ -76,7 +97,7 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
   // This is critical for component extraction which calls parseHtml multiple times
 
   for (const rules of Object.values(TAG_ATTR_MAP)) {
-    for (const { sel, attr, type } of rules) {
+    for (const { sel, attr, type, filter } of rules) {
       for (const el of document.querySelectorAll(sel)) {
         const raw = el.getAttribute(attr);
         if (!raw) continue;
@@ -86,6 +107,9 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
         // even if asset is a duplicate (same URL referenced multiple times in the page)
         addSnapshotAttrs(el, resolved);
         if (seen.has(resolved)) continue;
+        // If a filter is defined and it rejects this URL, skip downloading
+        // but still keep the data-origin-url marker for later cleanup
+        if (filter && !filter(resolved)) continue;
         seen.add(resolved);
         assets.push({ url: resolved, type, origin: sel, attribute: attr });
       }

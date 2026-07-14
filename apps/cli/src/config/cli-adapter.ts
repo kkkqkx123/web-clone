@@ -59,6 +59,10 @@ export interface CommanderOpts {
   strictStatusCodes?: boolean;
   /** Browser automation adapter: 'playwright' | 'puppeteer' | undefined */
   adapter?: string;
+  /** Start a local HTTP server after snapshot */
+  serve?: boolean;
+  /** Port for the HTTP server */
+  servePort?: string;
 }
 
 /**
@@ -180,6 +184,8 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
       opts.scanDepth = safeInt(cmd.scanDepth, DEFAULTS.scanDepth);
     } else if (mergedConfig.optionOverrides.scanDepth !== undefined) {
       opts.scanDepth = mergedConfig.optionOverrides.scanDepth;
+    } else {
+      opts.scanDepth = DEFAULTS.scanDepth; // Ensure default is applied
     }
     if (cmd.scanJs !== undefined) {
       opts.scanJs = cmd.scanJs;

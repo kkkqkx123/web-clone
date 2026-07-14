@@ -125,6 +125,58 @@ export function extractJsonUrls(jsonText: string, baseUrl: string): DiscoveredUr
   return [...found.values()];
 }
 
+/**
+ * Detect webpack runtime chunk map in JS source and extract chunk file names.
+ *
+ * Webpack/Nuxt bundles embed a chunk ID → filename mapping like:
+ *   f.p + "" + { 41: "b02411f", 42: "d8b86cf" }[e] + ".js"
+ *
+ * Standard URL extraction cannot discover these because the chunk IDs are
+ * dynamically indexed. This function extracts the hex hash values and
+ * reconstructs the chunk file names (e.g. "b02411f.js").
+ *
+ * Uses a two-pass approach: first finds the entire chunk map object pattern
+ * `{...}[id] + ".js"`, then extracts all hex hash values from within it.
+ * This avoids the context-window problem that plagues per-entry matching
+ * when the chunk map is large (30+ entries spanning 200+ characters).
+ */
+export function extractWebpackChunks(jsText: string, baseUrl: string): DiscoveredUrl[] {
+  const found = new Map<string, DiscoveredUrl>();
+
+  // Resolve chunk files relative to the JS file's directory
+  const baseUrlObj = new URL(baseUrl);
+  const baseDir = baseUrlObj.origin + baseUrlObj.pathname.substring(0, baseUrlObj.pathname.lastIndexOf('/') + 1);
+
+  // Pass 1: Find the entire chunk map object pattern.
+  // Matches: { 3:"692284f", 4:"2d4adf4", ... 42:"d8b86cf" }[e] + ".js"
+  // The object literal must be flat (no nesting), which is always true for
+  // webpack chunk maps.
+  const chunkMapRe = /\{[^}]+?\}\s*\[\w+\]\s*\+\s*["']\.js["']/g;
+
+  let mapMatch: RegExpExecArray | null;
+  while ((mapMatch = chunkMapRe.exec(jsText)) !== null) {
+    const chunkMapStr = mapMatch[0];
+
+    // Pass 2: Extract all hex hash values from the matched chunk map object.
+    const hashRe = /["']([a-f0-9]{6,8})["']/g;
+    let hashMatch: RegExpExecArray | null;
+    while ((hashMatch = hashRe.exec(chunkMapStr)) !== null) {
+      const hash = hashMatch[1];
+      const fileName = `${hash}.js`;
+      const url = resolveMaybeRelative(fileName, baseDir);
+      if (url && !found.has(url)) {
+        found.set(url, {
+          url,
+          source: baseUrl,
+          confidence: 'low',
+        });
+      }
+    }
+  }
+
+  return [...found.values()];
+}
+
 // ──────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────

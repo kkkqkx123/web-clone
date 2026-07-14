@@ -2,8 +2,9 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, createReadStream } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { snapshot, convertLocalSnapshot } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
@@ -50,12 +51,14 @@ program
   .option('--exclude-css', 'Exclude CSS files')
   .option('--exclude-js', 'Exclude JavaScript files')
   .option('--max-file-size <size>', 'Hard size limit per file, e.g. "50MB", "10m", or bytes (default: 50MB)')
-  .option('--scan-depth <n>', 'Recursive resource scan depth (1 = current behavior; 2+ scans JS/CSS/JSON for hidden URLs)', '1')
+  .option('--scan-depth <n>', 'Recursive resource scan depth (1 = current behavior; 2+ scans JS/CSS/JSON for hidden URLs)')
   .option('--scan-js', 'Scan JS files for embedded URLs during recursive discovery (default: true)')
   .option('--scan-json', 'Scan JSON files for media URLs during recursive discovery (default: false)')
   .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --adapter playwright|puppeteer)')
   .option('--adapter <type>', 'Browser automation adapter: playwright | puppeteer (default: http)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
+  .option('--serve', 'Start a local HTTP server to serve the snapshot (avoids file:// protocol restrictions)')
+  .option('--serve-port <port>', 'Port for the HTTP server (default: 8080)', '8080')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
@@ -152,9 +155,21 @@ program
       console.error(chalk.red(`\n✗ Error: ${error.message}`));
       process.exit(1);
     }
-    // Force exit to prevent idle sockets/agent timers from keeping the
-    // event loop alive (Node.js 19+ default keepAlive with freeSocketTimeout=30s).
-    process.exit(0);
+
+    // ── Serve mode: start local HTTP server instead of exiting ──
+    if (opts.serve && !isLocal) {
+      const port = opts.servePort ? parseInt(opts.servePort, 10) : 8080;
+      if (Number.isFinite(port) && port > 0 && port < 65536) {
+        startStaticServer(options.output, port);
+      } else {
+        console.error(chalk.red(`Invalid --serve-port: "${opts.servePort}". Using 8080.`));
+        startStaticServer(options.output, 8080);
+      }
+    } else {
+      // Force exit to prevent idle sockets/agent timers from keeping the
+      // event loop alive (Node.js 19+ default keepAlive with freeSocketTimeout=30s).
+      process.exit(0);
+    }
   });
 
 // ─── inspect subcommand ───────────────────────────────────
@@ -307,6 +322,68 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Static file server for --serve mode
+// ──────────────────────────────────────────────────────────────
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.cjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.wasm': 'application/wasm',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+};
+
+function startStaticServer(rootDir: string, port: number): void {
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    let urlPath = req.url || '/';
+    // Strip query string for file lookup
+    const queryIdx = urlPath.indexOf('?');
+    if (queryIdx !== -1) urlPath = urlPath.substring(0, queryIdx);
+
+    // Normalize: default to index.html for directories
+    const filePath = urlPath.endsWith('/')
+      ? join(rootDir, urlPath, 'index.html')
+      : join(rootDir, urlPath);
+
+    const ext = filePath.substring(filePath.lastIndexOf('.')).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    const stream = createReadStream(filePath);
+    stream.on('open', () => {
+      res.writeHead(200, { 'Content-Type': contentType });
+      stream.pipe(res);
+    });
+    stream.on('error', () => {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    });
+  });
+
+  server.listen(port, () => {
+    process.stdout.write(`\n  Snapshot served at: ${chalk.green(`http://localhost:${port}`)}\n`);
+    process.stdout.write(`  Press ${chalk.bold('Ctrl+C')} to stop.\n\n`);
+  });
 }
 
 /**

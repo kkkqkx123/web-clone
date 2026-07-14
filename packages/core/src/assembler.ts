@@ -14,7 +14,7 @@ import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js
 import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './resource-filter.js';
 import { fixPathsForFileProtocol } from './output/path-fixer.js';
-import { extractJsUrls, extractJsonUrls } from './discovery/recursive-scanner.js';
+import { extractJsUrls, extractJsonUrls, extractWebpackChunks } from './discovery/recursive-scanner.js';
 import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
 import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
 
@@ -367,6 +367,18 @@ async function snapshotInternal(
                     url: found.url,
                     type: classifyByExt(found.url),
                     origin: `js:${asset.originUrl}`,
+                  });
+                }
+              }
+              // Extract webpack chunk map entries (e.g. { 41: "b02411f" }[e] + ".js")
+              const webpackChunks = extractWebpackChunks(text, asset.originUrl);
+              for (const found of webpackChunks) {
+                if (!seenUrls.has(found.url)) {
+                  seenUrls.add(found.url);
+                  discovered.push({
+                    url: found.url,
+                    type: 'js',
+                    origin: `webpack-chunk:${asset.originUrl}`,
                   });
                 }
               }

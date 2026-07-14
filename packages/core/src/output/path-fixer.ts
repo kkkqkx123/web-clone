@@ -1,28 +1,16 @@
 /**
  * Fixes absolute paths in generated snapshots to support file:// protocol opening
  * Handles framework-specific configuration and static path references
+ *
+ * NOTE: DOM element attribute path fixes (script[src], link[href], etc.) are
+ * handled by assembleBundle() via data-origin-url. This module only fixes
+ * framework-internal configuration objects (e.g. Nuxt's window.__NUXT__.assetsPath)
+ * that are not reachable through DOM element attributes.
  */
 
 export interface PathFixerOptions {
   // Base path for relative path conversion (e.g., 'assets/')
   basePath?: string;
-}
-
-/**
- * Detects if a path is an absolute URL path (starts with /)
- */
-function isAbsolutePath(path: string): boolean {
-  return path.startsWith('/');
-}
-
-/**
- * Converts absolute path to relative path
- * e.g., "/_nuxt/" → "./assets/js/_nuxt/"
- */
-function absoluteToRelative(absolutePath: string, assetBase: string = 'assets'): string {
-  // Remove leading slash
-  const trimmed = absolutePath.replace(/^\/+/, '');
-  return `./${assetBase}/${trimmed}`;
 }
 
 /**
@@ -58,51 +46,6 @@ export function fixNuxtConfig(document: Document): void {
 }
 
 /**
- * Fix script tags with absolute src paths
- * Converts /path/to/script.js → ./assets/js/path/to/script.js (if not already a relative path)
- */
-export function fixScriptPaths(document: Document): void {
-  const scripts = Array.from(document.querySelectorAll('script[src]'));
-
-  for (const script of scripts) {
-    const src = script.getAttribute('src') || '';
-
-    // Skip if already a relative path or protocol-based URL
-    if (src.startsWith('.') || src.includes('://') || src.startsWith('#') || src.startsWith('?')) {
-      continue;
-    }
-
-    // Convert absolute paths to relative
-    if (isAbsolutePath(src)) {
-      const relativeSrc = absoluteToRelative(src, 'assets');
-      script.setAttribute('src', relativeSrc);
-    }
-  }
-}
-
-/**
- * Fix link tags with absolute href paths (for stylesheets, icons, etc.)
- */
-export function fixLinkPaths(document: Document): void {
-  const links = Array.from(document.querySelectorAll('link[href]'));
-
-  for (const link of links) {
-    const href = link.getAttribute('href') || '';
-
-    // Skip if already a relative path or protocol-based URL
-    if (href.startsWith('.') || href.includes('://') || href.startsWith('#') || href.startsWith('?')) {
-      continue;
-    }
-
-    // Convert absolute paths to relative
-    if (isAbsolutePath(href)) {
-      const relativeHref = absoluteToRelative(href, 'assets');
-      link.setAttribute('href', relativeHref);
-    }
-  }
-}
-
-/**
  * Detect framework type from HTML content
  */
 export function detectFramework(html: string): 'nuxt' | 'vue' | 'react' | 'angular' | 'unknown' {
@@ -114,26 +57,23 @@ export function detectFramework(html: string): 'nuxt' | 'vue' | 'react' | 'angul
 }
 
 /**
- * Apply all path fixes for file:// protocol compatibility
+ * Apply all path fixes for file:// protocol compatibility.
+ *
+ * Only fixes framework-internal configuration objects (e.g. Nuxt's
+ * window.__NUXT__.assetsPath). DOM element attribute path transformations
+ * are handled by assembleBundle() via data-origin-url markers.
  */
 export function fixPathsForFileProtocol(document: Document, html: string): void {
   const framework = detectFramework(html);
 
-  // Framework-specific fixes
+  // Framework-specific fixes — Nuxt assetsPath must be corrected
+  // because it's used by the Vue runtime internally to resolve chunk URLs
+  // and is not reachable through DOM element attribute modifications.
   if (framework === 'nuxt') {
     fixNuxtConfig(document);
   }
 
-  // Generic path fixes that apply to all frameworks
-  fixScriptPaths(document);
-  fixLinkPaths(document);
-
-  // Fix preload links with absolute paths
-  const preloads = Array.from(document.querySelectorAll('link[rel="preload"][href]'));
-  for (const preload of preloads) {
-    const href = preload.getAttribute('href') || '';
-    if (isAbsolutePath(href) && !href.includes('://')) {
-      preload.setAttribute('href', absoluteToRelative(href, 'assets'));
-    }
-  }
+  // Note: fixScriptPaths / fixLinkPaths / preload link fixes have been removed.
+  // All DOM element path modifications are now handled exclusively by
+  // assembleBundle() via data-origin-url, eliminating double-modification issues.
 }
