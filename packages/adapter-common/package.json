@@ -7,6 +7,32 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "files": [
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kkkqkx123/web-clone.git"
+  },
+  "homepage": "https://github.com/kkkqkx123/web-clone#readme",
+  "bugs": {
+    "url": "https://github.com/kkkqkx123/web-clone/issues"
+  },
+  "keywords": [
+    "spa",
+    "hydration",
+    "playwright",
+    "puppeteer",
+    "web-clone"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -15,9 +41,6 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "clean": "rm -rf dist coverage"
-  },
-  "dependencies": {
-    "@web-clone/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.1.1"

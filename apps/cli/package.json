@@ -5,8 +5,31 @@
   "bin": {
     "snapshot": "dist/cli.js"
   },
+  "files": [
+    "dist/"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kkkqkx123/web-clone.git"
+  },
+  "homepage": "https://github.com/kkkqkx123/web-clone#readme",
+  "bugs": {
+    "url": "https://github.com/kkkqkx123/web-clone/issues"
+  },
+  "keywords": [
+    "webpage",
+    "snapshot",
+    "archive",
+    "cli",
+    "web-clone"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
+    "build:tsc": "tsc",
     "dev": "tsx src/cli.ts",
     "snapshot": "tsx src/cli.ts",
     "test": "vitest run",
@@ -32,6 +55,7 @@
     "@types/jsdom": "^28.0.3",
     "@types/node": "^26.1.1",
     "jsdom": "^29.1.1",
+    "tsup": "^8.5.1",
     "tsx": "^4.23.0"
   }
 }

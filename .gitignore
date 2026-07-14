@@ -17,6 +17,7 @@ target/
 
 # Package manager locks
 package-lock.json
+pnpm-lock.yaml
 
 # download
 snapshot
