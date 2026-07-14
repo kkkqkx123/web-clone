@@ -50,7 +50,7 @@ async function main() {
 
       const result = await snapshot({
         url: 'https://example.com/dashboard',
-        output: './authenticated-snapshot',
+        output: './examples/output/auth-snapshot',
         mode: 'bundle',
       }, adapter);
 

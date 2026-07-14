@@ -93,8 +93,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       playwright:
-        specifier: ^1.58.2
-        version: 1.61.1
+        specifier: 1.58.2
+        version: 1.58.2
     devDependencies:
       '@types/node':
         specifier: ^26.1.1
@@ -1381,13 +1381,13 @@ packages:
     resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
     engines: {node: '>=12'}
 
-  playwright-core@1.61.1:
-    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
+  playwright-core@1.58.2:
+    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.61.1:
-    resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
+  playwright@1.58.2:
+    resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -2819,11 +2819,11 @@ snapshots:
 
   picomatch@4.0.5: {}
 
-  playwright-core@1.61.1: {}
+  playwright-core@1.58.2: {}
 
-  playwright@1.61.1:
+  playwright@1.58.2:
     dependencies:
-      playwright-core: 1.61.1
+      playwright-core: 1.58.2
     optionalDependencies:
       fsevents: 2.3.2
 

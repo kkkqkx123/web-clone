@@ -48,15 +48,13 @@ pnpm dev:cli -- https://spa-site.com --browser playwright
 - Code generation output layout (`__generated__/`, `__drafts__/`, `shared/`)
 - `manifest.json` structure and component types
 
+### Examples Guide → [references/examples-guide.md](references/examples-guide.md)
+- How to run each example (inspect, playwright, puppeteer)
+- Environment variables and output paths
+- Swapping Playwright ↔ Puppeteer adapters
+- Custom browser configuration
+
 ## Examples (assets)
 
-Example scripts are bundled in [assets/examples/](assets/examples/):
-
-| Directory | Content |
-|-----------|---------|
-| `inspect/` | Page discovery, CI assertions, test workflow with snapshot |
-| `playwright/` | Basic snapshot, authentication, multi-page, integrated workflow |
-| `puppeteer/` | Basic snapshot, authentication, multi-page, integrated workflow |
-| `config-examples/` | JSON config files and README for config hierarchy |
-
-Read these examples when the user asks for usage patterns or when writing tests.
+Example scripts are also bundled in [assets/examples/](assets/examples/) for quick reference.
+Read them when the user asks for usage patterns or when writing tests.

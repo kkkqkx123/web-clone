@@ -28,7 +28,7 @@ async function main() {
       // Use snapshot() with the adapter
       const result = await snapshot({
         url: 'https://example.com',
-        output: './snapshot',
+        output: './examples/output/snapshot',
         mode: 'bundle',
       }, adapter);
 

@@ -19,7 +19,7 @@
   "dependencies": {
     "@web-clone/core": "workspace:*",
     "@web-clone/adapter-common": "workspace:*",
-    "playwright": "^1.58.2"
+    "playwright": "1.58.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.1"

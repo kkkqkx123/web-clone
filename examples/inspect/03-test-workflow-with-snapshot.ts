@@ -219,7 +219,7 @@ if (!url) {
   process.exit(1);
 }
 
-const outputDir = process.env.OUTPUT_DIR || './test-artifacts';
+const outputDir = process.env.OUTPUT_DIR || './examples/output/test-artifacts';
 
 async function main() {
   await runTests(url, [

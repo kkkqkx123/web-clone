@@ -24,9 +24,9 @@ async function main() {
 
       // Now snapshot multiple pages with the authenticated context
       const pagesToSnapshot = [
-        { url: 'https://example.com/', output: './snapshots/home' },
-        { url: 'https://example.com/dashboard', output: './snapshots/dashboard' },
-        { url: 'https://example.com/settings', output: './snapshots/settings' },
+        { url: 'https://example.com/', output: './examples/output/snapshots/home' },
+        { url: 'https://example.com/dashboard', output: './examples/output/snapshots/dashboard' },
+        { url: 'https://example.com/settings', output: './examples/output/snapshots/settings' },
       ];
 
       for (const page of pagesToSnapshot) {

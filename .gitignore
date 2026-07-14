@@ -22,6 +22,9 @@ package-lock.json
 snapshot
 snapshot-test
 
+# Example outputs
+examples/output/
+
 # Test outputs
 __tests__/outputs/
 coverage/

@@ -61,6 +61,11 @@ async function verifyPlaywrightEnvironment() {
     const playwrightJson = await fs.readFile(
       'D:\\project\\cli\\web-clone\\node_modules\\playwright\\package.json',
       'utf-8'
+    ).catch(() => 
+      fs.readFile(
+        'D:\\project\\cli\\web-clone\\node_modules\\.pnpm\\playwright@1.58.2\\node_modules\\playwright\\package.json',
+        'utf-8'
+      )
     );
     const pwInfo = JSON.parse(playwrightJson);
     console.log(`  ✅ Playwright ${pwInfo.version} installed\n`);

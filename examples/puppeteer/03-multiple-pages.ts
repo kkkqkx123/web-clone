@@ -25,9 +25,9 @@ async function main() {
     // For simplicity, this example snaps public pages without auth.
 
     const pagesToSnapshot = [
-      { url: 'https://example.com/',        output: './snapshots/home' },
-      { url: 'https://example.com/about',   output: './snapshots/about' },
-      { url: 'https://example.com/contact', output: './snapshots/contact' },
+      { url: 'https://example.com/',        output: './examples/output/snapshots/home' },
+      { url: 'https://example.com/about',   output: './examples/output/snapshots/about' },
+      { url: 'https://example.com/contact', output: './examples/output/snapshots/contact' },
     ];
 
     for (const item of pagesToSnapshot) {

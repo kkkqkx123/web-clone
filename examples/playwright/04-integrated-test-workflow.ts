@@ -142,7 +142,7 @@ function analyzePage(html: string, url: string): PageAnalysis {
 
 // ─── Main Workflow ──────────────────────────────────────────────
 
-const OUTPUT = process.env.OUTPUT_DIR || './test-results';
+const OUTPUT = process.env.OUTPUT_DIR || './examples/output/test-results';
 const TARGET_URL = process.env.TARGET_URL || 'https://example.com';
 const RUN_SNAPSHOT = process.env.RUN_SNAPSHOT !== 'false';
 
