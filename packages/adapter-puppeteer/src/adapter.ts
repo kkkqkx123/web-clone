@@ -426,3 +426,69 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
     }
   }
 }
+
+/**
+ * Options for creating a Puppeteer adapter with browser lifecycle.
+ */
+export interface CreatePuppeteerAdapterOptions extends PuppeteerAdapterOptions {
+  /** Navigation / browser launch timeout in ms (default: 30000) */
+  timeout?: number;
+}
+
+/**
+ * Handle returned by createPuppeteerAdapter, containing the adapter
+ * and a cleanup function that closes the browser.
+ */
+export interface PuppeteerAdapterHandle {
+  adapter: PuppeteerFetcherAdapter;
+  /** Close the page and browser. Safe to call multiple times. */
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Create a Puppeteer adapter with full browser lifecycle management.
+ *
+ * Launches a headless Chromium browser, creates a page, then wraps it
+ * in a PuppeteerFetcherAdapter.
+ *
+ * Use this when you need a self-contained adapter that manages its own
+ * browser instance. The returned `cleanup` function closes everything.
+ *
+ * @example
+ * ```typescript
+ * const { adapter, cleanup } = await createPuppeteerAdapter({ timeout: 15000 });
+ * const result = await snapshot(options, adapter);
+ * await cleanup();
+ * ```
+ */
+export async function createPuppeteerAdapter(
+  options: CreatePuppeteerAdapterOptions = {}
+): Promise<PuppeteerAdapterHandle> {
+  const puppeteer = await import('puppeteer');
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    timeout: options.timeout ?? 30000,
+  });
+
+  const page = await browser.newPage() as unknown as PuppeteerPage;
+
+  const adapter = new PuppeteerFetcherAdapter(page, {
+    waitForLoadState: options.waitForLoadState as 'load' | 'domcontentloaded' | 'networkidle' | undefined,
+    validateSSL: options.validateSSL ?? true,
+    customHeaders: options.customHeaders,
+    debugScreenshot: options.debugScreenshot,
+  });
+
+  return {
+    adapter,
+    cleanup: async () => {
+      try {
+        if (!page.isClosed()) await page.close();
+      } catch { /* best effort */ }
+      try {
+        await browser.close();
+      } catch { /* best effort */ }
+    },
+  };
+}

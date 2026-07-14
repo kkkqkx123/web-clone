@@ -72,20 +72,20 @@ pnpm add @web-clone/types
 pnpm install
 
 # 直接运行（无需编译）
-pnpm dev:cli -- https://example.com -o ./snapshot
+pnpm dev:cli https://example.com -o ./snapshot
 
 # 或先编译再运行
 pnpm build
 node apps/cli/dist/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell 用户**：需要将 `--` 加引号 —— `pnpm dev:cli '--' <url>`，或直接使用 `npx tsx apps/cli/src/cli.ts <url>`。
+> **PowerShell 用户**：`pnpm dev:cli <url>` 可直接使用（CLI 已自动处理 `--` 传递问题）。如仍遇到问题，可将 `--` 加引号 —— `pnpm dev:cli '--' <url>`，或直接使用 `npx tsx apps/cli/src/cli.ts <url>`。
 > **代理用户注意**：工具自动读取 `HTTPS_PROXY`/`HTTP_PROXY` 环境变量，见 [docs/proxy.md](docs/proxy.md)。
 
 ## CLI 使用
 
 ```bash
-pnpm dev:cli -- <url> [options]                         # 快照（默认命令）
+pnpm dev:cli <url> [options]                         # 快照（默认命令）
 pnpm dev:cli inspect <url> [options]                    # 页面结构分析
 pnpm dev:cli query <url> <selector> [options]           # 结构化数据提取
 pnpm dev:cli validate <output-dir>                      # 验证快照完整性
@@ -143,8 +143,8 @@ pnpm dev:cli clean <output-dir> [options]               # 清理损坏文件
 
 | 选项 | 说明 |
 |------|------|
-| `--browser <type>` | 浏览器引擎：`playwright` \| `puppeteer` |
-| `--hybrid` | 浏览器渲染 HTML + HTTP 池下载资源（需配合 `--browser`） |
+| `--adapter <type>` | 浏览器引擎：`playwright` \| `puppeteer` |
+| `--hybrid` | 浏览器渲染 HTML + HTTP 池下载资源（需配合 `--adapter`） |
 
 ### 组件提取
 
@@ -191,58 +191,58 @@ pnpm dev:cli clean <output-dir> [--dry-run] [--re-download]
 
 ```bash
 # Bundle 模式（默认）— 目录结构，资源分离存储
-pnpm dev:cli -- https://example.com -o ./site
+pnpm dev:cli https://example.com -o ./site
 
 # Single 模式 — 自包含 HTML 文件
-pnpm dev:cli -- https://example.com -o snapshot.html -m single
+pnpm dev:cli https://example.com -o snapshot.html -m single
 ```
 
 ### 浏览器自动化
 
 ```bash
 # Playwright（SPA/SSR 站点）
-pnpm dev:cli -- https://spa-site.com --browser playwright
+pnpm dev:cli https://spa-site.com --adapter playwright
 
 # 混合模式：浏览器渲染 + HTTP 池下载
-pnpm dev:cli -- https://spa-site.com --browser playwright --hybrid
+pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### 组件提取
 
 ```bash
 # 提取组件结构
-pnpm dev:cli -- https://example.com --extract-components
+pnpm dev:cli https://example.com --extract-components
 
 # 指定框架和深度限制
-pnpm dev:cli -- https://example.com --extract-components --framework vue --component-depth 5
+pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5
 
 # 生成框架代码
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework react
+pnpm dev:cli https://example.com --extract-components --codegen-framework react
 ```
 
 ### 资源过滤
 
 ```bash
 # 使用预设
-pnpm dev:cli -- https://example.com --resource-preset no-media
+pnpm dev:cli https://example.com --resource-preset no-media
 
 # 精细控制
-pnpm dev:cli -- https://example.com --include-video --include-fonts --exclude-images
+pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
 
 # 包含所有文件类型
-pnpm dev:cli -- https://example.com --include-all
+pnpm dev:cli https://example.com --include-all
 ```
 
 ### 递归扫描
 
 ```bash
-pnpm dev:cli -- https://example.com --scan-depth 3 --scan-json
+pnpm dev:cli https://example.com --scan-depth 3 --scan-json
 ```
 
 ### 本地转换（无需重新拉取）
 
 ```bash
-pnpm dev:cli -- --convert-local ./project --codegen-framework vue
+pnpm dev:cli --convert-local ./project --codegen-framework vue
 ```
 
 ### 页面诊断
@@ -265,7 +265,7 @@ pnpm dev:cli clean ./output --dry-run
 ### 完整示例
 
 ```bash
-pnpm dev:cli -- https://example.com \
+pnpm dev:cli https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -384,9 +384,10 @@ web-clone 支持多层配置合并（优先级从低到高）：
 
 ### PowerShell
 
-需要将 `--` 加引号以避免 PowerShell 的 stop-parsing 符号：
+`pnpm dev:cli <url>` 可直接使用 —— CLI 已自动过滤 pnpm 传递的 `"--"` 字面量。如仍遇到问题：
 
 ```powershell
+# 将 -- 加引号以避免 PowerShell 截获：
 pnpm dev:cli '--' "https://example.com" -o ./snapshot
 # 或绕过 pnpm 直接使用 tsx：
 npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
@@ -406,7 +407,7 @@ pnpm install
 pnpm build
 
 # 无需编译直接运行
-pnpm dev:cli -- <url>
+pnpm dev:cli <url>
 
 # 监听模式（所有包）
 pnpm dev

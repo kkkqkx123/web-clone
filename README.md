@@ -72,20 +72,20 @@ pnpm add @web-clone/types
 pnpm install
 
 # Run directly (no build required)
-pnpm dev:cli -- https://example.com -o ./snapshot
+pnpm dev:cli https://example.com -o ./snapshot
 
 # Or build first, then run
 pnpm build
 node apps/cli/dist/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell users**: Quote `--` — `pnpm dev:cli '--' <url>` — or use `npx tsx apps/cli/src/cli.ts <url>` directly.
+> **PowerShell users**: `pnpm dev:cli <url>` works directly (the CLI handles `--` passthrough automatically). If you encounter issues, quote `--` — `pnpm dev:cli '--' <url>` — or use `npx tsx apps/cli/src/cli.ts <url>`.
 > **Proxy users**: The tool automatically detects `HTTPS_PROXY`/`HTTP_PROXY` env vars. See [docs/proxy.md](docs/proxy.md).
 
 ## CLI Usage
 
 ```bash
-pnpm dev:cli -- <url> [options]                         # Snapshot (default command)
+pnpm dev:cli <url> [options]                         # Snapshot (default command)
 pnpm dev:cli inspect <url> [options]                    # Page structure analysis
 pnpm dev:cli query <url> <selector> [options]           # Structured data extraction
 pnpm dev:cli validate <output-dir>                      # Validate snapshot integrity
@@ -143,8 +143,8 @@ pnpm dev:cli clean <output-dir> [options]               # Clean corrupted files
 
 | Option | Description |
 |--------|-------------|
-| `--browser <type>` | Browser engine: `playwright` \| `puppeteer` |
-| `--hybrid` | Browser renders HTML, HTTP pool downloads assets (requires `--browser`) |
+| `--adapter <type>` | Browser engine: `playwright` \| `puppeteer` |
+| `--hybrid` | Browser renders HTML, HTTP pool downloads assets (requires `--adapter`) |
 
 ### Component Extraction
 
@@ -191,58 +191,58 @@ See [docs/commands.md](docs/commands.md) for the complete option reference.
 
 ```bash
 # Bundle mode (default) — directory structure with separated assets
-pnpm dev:cli -- https://example.com -o ./site
+pnpm dev:cli https://example.com -o ./site
 
 # Single file mode — self-contained HTML
-pnpm dev:cli -- https://example.com -o snapshot.html -m single
+pnpm dev:cli https://example.com -o snapshot.html -m single
 ```
 
 ### Browser Automation
 
 ```bash
 # Playwright (SPA/SSR sites)
-pnpm dev:cli -- https://spa-site.com --browser playwright
+pnpm dev:cli https://spa-site.com --adapter playwright
 
 # Hybrid: browser renders HTML, HTTP pool downloads assets
-pnpm dev:cli -- https://spa-site.com --browser playwright --hybrid
+pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### Component Extraction
 
 ```bash
 # Extract component structure
-pnpm dev:cli -- https://example.com --extract-components
+pnpm dev:cli https://example.com --extract-components
 
 # With framework hint and depth limit
-pnpm dev:cli -- https://example.com --extract-components --framework vue --component-depth 5
+pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5
 
 # Generate framework code
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework react
+pnpm dev:cli https://example.com --extract-components --codegen-framework react
 ```
 
 ### Resource Filtering
 
 ```bash
 # Use a preset
-pnpm dev:cli -- https://example.com --resource-preset no-media
+pnpm dev:cli https://example.com --resource-preset no-media
 
 # Fine-grained control
-pnpm dev:cli -- https://example.com --include-video --include-fonts --exclude-images
+pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
 
 # Include all file types
-pnpm dev:cli -- https://example.com --include-all
+pnpm dev:cli https://example.com --include-all
 ```
 
 ### Recursive Scan
 
 ```bash
-pnpm dev:cli -- https://example.com --scan-depth 3 --scan-json
+pnpm dev:cli https://example.com --scan-depth 3 --scan-json
 ```
 
 ### Local Conversion (skip URL fetch)
 
 ```bash
-pnpm dev:cli -- --convert-local ./project --codegen-framework vue
+pnpm dev:cli --convert-local ./project --codegen-framework vue
 ```
 
 ### Page Diagnostics
@@ -265,7 +265,7 @@ pnpm dev:cli clean ./output --dry-run
 ### Full Example
 
 ```bash
-pnpm dev:cli -- https://example.com \
+pnpm dev:cli https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -384,9 +384,10 @@ See [examples/config-examples/config-README.md](examples/config-examples/config-
 
 ### PowerShell
 
-Quote the `--` separator to avoid PowerShell's stop-parsing:
+`pnpm dev:cli <url>` works directly — the CLI automatically filters out the `"--"` literal that pnpm's `--` passthrough may inject. If you still encounter issues:
 
 ```powershell
+# Quote -- to prevent PowerShell interception:
 pnpm dev:cli '--' "https://example.com" -o ./snapshot
 # Or bypass pnpm entirely:
 npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
@@ -406,7 +407,7 @@ pnpm install
 pnpm build
 
 # Run CLI without building
-pnpm dev:cli -- <url>
+pnpm dev:cli <url>
 
 # Watch mode (all packages)
 pnpm dev

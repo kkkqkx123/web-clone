@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { snapshot, convertLocalSnapshot } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
@@ -126,7 +126,7 @@ program
 
       console.log(chalk.green(`\n✓ ${isLocal ? 'Conversion' : 'Snapshot'} complete!`));
       console.log(`  Source: ${chalk.cyan(options.url)}`);
-      console.log(`  Output: ${chalk.green(options.output)}`);
+      console.log(`  Output: ${chalk.green(resolve(options.output))}`);
       console.log(`  Time:   ${chalk.white(`${elapsed}s`)}`);
       console.log('');
 
@@ -294,7 +294,12 @@ const isDirectRun = process.argv[1] && (
   (typeof import.meta !== 'undefined' && process.argv[1] === fileURLToPath(import.meta.url))
 );
 if (isDirectRun) {
-  program.parse(process.argv);
+  // pnpm (especially on Windows/Git Bash) passes "--" as a literal argument
+  // when using the `--` passthrough separator. Filter it out before Commander
+  // parses the args, otherwise Commander treats "--" as "end of options" and
+  // all subsequent args become positional, causing "too many arguments".
+  const filteredArgs = process.argv.filter(a => a !== '--');
+  program.parse(filteredArgs);
 }
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';

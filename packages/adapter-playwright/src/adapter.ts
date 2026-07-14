@@ -342,3 +342,73 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     }
   }
 }
+
+/**
+ * Options for creating a Playwright adapter with browser lifecycle.
+ */
+export interface CreatePlaywrightAdapterOptions extends PlaywrightAdapterOptions {
+  /** Navigation / browser launch timeout in ms (default: 30000) */
+  timeout?: number;
+}
+
+/**
+ * Handle returned by createPlaywrightAdapter, containing the adapter
+ * and a cleanup function that closes the browser.
+ */
+export interface PlaywrightAdapterHandle {
+  adapter: PlaywrightFetcherAdapter;
+  /** Close the page, context, and browser. Safe to call multiple times. */
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Create a Playwright adapter with full browser lifecycle management.
+ *
+ * Launches a headless Chromium browser, creates a context and page,
+ * then wraps them in a PlaywrightFetcherAdapter.
+ *
+ * Use this when you need a self-contained adapter that manages its own
+ * browser instance. The returned `cleanup` function closes everything.
+ *
+ * @example
+ * ```typescript
+ * const { adapter, cleanup } = await createPlaywrightAdapter({ timeout: 15000 });
+ * const result = await snapshot(options, adapter);
+ * await cleanup();
+ * ```
+ */
+export async function createPlaywrightAdapter(
+  options: CreatePlaywrightAdapterOptions = {}
+): Promise<PlaywrightAdapterHandle> {
+  const { chromium } = await import('playwright');
+
+  const browser = await chromium.launch({
+    headless: true,
+    timeout: options.timeout ?? 30000,
+  });
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  const adapter = new PlaywrightFetcherAdapter(page, context, {
+    waitForLoadState: options.waitForLoadState as 'load' | 'domcontentloaded' | 'networkidle' | undefined,
+    validateSSL: options.validateSSL ?? true,
+    customHeaders: options.customHeaders,
+    debugScreenshot: options.debugScreenshot,
+  });
+
+  return {
+    adapter,
+    cleanup: async () => {
+      try {
+        if (!page.isClosed()) await page.close();
+      } catch { /* best effort */ }
+      try {
+        await context.close();
+      } catch { /* best effort */ }
+      try {
+        await browser.close();
+      } catch { /* best effort */ }
+    },
+  };
+}

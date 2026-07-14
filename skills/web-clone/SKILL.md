@@ -37,16 +37,16 @@ See [references/cli-usage.md](references/cli-usage.md) for more entry commands.
 
 ```bash
 # Snapshot a page (bundle mode, default)
-pnpm dev:cli -- https://example.com -o ./site
+pnpm dev:cli https://example.com -o ./site
 
 # Snapshot + extract components
-pnpm dev:cli -- https://example.com -o ./project -m bundle --extract-components
+pnpm dev:cli https://example.com -o ./project -m bundle --extract-components
 
 # Single-file snapshot
-pnpm dev:cli -- https://example.com -o snapshot.html -m single
+pnpm dev:cli https://example.com -o snapshot.html -m single
 
 # With browser automation
-pnpm dev:cli -- https://spa-site.com --adapter playwright
+pnpm dev:cli https://spa-site.com --adapter playwright
 ```
 
 ## Reference Files

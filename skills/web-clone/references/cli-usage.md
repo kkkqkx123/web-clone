@@ -27,7 +27,7 @@ pnpm add @web-clone/codegen
 snapshot <url> [options]
 
 # Dev mode (tsx, inside monorepo)
-pnpm dev:cli -- <url> [options]
+pnpm dev:cli <url> [options]
 
 # Via filter
 pnpm --filter web-clone-cli snapshot -- <url>
@@ -208,75 +208,75 @@ All options require `--extract-components`.
 ### Basic Snapshot
 ```bash
 # Bundle mode (default)
-pnpm dev:cli -- https://example.com -o ./site
+pnpm dev:cli https://example.com -o ./site
 
 # Single file
-pnpm dev:cli -- https://example.com -o snapshot.html -m single
+pnpm dev:cli https://example.com -o snapshot.html -m single
 
 # Pretty HTML
-pnpm dev:cli -- https://example.com --pretty
+pnpm dev:cli https://example.com --pretty
 ```
 
 ### Browser Automation
 ```bash
-pnpm dev:cli -- https://spa-site.com --adapter playwright
-pnpm dev:cli -- https://spa-site.com --adapter puppeteer
-pnpm dev:cli -- https://spa-site.com --adapter playwright --hybrid
+pnpm dev:cli https://spa-site.com --adapter playwright
+pnpm dev:cli https://spa-site.com --adapter puppeteer
+pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### Component Extraction
 ```bash
 # Basic extraction
-pnpm dev:cli -- https://example.com --extract-components
+pnpm dev:cli https://example.com --extract-components
 
 # With framework hint and depth
-pnpm dev:cli -- https://example.com --extract-components --framework vue --component-depth 5 -o ./output
+pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5 -o ./output
 
 # Disable JS logic extraction
-pnpm dev:cli -- https://example.com --extract-components --extract-logic false
+pnpm dev:cli https://example.com --extract-components --extract-logic false
 
 # Filter by confidence
-pnpm dev:cli -- https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
+pnpm dev:cli https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
 ```
 
 ### Code Generation
 ```bash
 # Vue code generation
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework vue
+pnpm dev:cli https://example.com --extract-components --codegen-framework vue
 
 # React with CSS Modules
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework react --codegen-css-modules
+pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-css-modules
 
 # Full project template
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
+pnpm dev:cli https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
 
 # Extract shared logic
-pnpm dev:cli -- https://example.com --extract-components --codegen-framework react --codegen-extract-shared
+pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-extract-shared
 ```
 
 ### Local Conversion (Re-run without fetching)
 ```bash
-pnpm dev:cli -- --convert-local ./output --codegen-framework vue
-pnpm dev:cli -- --convert-local snapshot.html --codegen-framework react
-pnpm dev:cli -- --convert-local ./output -o ./alt --codegen-framework react
+pnpm dev:cli --convert-local ./output --codegen-framework vue
+pnpm dev:cli --convert-local snapshot.html --codegen-framework react
+pnpm dev:cli --convert-local ./output -o ./alt --codegen-framework react
 ```
 
 ### Resource Filtering
 ```bash
 # Skip specific types
-pnpm dev:cli -- https://example.com --skip-types .zip,.mp4,.pdf
+pnpm dev:cli https://example.com --skip-types .zip,.mp4,.pdf
 
 # Use preset
-pnpm dev:cli -- https://example.com --resource-preset no-media
+pnpm dev:cli https://example.com --resource-preset no-media
 
 # Disable all filtering
-pnpm dev:cli -- https://example.com --include-all
+pnpm dev:cli https://example.com --include-all
 
 # Fine-grained: include video+fonts, exclude images
-pnpm dev:cli -- https://example.com --include-video --include-fonts --exclude-images
+pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
 
 # Recursive scan hidden URLs
-pnpm dev:cli -- https://example.com --scan-depth 3 --scan-json
+pnpm dev:cli https://example.com --scan-depth 3 --scan-json
 ```
 
 ### Subcommands
@@ -301,7 +301,7 @@ pnpm dev:cli clean ./output --re-download
 
 ### Full Example
 ```bash
-pnpm dev:cli -- https://example.com \
+pnpm dev:cli https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -337,6 +337,8 @@ See [config examples](../../examples/config-examples/config-README.md) for detai
 pnpm dev:cli '--' "https://example.com" -o ./snapshot
 npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot  # Alternative
 ```
+
+**pnpm `--` passthrough**: `pnpm dev:cli <url>` (without `--`) is the recommended form and works on all platforms. `pnpm dev:cli -- <url>` also works — the CLI automatically filters out the extra `"--"` literal that pnpm may inject on Windows/Git Bash.
 
 **Proxy**: Tool reads `HTTPS_PROXY` / `HTTP_PROXY` env vars automatically.
 See [docs/proxy.md](../../docs/proxy.md).
