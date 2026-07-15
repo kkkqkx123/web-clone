@@ -255,42 +255,6 @@ describe('FrameworkCodeGenerator', () => {
     });
   });
 
-  describe('package.json generation', () => {
-    it('should generate Vue package.json', () => {
-      const gen = new FrameworkCodeGenerator();
-
-      const pkg = gen.generatePackageJson('test-app', { framework: 'vue' }, []);
-
-      expect(pkg.name).toBe('test-app');
-      expect(pkg.dependencies.vue).toBeDefined();
-      expect(pkg.scripts.dev).toBe('vite');
-      expect(pkg.scripts.build).toContain('vite build');
-    });
-
-    it('should generate React package.json', () => {
-      const gen = new FrameworkCodeGenerator();
-
-      const pkg = gen.generatePackageJson('test-app', { framework: 'react' }, []);
-
-      expect(pkg.name).toBe('test-app');
-      expect(pkg.dependencies.react).toBeDefined();
-      expect(pkg.dependencies['react-dom']).toBeDefined();
-      expect(pkg.scripts.dev).toBe('vite');
-    });
-
-    it('should include dependencies in package.json', () => {
-      const gen = new FrameworkCodeGenerator();
-
-      const pkg = gen.generatePackageJson('test-app', { framework: 'vue' }, [
-        'axios',
-        'dayjs',
-      ]);
-
-      expect(pkg.dependencies.axios).toBeDefined();
-      expect(pkg.dependencies.dayjs).toBeDefined();
-    });
-  });
-
   describe('error handling', () => {
     it('should handle missing framework gracefully', () => {
       const gen = new FrameworkCodeGenerator();

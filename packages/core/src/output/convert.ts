@@ -332,12 +332,18 @@ function writeApplicationDrafts(result: ConvertResult, outputDir: string, framew
   const mainEntry = codeGenerator.generateMainEntry({ framework: framework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery', typescript: frameworkOptions.typescript as boolean | undefined });
   writeFileSync(join(frameworkDir, 'src', mainEntry.filename), mainEntry.code);
 
-  // 9. Generate package.json (framework only, no forced dependencies)
-  const packageJson = codeGenerator.generatePackageJson(
-    'migrated-app',
-    { framework: framework as 'vue' | 'react' | 'angular' | 'svelte' | 'jquery', typescript: frameworkOptions.typescript as boolean | undefined },
-    []
-  );
+  // 8a. Generate Angular app.config.ts (required for Angular 17 standalone)
+  if (framework === 'angular') {
+    const appConfig = ConfigGenerator.generateAngularAppConfig();
+    writeFileSync(join(frameworkDir, 'src', 'app.config.ts'), appConfig);
+  }
+
+  // 9. Generate minimal package.json (basic scaffold, no framework version pins)
+  const packageJson = {
+    name: 'migrated-app',
+    version: '0.1.0',
+    type: 'module',
+  };
   writeFileSync(join(frameworkDir, 'package.json'), JSON.stringify(packageJson, null, 2));
 
   // 10. Create .gitignore

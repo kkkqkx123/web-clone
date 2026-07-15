@@ -1,7 +1,7 @@
 import type { ComponentSpec } from '@web-clone/types';
 import type { FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/types';
 import type { StateVariable, EventBinding, MethodSpec } from '@web-clone/types';
-import { cssStrategies, dependencyMaps } from './framework-rules.js';
+import { cssStrategies, dependencyMaps, frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Base class for framework-specific code generators
@@ -39,28 +39,103 @@ export abstract class BaseFrameworkGenerator {
     options: FrameworkCodeGenOptions
   ): string[];
 
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  /** Generate the root App component template (App.vue, App.tsx, etc.) */
+  abstract generateAppTemplate(components: GeneratedComponent[]): string;
+
+  /** Generate the main entry point file (main.ts, main.tsx, etc.) */
+  abstract generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string };
+
   /**
    * Framework-specific CSS handling: routes to the correct strategy
-   * based on the framework type, avoiding `as any` type bypass.
+   * based on the framework type, via the cssStrategies registry.
+   * React's wrapStyles accepts an extra cssModules parameter.
    */
   protected mapStyles(css: string, options: FrameworkCodeGenOptions): string {
     if (!css || css.trim() === '') {
       return '';
     }
-    // Framework-specific CSS handling
+    const strategy = cssStrategies[this.framework];
+    if (!strategy) {
+      return css;
+    }
+    // React's wrapStyles accepts an optional cssModules flag
     if (this.framework === 'react') {
-      return cssStrategies.react.wrapStyles(css, options.cssModules);
+      return strategy.wrapStyles(css, options.cssModules);
     }
-    if (this.framework === 'vue') {
-      return cssStrategies.vue.wrapStyles(css);
+    return strategy.wrapStyles(css);
+  }
+
+  /**
+   * Common template processing pipeline shared by all frameworks.
+   * Handles data-binding, data-event, data-condition replacement and
+   * attribute cleanup. Each framework's mapTemplate() calls this
+   * and then applies framework-specific transformations.
+   */
+  protected processTemplate(
+    html: string,
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
+  ): string {
+    let template = html;
+    const rules = frameworkRules[this.framework];
+    if (!rules) return template;
+
+    // Step 1: Replace data-binding with framework-specific syntax
+    template = template.replace(
+      /data-binding="([^"]+)"/g,
+      (_match, variable) => rules.templateBinding(variable.trim())
+    );
+
+    // Step 2: Replace data-event with framework-specific syntax
+    template = template.replace(
+      /data-event="([^:]+):([^"]+)"/g,
+      (_match, event, handler) =>
+        rules.eventBinding(event.trim(), handler.trim())
+    );
+
+    // Step 3: Handle data-condition
+    // Non-JSX frameworks (Vue, Angular): conditional is an attribute on the element
+    // JSX-like frameworks (React, Svelte): wrap elements in conditional blocks
+    if (this.framework === 'vue' || this.framework === 'angular') {
+      // Vue: v-if="condition", Angular: *ngIf="condition" — attribute on the element
+      template = template.replace(
+        /data-condition="([^"]*)"/g,
+        (_match, condition) => rules.conditionalBinding(condition.trim())
+      );
+    } else {
+      // React/Svelte/jQuery: handle self-closing and wrapping elements
+      // Self-closing: <tag data-condition="expr" /> → {expr && <tag />}
+      template = template.replace(
+        /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)\/>/g,
+        (_match, tag, pre, condition, post) => {
+          const cb = rules.conditionalBinding(condition.trim());
+          return cb.replace('/* content */', `<${tag}${pre}${post} />`);
+        }
+      );
+      // Wrapping: <tag data-condition="expr">...</tag> → {expr && <tag>...</tag>}
+      template = template.replace(
+        /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>([\s\S]*?)<\/\1>/g,
+        (_match, tag, pre, condition, post, content) => {
+          const cb = rules.conditionalBinding(condition.trim());
+          return cb.replace('/* content */', `<${tag}${pre}${post}>${content}</${tag}>`);
+        }
+      );
     }
-    if (this.framework === 'angular') {
-      return cssStrategies.angular.wrapStyles(css);
+
+    // Step 4: Clean up remaining data-* attributes
+    template = templateRules.cleanAttributes(template);
+
+    // Step 5: Wrap in root div if template has no single root element
+    // (Vue requires a single root, React JSX needs a fragment or single element)
+    if (this.framework === 'vue' || this.framework === 'react') {
+      if (!template.trim().startsWith('<')) {
+        template = `<div>${template}</div>`;
+      }
     }
-    if (this.framework === 'svelte') {
-      return cssStrategies.svelte.wrapStyles(css);
-    }
-    return cssStrategies.jquery.wrapStyles(css);
+
+    return template;
   }
 
   /**

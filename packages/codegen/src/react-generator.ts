@@ -2,7 +2,7 @@ import type { ComponentSpec } from '@web-clone/types';
 import type { FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/types';
 import type { StateVariable, EventBinding, MethodSpec } from '@web-clone/types';
 import { BaseFrameworkGenerator } from './base-generator.js';
-import { frameworkRules, templateRules } from './framework-rules.js';
+import { templateRules } from './framework-rules.js';
 
 /**
  * React Component Generator
@@ -32,6 +32,7 @@ export class ReactGenerator extends BaseFrameworkGenerator {
 
     // 4. Generate state hooks and methods
     const stateHooks = this.mapState(spec.logic?.state || [], options);
+    const lifecycleEffects = this.generateLifecycleEffects(spec.logic);
     const methods = this.extractMethods(spec.logic);
     const styles = this.generateStyleImport(spec, options);
 
@@ -41,6 +42,7 @@ ${propsInterface}
 
 export default function ${componentName}() {
 ${stateHooks ? `  ${stateHooks}\n` : ''}
+${lifecycleEffects ? `${lifecycleEffects}\n` : ''}
 ${methods ? `  ${methods}\n` : ''}
   return (
     <>${jsx}</>
@@ -62,14 +64,9 @@ ${styles ? `\n${styles}` : ''}`;
     imports: string[],
     _options: FrameworkCodeGenOptions
   ): string {
-    const reactImports = new Set<string>();
+    const reactHooks = new Set<string>(['useState', 'useEffect', 'useMemo', 'useCallback']);
 
-    if (imports.some((i) => i.includes('useState'))) {
-      reactImports.add('useState');
-    }
-    if (imports.some((i) => i.includes('useEffect'))) {
-      reactImports.add('useEffect');
-    }
+    const hooksToImport = imports.filter((i) => reactHooks.has(i));
 
     let importStr = '';
 
@@ -77,8 +74,8 @@ ${styles ? `\n${styles}` : ''}`;
     importStr += `import React from 'react'\n`;
 
     // React hooks imports
-    if (reactImports.size > 0) {
-      importStr += `import { ${Array.from(reactImports).join(', ')} } from 'react'\n`;
+    if (hooksToImport.length > 0) {
+      importStr += `import { ${hooksToImport.join(', ')} } from 'react'\n`;
     }
 
     // Styles
@@ -94,6 +91,44 @@ ${styles ? `\n${styles}` : ''}`;
   // TODO: Define component props
 }
 `;
+  }
+
+  /**
+   * Generate useEffect calls for lifecycle methods (kind === 'lifecycle').
+   * Uses useEffect with empty deps for mount-like hooks, and returns a
+   * cleanup function for unmount-like hooks.
+   */
+  private generateLifecycleEffects(logic: { methods?: MethodSpec[] } | undefined): string {
+    if (!logic?.methods || logic.methods.length === 0) {
+      return '';
+    }
+
+    const lifecycleMethods = logic.methods.filter((m) => m.kind === 'lifecycle');
+    if (lifecycleMethods.length === 0) {
+      return '';
+    }
+
+    return lifecycleMethods
+      .map((m) => {
+        const isUnmount = m.name === 'unmounted' || m.name === 'beforeUnmount' || m.name === 'destroy' || m.name === 'destroyed';
+        const comment = `// Lifecycle: ${m.name}`;
+        if (isUnmount) {
+          return `  ${comment}
+  useEffect(() => {
+    // TODO: Implement ${m.name}
+    // Original: ${m.code?.substring(0, 80)}...
+    return () => {
+      // Cleanup logic for ${m.name}
+    };
+  }, [])`;
+        }
+        return `  ${comment}
+  useEffect(() => {
+    // TODO: Implement ${m.name}
+    // Original: ${m.code?.substring(0, 80)}...
+  }, [])`;
+      })
+      .join('\n\n');
   }
 
   private generateStyleImport(
@@ -126,9 +161,8 @@ ${styles ? `\n${styles}` : ''}`;
       .map((s) => {
         const setter = `set${this.pascalCase(s.name)}`;
         const type = options.typescript ? `<${s.type}>` : '';
-        return `const [${s.name}, ${setter}] = useState${type}(${JSON.stringify(
-          s.initial
-        )})`;
+        const initialValue = s.initial !== undefined ? JSON.stringify(s.initial) : 'undefined';
+        return `const [${s.name}, ${setter}] = useState${type}(${initialValue})`;
       })
       .join('\n  ');
   }
@@ -142,47 +176,17 @@ ${styles ? `\n${styles}` : ''}`;
 
   protected mapTemplate(
     html: string,
-    _logic: unknown,
-    _options: FrameworkCodeGenOptions
+    logic: unknown,
+    options: FrameworkCodeGenOptions
   ): string {
-    let jsx = html;
+    // Step 1: Shared common processing (data-binding, data-event, data-condition, cleanAttributes, root wrap)
+    let jsx = this.processTemplate(html, logic, options);
 
-    // Step 1: Replace data-binding with JSX interpolation
-    // data-binding="count" -> {count}
-    jsx = jsx.replace(
-      /data-binding="([^"]+)"/g,
-      (_match, variable) => frameworkRules.react.templateBinding(variable)
-    );
-
-    // Step 2: Replace data-event with React event handler
-    // data-event="click:increment" -> onClick={increment}
-    jsx = jsx.replace(
-      /data-event="([^:]+):([^"]+)"/g,
-      (_match, event, handler) =>
-        frameworkRules.react.eventBinding(event, handler)
-    );
-
-    // Step 3: Replace data-condition with JSX conditional
-    // data-condition="count > 0" -> {count > 0 && ...}
-    jsx = jsx.replace(
-      /data-condition="([^"]+)"/g,
-      (_match, condition) =>
-        frameworkRules.react.conditionalBinding(condition)
-    );
-
-    // Step 4: Convert HTML to JSX
+    // Step 2: Convert HTML attributes to JSX equivalents (class→className, for→htmlFor, etc.)
     jsx = templateRules.htmlToJsx(jsx);
 
-    // Step 5: Fix self-closing tags
+    // Step 3: Fix self-closing tags for JSX (<img> → <img />)
     jsx = templateRules.fixSelfClosing(jsx);
-
-    // Step 6: Clean up remaining data-* attributes
-    jsx = templateRules.cleanAttributes(jsx);
-
-    // Step 7: Wrap in root div if needed
-    if (!jsx.trim().startsWith('<')) {
-      jsx = `<div>${jsx}</div>`;
-    }
 
     return jsx.trim();
   }
@@ -231,5 +235,50 @@ ${styles ? `\n${styles}` : ''}`;
     }
 
     return Array.from(imports);
+  }
+
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  generateAppTemplate(components: GeneratedComponent[]): string {
+    const imports = components
+      .map((c) => `import ${c.name} from './components/${c.name}/${c.name}'`)
+      .join('\n');
+    const templateLines = components.map((c) => `      <${c.name} />`).join('\n');
+
+    return `import React from 'react'
+${imports}
+import './App.css'
+
+export default function App() {
+  React.useEffect(() => {
+    console.log('App mounted')
+  }, [])
+
+  return (
+    <div id="app">
+      <main>
+${templateLines}
+      </main>
+    </div>
+  )
+}
+`;
+  }
+
+  generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    return {
+      filename: options.typescript ? 'main.tsx' : 'main.jsx',
+      code: `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('app')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+`,
+    };
   }
 }

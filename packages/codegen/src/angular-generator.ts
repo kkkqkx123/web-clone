@@ -1,7 +1,6 @@
 import { BaseFrameworkGenerator } from './base-generator.js';
 import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/types';
 import type { StateVariable, EventBinding } from '@web-clone/types';
-import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Angular component code generator
@@ -25,12 +24,18 @@ export class AngularGenerator extends BaseFrameworkGenerator {
     const template = this.mapTemplate(spec.template, spec.logic, options);
     const styles = this.mapStyles(spec.styles, options);
 
+    // Build decorator imports array (module classes needed at runtime)
+    const decoratorModules = this.getDecoratorModuleImports(spec);
+    const importsLine = decoratorModules.length > 0
+      ? `\n  imports: [${decoratorModules.join(', ')}],`
+      : '';
+
     const code = `${imports.join('\n')}
 
 @Component({
   selector: '${selector}',
   template: \`${template}\`,${styles}
-  standalone: true,
+  standalone: true,${importsLine}
 })
 export class ${componentName}Component {
   ${stateDeclarations}
@@ -60,7 +65,7 @@ export class ${componentName}Component {
     return state
       .map((s) => {
         const typeHint = options.typescript !== false ? `: ${s.type}` : '';
-        const initialValue = JSON.stringify(s.initial);
+        const initialValue = s.initial !== undefined ? JSON.stringify(s.initial) : 'undefined';
         return `${s.name}${typeHint} = ${initialValue};`;
       })
       .join('\n  ');
@@ -75,31 +80,10 @@ export class ${componentName}Component {
 
   protected mapTemplate(
     html: string,
-    _logic: unknown,
-    _options: FrameworkCodeGenOptions
+    logic: unknown,
+    options: FrameworkCodeGenOptions
   ): string {
-    let template = html;
-
-    // Replace data-binding with {{ variable }}
-    template = template.replace(
-      /data-binding="([^"]*)"/g,
-      (_, variable) => frameworkRules.angular.templateBinding(variable.trim())
-    );
-
-    // Replace data-event with (event)="handler()"
-    template = template.replace(
-      /data-event="([^:]*):([^"]*)"/g,
-      (_, event, handler) =>
-        frameworkRules.angular.eventBinding(event.trim(), handler.trim())
-    );
-
-    // Replace data-condition with *ngIf
-    template = template.replace(
-      /data-condition="([^"]*)"/g,
-      (_, condition) => `*ngIf="${condition.trim()}"`
-    );
-
-    return templateRules.cleanAttributes(template);
+    return this.processTemplate(html, logic, options);
   }
 
   protected mapStyles(
@@ -124,5 +108,91 @@ export class ${componentName}Component {
     }
 
     return imports;
+  }
+
+  /**
+   * Determine which Angular modules to include in @Component.imports array.
+   * These must match the named imports in collectImports().
+   */
+  private getDecoratorModuleImports(spec: ComponentSpec): string[] {
+    const modules: string[] = ['CommonModule'];
+    if (spec.template.includes('[(ngModel)]')) {
+      modules.push('FormsModule');
+    }
+    return modules;
+  }
+
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  generateAppTemplate(components: GeneratedComponent[]): string {
+    const imports = components
+      .map((c) => `import { ${c.name}Component } from './components/${c.name}/${c.name}.component';`)
+      .join('\n');
+
+    const declarations = components
+      .map((c) => `    ${c.name}Component`)
+      .join(',\n');
+
+    const templateLines = components
+      .map((c) => `    <app-${this.pascalToKebab(c.name)} />`)
+      .join('\n');
+
+    return `import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+${imports}
+
+@Component({
+  selector: 'app-root',
+  template: \`
+    <div id="app">
+      <main>
+${templateLines}
+      </main>
+    </div>
+  \`,
+  styles: [\`
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    main {
+      flex: 1;
+    }
+  \`],
+  standalone: true,
+  imports: [CommonModule, ${declarations}],
+})
+export class AppComponent {
+  ngOnInit() {
+    console.log('App initialized');
+  }
+}
+`;
+  }
+
+  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    return {
+      filename: 'main.ts',
+      code: `import { bootstrapApplication } from '@angular/platform-browser';
+import { AppComponent } from './app.component';
+import { appConfig } from './app.config';
+
+bootstrapApplication(AppComponent, appConfig).catch(err =>
+  console.error(err),
+);
+`,
+    };
+  }
+
+  /**
+   * Convert PascalCase to kebab-case for Angular selectors
+   */
+  private pascalToKebab(str: string): string {
+    return str
+      .replace(/([A-Z])/g, '-$1')
+      .toLowerCase()
+      .replace(/^-/, '');
   }
 }

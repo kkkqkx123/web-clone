@@ -7,7 +7,7 @@ export const frameworkRules = {
   vue: {
     // State binding: StateVariable => ref/reactive declaration
     stateDeclaration: (name: string, type: string, initial: unknown): string => {
-      const initialValue = JSON.stringify(initial);
+      const initialValue = initial !== undefined ? JSON.stringify(initial) : 'undefined';
       return `const ${name} = ref<${type}>(${initialValue})`;
     },
 
@@ -31,20 +31,12 @@ export const frameworkRules = {
     // Computed property wrapper
     computedWrapper: (name: string, code: string): string =>
       `const ${name} = computed(() => {\n  ${code}\n})`,
-
-    // Imports required for stateful component
-    requiredImports: (_hasState: boolean, _hasComputed: boolean): string[] => {
-      const imports = ['vue'];
-      if (_hasState) imports.push('ref');
-      if (_hasComputed) imports.push('computed');
-      return imports;
-    },
   },
 
   react: {
     // State binding: StateVariable => useState hook
     stateDeclaration: (name: string, type: string, initial: unknown): string => {
-      const initialValue = JSON.stringify(initial);
+      const initialValue = initial !== undefined ? JSON.stringify(initial) : 'undefined';
       const setter = `set${capitalize(name)}`;
       return `const [${name}, ${setter}] = useState<${type}>(${initialValue})`;
     },
@@ -73,20 +65,12 @@ export const frameworkRules = {
     // Callback memo wrapper
     computedWrapper: (name: string, code: string): string =>
       `const ${name} = useCallback(() => {\n  ${code}\n}, [])`,
-
-    // Imports required for stateful component
-    requiredImports: (_hasState: boolean, _hasCallback: boolean): string[] => {
-      const imports = ['react'];
-      if (_hasState) imports.push('useState');
-      if (_hasCallback) imports.push('useCallback');
-      return imports;
-    },
   },
 
   angular: {
     // State binding: StateVariable => class property
     stateDeclaration: (name: string, type: string, initial: unknown): string => {
-      const initialValue = JSON.stringify(initial);
+      const initialValue = initial !== undefined ? JSON.stringify(initial) : 'undefined';
       return `${name}: ${type} = ${initialValue};`;
     },
 
@@ -110,17 +94,12 @@ export const frameworkRules = {
     // Method wrapper
     computedWrapper: (name: string, code: string): string =>
       `${name}() {\n  ${code}\n}`,
-
-    // Imports for Angular component
-    requiredImports: (_hasState: boolean): string[] => {
-      return ['@angular/core', 'Component'];
-    },
   },
 
   svelte: {
     // State binding: StateVariable => let variable
     stateDeclaration: (name: string, type: string, initial: unknown): string => {
-      const initialValue = JSON.stringify(initial);
+      const initialValue = initial !== undefined ? JSON.stringify(initial) : 'undefined';
       return `let ${name}: ${type} = ${initialValue};`;
     },
 
@@ -144,17 +123,12 @@ export const frameworkRules = {
     // Method wrapper
     computedWrapper: (name: string, code: string): string =>
       `const ${name} = () => {\n  ${code}\n};`,
-
-    // Imports for Svelte (minimal - uses global APIs)
-    requiredImports: (): string[] => {
-      return [];
-    },
   },
 
   jquery: {
     // State binding: StateVariable => class property
     stateDeclaration: (name: string, type: string, initial: unknown): string => {
-      const initialValue = JSON.stringify(initial);
+      const initialValue = initial !== undefined ? JSON.stringify(initial) : 'undefined';
       return `private ${name}: ${type} = ${initialValue};`;
     },
 
@@ -178,11 +152,6 @@ export const frameworkRules = {
     // Method wrapper
     computedWrapper: (name: string, code: string): string =>
       `private ${name}() {\n  ${code}\n}`,
-
-    // Imports for jQuery
-    requiredImports: (): string[] => {
-      return ['jquery'];
-    },
   },
 };
 
@@ -323,9 +292,30 @@ export const templateRules = {
     return html.replace(/\s*data-[\w-]+(?:="[^"]*")?/g, '');
   },
 
-  // Convert HTML class attribute to className for React
+  // Convert HTML attributes to JSX equivalents
   htmlToJsx: (html: string): string => {
-    return html.replace(/class=/g, 'className=');
+    const attrMap: Record<string, string> = {
+      class: 'className',
+      for: 'htmlFor',
+      tabindex: 'tabIndex',
+      readonly: 'readOnly',
+      maxlength: 'maxLength',
+      minlength: 'minLength',
+      autofocus: 'autoFocus',
+      autocomplete: 'autoComplete',
+      autoplay: 'autoPlay',
+      colspan: 'colSpan',
+      rowspan: 'rowSpan',
+      contenteditable: 'contentEditable',
+      crossorigin: 'crossOrigin',
+    };
+    // Replace known HTML attributes with JSX equivalents
+    let result = html;
+    for (const [htmlAttr, jsxAttr] of Object.entries(attrMap)) {
+      const regex = new RegExp(`${htmlAttr}=`, 'gi');
+      result = result.replace(regex, `${jsxAttr}=`);
+    }
+    return result;
   },
 
   // Fix self-closing tags for JSX

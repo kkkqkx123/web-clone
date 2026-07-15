@@ -25,8 +25,9 @@ describe('Library Purity — No Framework Specific Code (Phase 3)', () => {
 
   it('should not contain Vue hydration script injection in library code', () => {
     expect(assemblerSource).not.toContain('injectVueHydration');
-    expect(assemblerSource).not.toContain('__NUXT__');
     // A comment referencing hydration is acceptable; the actual implementation should not be here
+    // Check for actual code patterns that indicate Nuxt hydration injection, not just comments
+    expect(assemblerSource).not.toMatch(/[^/]\s*__NUXT__\s*[=:]/);
   });
 
   it('should not import cli.ts from assembler.ts', () => {

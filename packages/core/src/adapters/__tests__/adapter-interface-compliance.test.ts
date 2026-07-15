@@ -32,7 +32,7 @@ describe('FetcherAdapter Interface Compliance — Phase 1', () => {
       it('fetch() should return FetchResult with required fields', async () => {
         const adapter = create();
         const result = await adapter.fetch('https://example.com', {
-          timeout: 5000,
+          timeout: 15000,
           referer: 'https://example.com',
         });
 

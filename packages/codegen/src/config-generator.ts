@@ -77,8 +77,19 @@ export default defineConfig({
   }
 
   /**
-   * Generate .env.example template
+   * Generate Angular app.config.ts (Angular 17 standalone)
    */
+  static generateAngularAppConfig(): string {
+    return `import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // Add your providers here
+  ],
+};
+`;
+  }
   static generateEnvExample(): string {
     return `# API Configuration
 # VITE_API_BASE=https://api.example.com

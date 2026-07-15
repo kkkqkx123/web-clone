@@ -15,6 +15,7 @@ export interface FrameworkCodeGenOptions {
   cssModules?: boolean;
   generateDrafts?: boolean;
   extractSharedLogic?: boolean;
+  vueApi?: 'composition' | 'options';
 }
 
 // ─── Component analysis types ────────────────────────────────────────────────
@@ -103,5 +104,6 @@ export interface GeneratedFramework {
   shared?: {
     api?: string;
     utils?: string;
+    constants?: string;
   };
 }

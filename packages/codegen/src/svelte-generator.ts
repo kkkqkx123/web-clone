@@ -1,7 +1,6 @@
 import { BaseFrameworkGenerator } from './base-generator.js';
 import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '@web-clone/types';
 import type { StateVariable, EventBinding } from '@web-clone/types';
-import { frameworkRules, templateRules } from './framework-rules.js';
 
 /**
  * Svelte component code generator
@@ -57,7 +56,7 @@ ${template}
       .map((s) => {
         const typeHint = options.typescript !== false && s.type !== 'unknown'
           ? `: ${s.type}` : '';
-        const initialValue = JSON.stringify(s.initial);
+        const initialValue = s.initial !== undefined ? JSON.stringify(s.initial) : 'undefined';
         return `  let ${s.name}${typeHint} = ${initialValue};`;
       })
       .join('\n');
@@ -82,45 +81,13 @@ ${template}
 
   protected mapTemplate(
     html: string,
-    _logic: unknown,
-    _options: FrameworkCodeGenOptions
+    logic: unknown,
+    options: FrameworkCodeGenOptions
   ): string {
-    let template = html;
+    // Step 1: Shared common processing (data-binding, data-event, data-condition, cleanAttributes)
+    let template = this.processTemplate(html, logic, options);
 
-    // Step 1: Handle self-closing elements with data-condition
-    template = template.replace(
-      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)\/>/g,
-      (_, tag, pre, condition, post) => {
-        return `{#if ${condition.trim()}}<${tag}${pre}${post} />{/if}`;
-      }
-    );
-
-    // Step 2: Wrap elements with data-condition in {#if}...{/if} blocks
-    // Use negative lookahead to avoid matching nested elements of the same tag
-    template = template.replace(
-      /<([\w-]+)(\s[^>]*?)data-condition="([^"]*)"([^>]*?)>((?:(?:<\/\1>)[\s\S])*)<\/\1>/g,
-      (_, tag, pre, condition, post, content) => {
-        return `{#if ${condition.trim()}}<${tag}${pre}${post}>${content}</${tag}>{/if}`;
-      }
-    );
-
-    // Step 2: Replace data-binding with {variable}
-    template = template.replace(
-      /data-binding="([^"]*)"/g,
-      (_, variable) => frameworkRules.svelte.templateBinding(variable.trim())
-    );
-
-    // Step 3: Replace data-event with on:event={handler}
-    template = template.replace(
-      /data-event="([^:]*):([^"]*)"/g,
-      (_, event, handler) =>
-        frameworkRules.svelte.eventBinding(event.trim(), handler.trim())
-    );
-
-    // Step 4: Clean up remaining data-* attributes
-    template = templateRules.cleanAttributes(template);
-
-    // Step 5: Indent template
+    // Step 2: Indent template content for Svelte's <script> / <div> structure
     template = template
       .split('\n')
       .map((line) => '  ' + line)
@@ -143,5 +110,56 @@ ${template}
     // Svelte doesn't require explicit imports in most cases
     // Dependencies are listed in package.json
     return [];
+  }
+
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  generateAppTemplate(components: GeneratedComponent[]): string {
+    const imports = components
+      .map((c) => `import ${c.name} from './components/${c.name}/${c.name}.svelte';`)
+      .join('\n');
+    const templateLines = components.map((c) => `  <${c.name} />`).join('\n');
+
+    return `<script lang="ts">
+import { onMount } from 'svelte';
+${imports}
+
+onMount(() => {
+  console.log('App mounted');
+});
+</script>
+
+<div id="app">
+  <main>
+${templateLines}
+  </main>
+</div>
+
+<style>
+  #app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+  main {
+    flex: 1;
+  }
+</style>
+`;
+  }
+
+  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    return {
+      filename: 'main.ts',
+      code: `import App from './App.svelte'
+
+const app = new App({
+  target: document.getElementById('app')!,
+})
+
+export default app
+`,
+    };
   }
 }

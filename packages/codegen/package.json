@@ -5,12 +5,30 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./vue": "./dist/vue-generator.js",
-    "./react": "./dist/react-generator.js",
-    "./angular": "./dist/angular-generator.js",
-    "./svelte": "./dist/svelte-generator.js",
-    "./jquery": "./dist/jquery-generator.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue-generator.d.ts",
+      "default": "./dist/vue-generator.js"
+    },
+    "./react": {
+      "types": "./dist/react-generator.d.ts",
+      "default": "./dist/react-generator.js"
+    },
+    "./angular": {
+      "types": "./dist/angular-generator.d.ts",
+      "default": "./dist/angular-generator.js"
+    },
+    "./svelte": {
+      "types": "./dist/svelte-generator.d.ts",
+      "default": "./dist/svelte-generator.js"
+    },
+    "./jquery": {
+      "types": "./dist/jquery-generator.d.ts",
+      "default": "./dist/jquery-generator.js"
+    }
   },
   "files": [
     "dist/"

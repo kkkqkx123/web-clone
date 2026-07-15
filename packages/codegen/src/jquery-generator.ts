@@ -138,4 +138,50 @@ ${css}`;
 
     return imports;
   }
+
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  generateAppTemplate(components: GeneratedComponent[]): string {
+    const imports = components
+      .map((c) => `import { ${c.name} } from './components/${c.name}/${c.name}';`)
+      .join('\n');
+
+    const initLines = components
+      .map((c) => `  new ${c.name}('#${c.name.toLowerCase()}');`)
+      .join('\n');
+
+    const htmlLines = components
+      .map((c) => `  <div id="${c.name.toLowerCase()}"></div>`)
+      .join('\n');
+
+    return `${imports}
+import $ from 'jquery';
+
+$(document).ready(() => {
+  console.log('App initialized');
+${initLines}
+});
+
+// HTML structure:
+// <div id="app">
+//   <main>
+${htmlLines}
+//   </main>
+// </div>
+`;
+  }
+
+  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    return {
+      filename: 'main.ts',
+      code: `import $ from 'jquery'
+import('./App').then(module => {
+  $(document).ready(() => {
+    console.log('jQuery app ready');
+    // Initialize components here
+  });
+});
+`,
+    };
+  }
 }

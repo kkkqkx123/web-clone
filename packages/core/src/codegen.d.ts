@@ -15,7 +15,6 @@ declare module '@web-clone/codegen' {
       options: any,
     ): string;
     generateMainEntry(options: any): { filename: string; code: string };
-    generatePackageJson(name: string, options: any, deps: string[]): Record<string, unknown>;
   }
 
   export const codeGenerator: FrameworkCodeGenerator;
@@ -25,6 +24,7 @@ declare module '@web-clone/codegen' {
     static generateViteConfig(framework: string): string;
     static generateTsConfig(framework: string): string;
     static generateTsAppConfig(framework: string): string;
+    static generateAngularAppConfig(): string;
     static generateEnvExample(): string;
   }
 

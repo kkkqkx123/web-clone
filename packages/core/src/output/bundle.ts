@@ -218,8 +218,12 @@ export function assembleBundle(
       fn = fn.substring(assetsDirName.length + 1);
     }
     
+    // Organize assets by type into subdirectories (css/, js/, img/, fonts/, data/)
+    const category = assetCategory(a.type);
+    const assetDir = join(assetsDir, category);
+    
     // Path traversal protection
-    const safeLocalPath = safeJoin(assetsDir, fn);
+    const safeLocalPath = safeJoin(assetDir, fn);
     if (!safeLocalPath) {
       a.status = 'failed';
       a.error = 'Path traversal attempt blocked';

@@ -12,7 +12,7 @@
 /**
  * Common page load wait strategies across automation tools
  */
-export type PageLoadWaitStrategy = 'load' | 'interactive' | 'networkidle';
+export type PageLoadWaitStrategy = 'load' | 'domcontentloaded' | 'networkidle';
 
 /**
  * Universal options that apply to all automation adapters
@@ -29,7 +29,7 @@ export interface AutomationAdapterOptions {
    * Wait strategy for page navigation
    *
    * - 'load': Wait for the load event (resources finished loading)
-   * - 'interactive': Wait for DOM to be interactive (DOMContentLoaded)
+   * - 'domcontentloaded': Wait for DOM to be interactive (DOMContentLoaded)
    * - 'networkidle': Wait for network to become idle (no pending requests)
    *
    * @default 'networkidle'
