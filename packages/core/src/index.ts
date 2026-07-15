@@ -139,3 +139,16 @@ export type { SnapshotServerOptions } from './server/index.js';
 // Snapshot output server file generator (self-contained snapshot output)
 export { generateStandaloneServerFiles } from './server/index.js';
 export type { GenerateServerOptions } from './server/index.js';
+
+// Framework hydration detection & injection
+export {
+  detectFramework,
+  injectHydrationScript,
+  hydrationStrategies,
+} from './framework/index.js';
+export type {
+  FrameworkType,
+  FrameworkDetection,
+  HydrationStrategy,
+  HydrationInjectOptions,
+} from './framework/index.js';

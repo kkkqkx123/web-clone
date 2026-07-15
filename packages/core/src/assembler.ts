@@ -342,7 +342,7 @@ async function snapshotInternal(
   }
 
   // Recursive resource discovery — multi-round scanning
-  const scanDepth = options.scanDepth ?? 1;
+  const scanDepth = options.scanDepth ?? 1; // defaults provide 1, fallback for null
   if (scanDepth > 1) {
     process.stdout.write(`\nRecursive resource scanning (depth: ${scanDepth})...\n`);
 

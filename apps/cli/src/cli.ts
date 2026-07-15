@@ -4,11 +4,10 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles } from '@web-clone/core';
+import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles, injectHydrationScript } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
 import type { SnapshotResult } from '@web-clone/core';
 import { validateSnapshot, cleanSnapshot, formatValidationReport, formatCleanResult } from '@web-clone/core';
-import { injectVueHydrationForCli } from './hydration.js';
 
 const program = new Command();
 
@@ -120,16 +119,28 @@ program
           await handle.cleanup();
         }
 
-        // Post-process: inject Vue/Nuxt hydration script for SSR snapshots.
-        injectVueHydrationForCli(options);
+        // Post-process: inject hydration script for SSR snapshots.
+        const htmlPath = options.mode === 'bundle'
+          ? join(options.output, 'index.html')
+          : options.output;
+        const jsContents = result.assets
+          .filter(a => a.type === 'js' && a.status === 'fetched' && a.textContent)
+          .map(a => a.textContent!);
+        injectHydrationScript({ htmlPath, jsContents });
       } else {
         // HTTP-based snapshot
         result = await snapshot(options.url, options);
 
-        // Post-process: inject Vue/Nuxt hydration script for SSR snapshots.
+        // Post-process: inject hydration script for SSR snapshots.
         // This is a CLI-level optimization (not in the library) to help Vue
         // components hydrate properly when the snapshot is opened locally.
-        injectVueHydrationForCli(options);
+        const htmlPath2 = options.mode === 'bundle'
+          ? join(options.output, 'index.html')
+          : options.output;
+        const jsContents2 = result.assets
+          .filter(a => a.type === 'js' && a.status === 'fetched' && a.textContent)
+          .map(a => a.textContent!);
+        injectHydrationScript({ htmlPath: htmlPath2, jsContents: jsContents2 });
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

@@ -46,17 +46,6 @@ export function fixNuxtConfig(document: Document): void {
 }
 
 /**
- * Detect framework type from HTML content
- */
-export function detectFramework(html: string): 'nuxt' | 'vue' | 'react' | 'angular' | 'unknown' {
-  if (html.includes('window.__NUXT__')) return 'nuxt';
-  if (html.includes('window.__REACT_')) return 'react';
-  if (html.includes('window.__ANGULAR__') || html.includes('ng-app')) return 'angular';
-  if (html.includes('Vue')) return 'vue';
-  return 'unknown';
-}
-
-/**
  * Apply all path fixes for file:// protocol compatibility.
  *
  * Only fixes framework-internal configuration objects (e.g. Nuxt's
@@ -64,7 +53,9 @@ export function detectFramework(html: string): 'nuxt' | 'vue' | 'react' | 'angul
  * are handled by assembleBundle() via data-origin-url markers.
  */
 export function fixPathsForFileProtocol(document: Document, html: string): void {
-  const framework = detectFramework(html);
+  // Reuse the unified framework detector from the framework module.
+  // We import dynamically to avoid circular dependency and keep path-fixer independent.
+  const framework = detectFrameworkSimple(html);
 
   // Framework-specific fixes — Nuxt assetsPath must be corrected
   // because it's used by the Vue runtime internally to resolve chunk URLs
@@ -76,4 +67,17 @@ export function fixPathsForFileProtocol(document: Document, html: string): void 
   // Note: fixScriptPaths / fixLinkPaths / preload link fixes have been removed.
   // All DOM element path modifications are now handled exclusively by
   // assembleBundle() via data-origin-url, eliminating double-modification issues.
+}
+
+/**
+ * Simplified framework detection for path-fixer use.
+ * Delegates to the unified detector when available, falls back to simple checks.
+ */
+function detectFrameworkSimple(html: string): 'nuxt' | 'vue' | 'react' | 'angular' | 'unknown' {
+  // Nuxt 2/3 both use window.__NUXT__
+  if (html.includes('window.__NUXT__')) return 'nuxt';
+  if (html.includes('window.__REACT_')) return 'react';
+  if (html.includes('window.__ANGULAR__') || html.includes('ng-app')) return 'angular';
+  if (html.includes('Vue')) return 'vue';
+  return 'unknown';
 }

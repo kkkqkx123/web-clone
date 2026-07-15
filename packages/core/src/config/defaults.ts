@@ -19,7 +19,7 @@ export const DEFAULTS = {
 
   /** Resource filtering */
   resourcePreset: 'default' as const,
-  scanDepth: 2,
+  scanDepth: 1,
   scanJs: true,
   scanJson: false,
 

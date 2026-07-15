@@ -4,6 +4,24 @@
 
 ## 📚 文档清单
 
+### 🆕 **NEW (2026-07-15)** - Framework Hydration Architecture（框架水合架构）
+
+#### 9. [09-framework-hydration-architecture.md](./09-framework-hydration-architecture.md) - 框架感知的水合注入架构设计
+
+**核心文档，与 01 配合阅读**
+
+针对当前 `injectVueHydrationForCli` 仅支持 Nuxt 2 的局限，提出插件化策略体系：
+
+- 🏗️ 统一框架检测器（detector.ts）—— 多维度检测，输出置信度
+- 🧩 策略模式——每种框架一个策略文件，可插拔
+- 📋 有序列表优先级——用数组顺序表示优先级，而非数值
+- 🔗 与 path-fixer、spa-detector、Playwright 适配器集成
+
+**时间**：15 分钟阅读  
+**适合**：架构师、核心开发者
+
+---
+
 ### 🆕 **NEW (2026-07-13)** - Library Architecture Refactoring（新库化方案）
 
 #### 1. [01-library-architecture.md](./01-library-architecture.md) - 完整架构设计
