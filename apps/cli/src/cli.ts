@@ -13,7 +13,7 @@ import { injectVueHydrationForCli } from './hydration.js';
 const program = new Command();
 
 program
-  .name('snapshot')
+  .name('web-clone')
   .description('Single-execution web page snapshot tool')
   .argument('[url]', 'Target page URL (optional when using --convert-local)')
   .option('-o, --output <path>', 'Output path', './snapshot')

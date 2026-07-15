@@ -18,8 +18,8 @@ This skill provides guidance for using the web-clone CLI and library API.
 
 ```bash
 npm install -g @kkkqkx123/web-clone-cli
-# Then use the `snapshot` command directly:
-snapshot https://example.com -o ./snapshot
+# Then use the `web-clone` command directly:
+web-clone https://example.com -o ./snapshot
 ```
 
 ### Library (Project Use)
@@ -52,7 +52,7 @@ pnpm dev:cli https://spa-site.com --adapter playwright
 ## Reference Files
 
 ### CLI Usage → [references/cli-usage.md](references/cli-usage.md)
-- Entry commands and subcommands (`snapshot`, `inspect`, `query`, `validate`, `clean`)
+- Entry commands and subcommands (`web-clone`, `inspect`, `query`, `validate`, `clean`)
 - All options: basic, download, resource filtering, recursive scan, browser automation, **serve mode**, component extraction, code generation
 - Many examples (snapshot, browser automation, component extraction, code gen, resource filtering, subcommands)
 - Config hierarchy (built-in → global → project → CLI args)

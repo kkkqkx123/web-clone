@@ -28,10 +28,10 @@
 npm install -g @kkkqkx123/web-clone-cli
 ```
 
-安装后，`snapshot` 命令即可全局使用：
+安装后，`web-clone` 命令即可全局使用：
 
 ```bash
-snapshot https://example.com -o ./snapshot
+web-clone https://example.com -o ./snapshot
 ```
 
 ### 库（项目中使用）
@@ -57,7 +57,7 @@ pnpm add @web-clone/types
 
 | 包名 | npm 作用域 | 说明 |
 |------|-----------|------|
-| `@kkkqkx123/web-clone-cli` | `@kkkqkx123`（个人） | CLI 应用，提供 `snapshot` 命令 |
+| `@kkkqkx123/web-clone-cli` | `@kkkqkx123`（个人） | CLI 应用，提供 `web-clone` 命令 |
 | `@web-clone/core` | `@web-clone`（组织） | 核心快照引擎 |
 | `@web-clone/adapter-common` | `@web-clone`（组织） | 共享 SPA 水合检测与自动化类型 |
 | `@web-clone/adapter-playwright` | `@web-clone`（组织） | Playwright 浏览器自动化适配器 |

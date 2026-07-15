@@ -7,7 +7,7 @@
 ```bash
 npm install -g @kkkqkx123/web-clone-cli
 ```
-After installation, the `snapshot` command is available globally.
+After installation, the `web-clone` command is available globally.
 
 ### Library (as project dependency)
 
@@ -24,13 +24,13 @@ pnpm add @web-clone/codegen
 
 ```bash
 # Global install (npm)
-snapshot <url> [options]
+web-clone <url> [options]
 
 # Dev mode (tsx, inside monorepo)
 pnpm dev:cli <url> [options]
 
 # Via filter
-pnpm --filter web-clone-cli snapshot -- <url>
+pnpm --filter web-clone-cli start -- <url>
 
 # After build (direct node)
 node apps/cli/dist/cli.js <url> [options]
@@ -38,14 +38,14 @@ node apps/cli/dist/cli.js <url> [options]
 
 After `pnpm build`, the dist binary is also callable as:
 ```bash
-pnpm --filter web-clone-cli snapshot <url> [options]
+pnpm --filter web-clone-cli start <url> [options]
 ```
 
 ## Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `snapshot <url>` | Webpage snapshot (default command) |
+| `web-clone <url>` | Webpage snapshot (default command) |
 | `inspect <url>` | Page structure analysis (outline/locate/count/Markdown) |
 | `query <url> <selector>` | Structured data extraction (row/table/filter) |
 | `validate <output-dir>` | Validate downloaded snapshot directory integrity |

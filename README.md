@@ -28,10 +28,10 @@ Install the CLI tool globally via npm:
 npm install -g @kkkqkx123/web-clone-cli
 ```
 
-After installation, the `snapshot` command is available globally:
+After installation, the `web-clone` command is available globally:
 
 ```bash
-snapshot https://example.com -o ./snapshot
+web-clone https://example.com -o ./snapshot
 ```
 
 ### Library (for Project Use)
@@ -57,7 +57,7 @@ pnpm add @web-clone/types
 
 | Package | npm Scope | Description |
 |---------|-----------|-------------|
-| `@kkkqkx123/web-clone-cli` | `@kkkqkx123` (personal) | CLI application with `snapshot` binary |
+| `@kkkqkx123/web-clone-cli` | `@kkkqkx123` (personal) | CLI application with `web-clone` binary |
 | `@web-clone/core` | `@web-clone` (org) | Core snapshot engine |
 | `@web-clone/adapter-common` | `@web-clone` (org) | Shared SPA hydration detection & automation types |
 | `@web-clone/adapter-playwright` | `@web-clone` (org) | Playwright browser automation adapter |

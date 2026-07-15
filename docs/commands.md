@@ -7,14 +7,14 @@
 
 ```bash
 pnpm dev:cli <url> [options]               # 开发模式 (tsx)
-pnpm --filter web-clone-cli snapshot -- <url>  # 通过 filter 运行
+pnpm --filter web-clone-cli start -- <url>  # 通过 filter 运行
 node apps/cli/dist/cli.js <url> [options]      # 编译后执行
 ```
 
 编译后也可通过 bin 执行（需先 `pnpm build`）：
 
 ```bash
-snapshot <url> [options]
+web-clone <url> [options]
 ```
 
 ## 脚本

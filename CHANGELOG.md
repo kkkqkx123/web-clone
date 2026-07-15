@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.4 (2026-07-15)
+
+### Fixed
+
+- **CLI runtime crash** — `jsdom` moved from `peerDependencies` (optional) to `dependencies` in `@web-clone/core`. Previously, installing the CLI globally via npm would not install `jsdom` (optional peer dep), causing `ERR_MODULE_NOT_FOUND` at startup. Now `jsdom` is a proper direct dependency, ensuring it is always available at runtime.
+- **Version inconsistency** — Unified `jsdom` version to `^29.1.1` across all locations; removed redundant `jsdom` entry from `devDependencies`.
+
+### Changed
+
+- **CLI binary name** — Renamed from `snapshot` to `web-clone` (`bin` field in `apps/cli/package.json`). The old `snapshot` command is no longer available; use `web-clone` instead. The Commander program name in `--help` output is also updated accordingly.
+- **Development script** — `apps/cli/package.json` script `"snapshot"` renamed to `"start"` to avoid confusion with the removed binary name.
+- **Documentation** — Updated all references to the CLI command name (`snapshot` → `web-clone`) in `README.md`, `README_zh.md`, `skills/web-clone/SKILL.md`, `skills/web-clone/references/cli-usage.md`, and `docs/commands.md`.
+
 ## v1.0.3 (2026-07-15)
 
 ### Fixed

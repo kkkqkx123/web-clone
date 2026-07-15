@@ -58,7 +58,7 @@ describe('package.json exports configuration — Phase 1', () => {
 describe('Dependency configuration', () => {
   const pkg = getPackageJson();
 
-  it('should have peerDependenciesMeta with optional jsdom', () => {
-    expect(pkg.peerDependenciesMeta?.jsdom?.optional).toBe(true);
+  it('should have jsdom as a direct dependency', () => {
+    expect(pkg.dependencies?.jsdom).toBeDefined();
   });
 });
