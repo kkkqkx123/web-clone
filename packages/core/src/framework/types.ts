@@ -8,8 +8,8 @@
  */
 export type FrameworkType =
   | 'nuxt2' | 'nuxt3' | 'vitepress' | 'vue3'
-  | 'nextjs' | 'react' | 'react18'
-  | 'angular' | 'angular-ssr'
+  | 'nextjs' | 'react18'
+  | 'angular'
   | 'sveltekit'
   | 'astro'
   | 'static' | 'unknown';
@@ -24,8 +24,6 @@ export interface FrameworkDetection {
   confidence: number;
   /** Apply mount point selectors such as '#app', '#__nuxt', '#__next' */
   appElement: string | null;
-  /** Availability of SSR data (e.g., global variables such as __NUXT__, __NEXT_DATA__, etc.) */
-  ssrData: boolean;
   /** List of detected flags for debugging and logging purposes */
   markers: string[];
 }
@@ -44,9 +42,10 @@ export interface HydrationStrategy {
   /** Generate hydration script (HTML string, injected before </body>) */
   generateScript(detection: FrameworkDetection): string;
 
-  /** Whether additional resource path rewriting is required */
-  needsPathRewrite: boolean;
-
-  /** Path rewrite rules (optional) */
-  pathRewriteRules?: Array<{ from: RegExp; to: string }>;
+  /**
+   * Rewrite framework-internal paths (e.g. Nuxt's window.__NUXT__.assetsPath)
+   * that are not reachable through DOM element attribute modifications.
+   * Called after HTML parsing, before assembleBundle.
+   */
+  rewritePaths(document: Document): void;
 }

@@ -207,6 +207,16 @@ export function assembleBundle(
     } else {
       fn = classifyAssetFilename(a.originUrl, a.mime, i);
     }
+
+    // Strip leading asset directory name from the filename if present,
+    // to avoid double prefix (e.g. URL path /assets/chunks/foo.js → fn
+    // becomes "assets/chunks/foo.js", but we already put everything under
+    // an "assets/" subdirectory, so it would become "assets/assets/chunks/foo.js").
+    // Only strip when it is the very first path component.
+    const assetsDirName = 'assets';
+    if (fn.startsWith(assetsDirName + '/') || fn === assetsDirName) {
+      fn = fn.substring(assetsDirName.length + 1);
+    }
     
     // Path traversal protection
     const safeLocalPath = safeJoin(assetsDir, fn);

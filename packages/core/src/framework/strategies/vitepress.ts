@@ -19,11 +19,12 @@ export const vitepressStrategy: HydrationStrategy = {
   matches: (d) =>
     d.framework === 'vitepress' ||
     d.markers.some(m => m.includes('generator:vitepress') || m.includes('VPContent')),
-  needsPathRewrite: false,
-  generateScript: (d) => `
+  generateScript: (d) => {
+    const appEl = d.appElement || '#app';
+    return `
 <script type="text/javascript">
 (function() {
-  var appEl = document.querySelector('#app');
+  var appEl = document.querySelector('${appEl}');
   if (!appEl || appEl.__vue__) return;
   console.log('[Hydration] VitePress detected, waiting for auto-hydration...');
   var retries = 0;
@@ -38,5 +39,9 @@ export const vitepressStrategy: HydrationStrategy = {
     }
   }, 500);
 })();
-<\/script>`,
+<\/script>`;
+  },
+  rewritePaths: () => {
+    // VitePress uses ESM module imports via Vite, paths are relative; no rewriting needed.
+  },
 };

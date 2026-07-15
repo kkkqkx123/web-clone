@@ -8,6 +8,8 @@ import type { HydrationStrategy } from '../types.js';
 export const staticStrategy: HydrationStrategy = {
   framework: 'static',
   matches: () => true,      // Always match, as a pocket
-  needsPathRewrite: false,
   generateScript: () => '',  // No scripts are generated
+  rewritePaths: () => {
+    // Static pages have no framework; no rewriting needed.
+  },
 };

@@ -32,7 +32,6 @@ export function detectFramework(
       framework: 'nuxt3',  // Nuxt 3+ Using __NUXT__
       confidence: 0.95,
       appElement: '#__nuxt',
-      ssrData: true,
       markers,
     };
   }
@@ -42,7 +41,15 @@ export function detectFramework(
       framework: 'nextjs',
       confidence: 0.95,
       appElement: '#__next',
-      ssrData: true,
+      markers,
+    };
+  }
+  if (html.includes('window.__SVELTEKIT__')) {
+    markers.push('__SVELTEKIT__');
+    return {
+      framework: 'sveltekit',
+      confidence: 0.95,
+      appElement: '#svelte',
       markers,
     };
   }
@@ -51,7 +58,7 @@ export function detectFramework(
   const hasNuxtApp = /id=["']__nuxt["']/.test(html);
   const hasNextApp = /id=["']__next["']/.test(html);
   const hasVpApp = /id=["']VPContent["']/.test(html);  // VitePress features
-  const hasAngularApp = /ng-version|=["']ng-app["']/.test(html);
+  const hasSvelteApp = /id=["']svelte["']/.test(html);
 
   // ── 维度 3：Meta generator ────────────────────────────
   const metaMatch = html.match(/<meta\s+name=["']generator["'][^>]*content=["']([^"']+)["']/i);
@@ -59,41 +66,51 @@ export function detectFramework(
     markers.push(`generator:${metaMatch[1]}`);
     const gen = metaMatch[1].toLowerCase();
     if (gen.includes('vitepress')) {
-      return { framework: 'vitepress', confidence: 0.9, appElement: '#app', ssrData: false, markers };
+      return { framework: 'vitepress', confidence: 0.9, appElement: '#app', markers };
     }
     if (gen.includes('vuepress')) {
-      return { framework: 'vue3', confidence: 0.85, appElement: '#app', ssrData: false, markers };
+      return { framework: 'vue3', confidence: 0.85, appElement: '#app', markers };
     }
     if (gen.includes('astro')) {
-      return { framework: 'astro', confidence: 0.9, appElement: null, ssrData: false, markers };
+      return { framework: 'astro', confidence: 0.9, appElement: null, markers };
+    }
+    if (gen.includes('sveltekit')) {
+      return { framework: 'sveltekit', confidence: 0.9, appElement: '#svelte', markers };
     }
   }
 
   // ── Dimension 4: JS Content Scanning ───────────────────────────────
   if (jsText.includes('createSSRApp') || jsText.includes('__VUE__')) {
     markers.push('__VUE__');
-    return { framework: 'vue3', confidence: 0.8, appElement: '#app', ssrData: false, markers };
+    return { framework: 'vue3', confidence: 0.8, appElement: '#app', markers };
   }
   if (jsText.includes('hydrateRoot') || jsText.includes('__REACT_DEVTOOLS')) {
     markers.push('__REACT_DEVTOOLS');
-    return { framework: 'react18', confidence: 0.7, appElement: '#root', ssrData: false, markers };
+    return { framework: 'react18', confidence: 0.7, appElement: '#root', markers };
   }
   if (jsText.includes('ng.probe') || jsText.includes('platformBrowser')) {
     markers.push('angular');
-    return { framework: 'angular', confidence: 0.7, appElement: null, ssrData: false, markers };
+    return { framework: 'angular', confidence: 0.7, appElement: null, markers };
+  }
+  if (jsText.includes('@sveltejs/kit') || jsText.includes('__sveltekit')) {
+    markers.push('__sveltekit');
+    return { framework: 'sveltekit', confidence: 0.7, appElement: '#svelte', markers };
   }
 
   // ── Dimension 5: Generic Mount Points (low confidence) ────────────────────
   if (hasVpApp) {
-    return { framework: 'vitepress', confidence: 0.6, appElement: '#app', ssrData: false, markers };
+    return { framework: 'vitepress', confidence: 0.6, appElement: '#app', markers };
   }
   if (hasNuxtApp) {
-    return { framework: 'nuxt2', confidence: 0.5, appElement: '#__nuxt', ssrData: false, markers };
+    return { framework: 'nuxt2', confidence: 0.5, appElement: '#__nuxt', markers };
   }
   if (hasNextApp) {
-    return { framework: 'nextjs', confidence: 0.5, appElement: '#__next', ssrData: false, markers };
+    return { framework: 'nextjs', confidence: 0.5, appElement: '#__next', markers };
+  }
+  if (hasSvelteApp) {
+    return { framework: 'sveltekit', confidence: 0.4, appElement: '#svelte', markers };
   }
 
   // ── No match ────────────────────────────────────────────
-  return { framework: 'unknown', confidence: 0, appElement: null, ssrData: false, markers };
+  return { framework: 'unknown', confidence: 0, appElement: null, markers };
 }

@@ -22,8 +22,13 @@ interface TagAttrRule {
 
 const TAG_ATTR_MAP: Record<string, TagAttrRule[]> = {
   link: [
-    { sel: 'link[rel="stylesheet"][href]', attr: 'href', type: 'css' },
+    // Match rel="stylesheet" and rel="preload stylesheet" (VitePress style) via
+    // the CSS ~= (whitespace-separated word) selector: [rel~="stylesheet"] matches
+    // any rel attribute whose value contains "stylesheet" as a whole word.
+    { sel: 'link[rel~="stylesheet"][href]', attr: 'href', type: 'css' },
     { sel: 'link[rel="preload"][href]', attr: 'href', type: 'other' },
+    { sel: 'link[rel="modulepreload"][href]', attr: 'href', type: 'js' },
+    { sel: 'link[rel="prefetch"][href]', attr: 'href', type: 'js' },
     { sel: 'link[rel="icon"][href]', attr: 'href', type: 'img' },
     { sel: 'link[rel="apple-touch-icon"][href]', attr: 'href', type: 'img' },
   ],

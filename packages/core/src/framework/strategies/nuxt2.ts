@@ -14,17 +14,18 @@ import type { HydrationStrategy } from '../types.js';
 export const nuxt2Strategy: HydrationStrategy = {
   framework: 'nuxt2',
   matches: (d) => d.framework === 'nuxt2',
-  needsPathRewrite: false,
-  generateScript: (d) => `
+  generateScript: (d) => {
+    const selector = d.appElement || '#__nuxt';
+    return `
 <script type="text/javascript">
 (function() {
   var retries = 0, maxRetries = 20, delay = 500;
   function tryHydrate() {
-    var appEl = document.querySelector('#__nuxt');
+    var appEl = document.querySelector('${selector}');
     if (!appEl) return;
     if (appEl.__vue__) { console.log('[Hydration] Nuxt 2 already hydrated'); return; }
     if (window.__NUXT__ && window.$nuxt && window.$nuxt.$mount) {
-      try { window.$nuxt.$mount('#__nuxt'); return; } catch (e) {}
+      try { window.$nuxt.$mount('${selector}'); return; } catch (e) {}
     }
     if (++retries < maxRetries) { setTimeout(tryHydrate, delay); }
   }
@@ -32,5 +33,9 @@ export const nuxt2Strategy: HydrationStrategy = {
     document.addEventListener('DOMContentLoaded', tryHydrate);
   } else { setTimeout(tryHydrate, 100); }
 })();
-<\/script>`,
+<\/script>`;
+  },
+  rewritePaths: () => {
+    // Nuxt 2 does not use ESM-based chunk paths, no path rewriting needed.
+  },
 };

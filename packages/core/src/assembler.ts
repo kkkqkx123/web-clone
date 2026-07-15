@@ -13,7 +13,8 @@ import { convert } from './converter.js';
 import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js';
 import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './resource-filter.js';
-import { fixPathsForFileProtocol } from './output/path-fixer.js';
+import { detectFramework } from './framework/detector.js';
+import { hydrationStrategies } from './framework/strategies/index.js';
 import { extractJsUrls, extractJsonUrls, extractWebpackChunks } from './discovery/recursive-scanner.js';
 import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
 import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
@@ -490,10 +491,14 @@ async function snapshotInternal(
 
   process.stdout.write(`\nAssembling output (${options.mode} mode)...\n`);
 
-  // Fix paths for file:// protocol compatibility
-  // Converts absolute paths (/_nuxt/, etc.) to relative paths (./assets/...)
-  // This allows snapshots to work when opened directly in browsers without a server
-  fixPathsForFileProtocol(parsed.document, html);
+  // Fix paths for file:// protocol compatibility via framework strategy.
+  // Each framework strategy handles its own internal path rewriting
+  // (e.g. Nuxt's window.__NUXT__.assetsPath → relative paths).
+  const detection = detectFramework(html);
+  const strategy = hydrationStrategies.find(s => s.matches(detection));
+  if (strategy) {
+    strategy.rewritePaths(parsed.document);
+  }
 
   // NOTE: Vue hydration script injection has been moved to the CLI layer.
   // The library stays framework-agnostic; CLI callers can post-process the output.

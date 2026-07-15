@@ -14,11 +14,12 @@ import type { HydrationStrategy } from '../types.js';
 export const vue3Strategy: HydrationStrategy = {
   framework: 'vue3',
   matches: (d) => d.framework === 'vue3',
-  needsPathRewrite: false,
-  generateScript: (d) => `
+  generateScript: (d) => {
+    const appEl = d.appElement || '#app';
+    return `
 <script type="text/javascript">
 (function() {
-  var appEl = document.querySelector('#app');
+  var appEl = document.querySelector('${appEl}');
   if (!appEl || appEl.__vue__) return;
   console.log('[Hydration] Vue 3 detected, waiting for auto-hydration...');
   var retries = 0;
@@ -33,5 +34,9 @@ export const vue3Strategy: HydrationStrategy = {
     }
   }, 500);
 })();
-<\/script>`,
+<\/script>`;
+  },
+  rewritePaths: () => {
+    // Vue 3 apps do not have framework-internal path configs; no rewriting needed.
+  },
 };

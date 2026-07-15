@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { join, resolve } from 'node:path';
+import { existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles, injectHydrationScript } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
@@ -80,6 +81,16 @@ program
       console.log(chalk.gray(`  Options: maxAssets=${options.maxAssets}, concurrency=${options.concurrency}, timeout=${options.timeout}ms, mode=${options.mode}`));
       if (options.maxAssets === DEFAULTS.maxAssets) {
         console.log(chalk.gray(`  Tip: use --max-assets <n> or set MAX_ASSETS env var to change the asset limit`));
+      }
+    }
+
+    // Clean output directory before snapshot to avoid stale files
+    // from previous runs (e.g., _nuxt/ assets from a different site).
+    if (!isLocal && options.mode === 'bundle') {
+      const outDir = options.output;
+      if (existsSync(outDir)) {
+        console.log(chalk.gray(`  Cleaning output directory: ${outDir}`));
+        rmSync(outDir, { recursive: true, force: true });
       }
     }
 
