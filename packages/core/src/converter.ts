@@ -148,7 +148,7 @@ export async function convert(
     timestamp: new Date().toISOString(),
     html,
     assets: [],
-    stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0 },
+    stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0, htmlBytes: html.length },
     components,
     componentTree,
     index

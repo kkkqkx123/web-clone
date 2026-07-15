@@ -7,17 +7,27 @@ import { resolveUrl } from '../parser/url-resolver.js';
 
 /**
  * Serialize Document to HTML string, compatible with both linkedom and jsdom
+ *
+ * Uses outerHTML as the primary method (produces proper HTML serialization).
+ * Falls back to XMLSerializer (for linkedom-like environments) or toString().
  */
 function serializeDocument(document: Document): string {
-  // Try jsdom's serialization first
+  // Prefer outerHTML (HTML serialization) — preserves SVG, avoids
+  // XMLSerializer's HTML-entity-encoding of <script> content.
   if ('documentElement' in document && document.documentElement) {
+    try {
+      const html = document.documentElement.outerHTML;
+      if (html) return html;
+    } catch {
+      // outerHTML may throw in some DOM implementations
+    }
+
+    // Fallback: try jsdom's XMLSerializer
     const defaultView = document.defaultView as Window & typeof globalThis;
     if (defaultView && defaultView.XMLSerializer) {
       const serializer = new defaultView.XMLSerializer();
       return serializer.serializeToString(document);
     }
-    // Fallback: use outerHTML of documentElement
-    return document.documentElement.outerHTML;
   }
   // Fallback for linkedom or other implementations
   return document.toString();

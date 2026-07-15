@@ -75,6 +75,7 @@ export interface SnapshotResult {
     skipped: number;
     validationWarnings: number;
     totalBytes: number;
+    htmlBytes: number;
     stateful?: number;
     presentational?: number;
   };

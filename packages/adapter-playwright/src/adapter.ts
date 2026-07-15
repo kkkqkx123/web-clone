@@ -382,12 +382,30 @@ export async function createPlaywrightAdapter(
 ): Promise<PlaywrightAdapterHandle> {
   const { chromium } = await import('playwright');
 
+  // Resolve proxy: explicit option > HTTPS_PROXY > HTTP_PROXY env vars
+  const proxyUrl = options.proxy
+    ?? process.env.HTTPS_PROXY ?? process.env.https_proxy
+    ?? process.env.HTTP_PROXY ?? process.env.http_proxy
+    ?? '';
+
+  const browserArgs: string[] = ['--no-sandbox', '--disable-dev-shm-usage'];
+  if (proxyUrl) {
+    // Strip protocol prefix for --proxy-server format
+    const proxyHost = proxyUrl.replace(/^https?:\/\//, '');
+    browserArgs.push(`--proxy-server=${proxyHost}`);
+    // Proxy connections often break SSL — ignore cert errors
+    browserArgs.push('--ignore-certificate-errors');
+  }
+
   const browser = await chromium.launch({
     headless: true,
     timeout: options.timeout ?? 30000,
+    args: browserArgs,
   });
 
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    ...(proxyUrl ? { ignoreHTTPSErrors: true } : {}),
+  });
   const page = await context.newPage();
 
   const adapter = new PlaywrightFetcherAdapter(page, context, {

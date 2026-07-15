@@ -80,4 +80,14 @@ export interface PuppeteerAdapterOptions {
    * If set, saves a screenshot after page navigation
    */
   debugScreenshot?: string;
+
+  /**
+   * Proxy server URL for browser requests
+   *
+   * If set, passes --proxy-server to Chromium. Falls back to
+   * HTTPS_PROXY / HTTP_PROXY environment variables if not set.
+   *
+   * @example 'http://127.0.0.1:7890'
+   */
+  proxy?: string;
 }

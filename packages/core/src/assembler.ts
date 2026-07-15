@@ -305,7 +305,11 @@ async function snapshotInternal(
     }
   }
 
-  process.stdout.write(`Downloading ${filteredRefs.length} assets (max: ${options.maxAssets})...\n`);
+  if (filteredRefs.length === 0) {
+    process.stdout.write(`No external assets found — page is self-contained (all CSS/JS/images are inline)\n`);
+  } else {
+    process.stdout.write(`Downloading ${filteredRefs.length} assets (max: ${options.maxAssets})...\n`);
+  }
   const assets = await downloadAllAssets(filteredRefs, options, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
@@ -481,6 +485,7 @@ async function snapshotInternal(
     skipped: assets.filter(a => a.status === 'skipped').length,
     validationWarnings: validationFailures.length,
     totalBytes: assets.reduce((s, a) => s + a.size, 0),
+    htmlBytes: html.length,
   };
 
   process.stdout.write(`\nAssembling output (${options.mode} mode)...\n`);

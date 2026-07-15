@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.0.2 (2026-07-15)
+
+### Fixed
+
+- **Browser proxy support** — `createPlaywrightAdapter` and `createPuppeteerAdapter` now pass `--proxy-server` to Chromium launch args, reading from `HTTPS_PROXY`/`HTTP_PROXY` env vars or the new `proxy` option. Previously the browser launched without proxy, causing `ERR_CONNECTION_RESET` on restricted sites.
+- **HTML serialization** — `serializeDocument` in both `bundle.ts` and `single-file.ts` now uses `document.documentElement.outerHTML` (HTML serializer) instead of `XMLSerializer.serializeToString()` (XML serializer). This fixes two issues: SVG elements (e.g. `<svg id="edges">`) being dropped, and `<script>` content being HTML-entity-encoded (`&` → `&amp;`) which inflated file size.
+- **Terminal output clarity** — When no external assets are found, the message now reads "No external assets found — page is self-contained" instead of "Downloading 0 assets". Stats display is split into "Assets: 0 B" and "Page: XX KB (HTML)" so users can see the page was successfully fetched even when there are no external resources.
+
+### Added
+
+- **`proxy` option** — `PlaywrightAdapterOptions` and `PuppeteerAdapterOptions` now accept a `proxy` field for explicit proxy configuration.
+- **`htmlBytes` in stats** — `SnapshotResult.stats` now includes `htmlBytes` to report the HTML page size separately from asset byte totals.
+
 ## v1.0.1 (2026-07-15)
 
 ### Added

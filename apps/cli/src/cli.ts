@@ -151,10 +151,14 @@ program
         console.log(`    ✓ ${chalk.green('Fetched')}: ${result.stats.fetched}`);
         console.log(`    ✗ ${chalk.red('Failed')}:  ${result.stats.failed}`);
         console.log(`    ⊘ ${chalk.yellow('Skipped')}: ${result.stats.skipped}`);
-        console.log(`    Size:   ${formatBytes(result.stats.totalBytes)}`);
+        console.log(`    Assets: ${formatBytes(result.stats.totalBytes)}`);
+        console.log(`    Page:   ${chalk.cyan(formatBytes(result.stats.htmlBytes))} (HTML)`);
 
         if (result.stats.failed > 0) {
           console.log(chalk.yellow(`\n  ⚠ ${result.stats.failed} asset(s) failed to download`));
+        }
+        if (result.stats.total === 0) {
+          console.log(chalk.gray(`\n  ℹ No external assets found — page is self-contained (inline CSS/JS/images)`));
         }
       }
 

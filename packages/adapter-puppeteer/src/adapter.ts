@@ -466,9 +466,23 @@ export async function createPuppeteerAdapter(
 ): Promise<PuppeteerAdapterHandle> {
   const puppeteer = await import('puppeteer');
 
+  // Resolve proxy: explicit option > HTTPS_PROXY > HTTP_PROXY env vars
+  const proxyUrl = options.proxy
+    ?? process.env.HTTPS_PROXY ?? process.env.https_proxy
+    ?? process.env.HTTP_PROXY ?? process.env.http_proxy
+    ?? '';
+
+  const browserArgs: string[] = ['--no-sandbox', '--disable-dev-shm-usage'];
+  if (proxyUrl) {
+    const proxyHost = proxyUrl.replace(/^https?:\/\//, '');
+    browserArgs.push(`--proxy-server=${proxyHost}`);
+    browserArgs.push('--ignore-certificate-errors');
+  }
+
   const browser = await puppeteer.launch({
     headless: true,
     timeout: options.timeout ?? 30000,
+    args: browserArgs,
   });
 
   const page = await browser.newPage() as unknown as PuppeteerPage;
