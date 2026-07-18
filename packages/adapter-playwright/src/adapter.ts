@@ -388,7 +388,11 @@ export async function createPlaywrightAdapter(
     ?? process.env.HTTP_PROXY ?? process.env.http_proxy
     ?? '';
 
-  const browserArgs: string[] = ['--no-sandbox', '--disable-dev-shm-usage'];
+  const browserArgs: string[] = [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    ...(options.launchArgs ?? []),
+  ];
   if (proxyUrl) {
     // Strip protocol prefix for --proxy-server format
     const proxyHost = proxyUrl.replace(/^https?:\/\//, '');
@@ -397,14 +401,26 @@ export async function createPlaywrightAdapter(
     browserArgs.push('--ignore-certificate-errors');
   }
 
+  // Headless mode: default true (headless), false = headed (visible window)
+  // Used for debugging and bypassing anti-bot detection
+  const headless = options.headless !== false;
+
   const browser = await chromium.launch({
-    headless: true,
+    headless,
     timeout: options.timeout ?? 30000,
     args: browserArgs,
   });
 
   const context = await browser.newContext({
     ...(proxyUrl ? { ignoreHTTPSErrors: true } : {}),
+    // Browser fingerprint / anti-detection configuration
+    ...(options.userAgent ? { userAgent: options.userAgent } : {}),
+    ...(options.viewport ? { viewport: options.viewport } : {}),
+    ...(options.locale ? { locale: options.locale } : {}),
+    ...(options.geolocation ? {
+      geolocation: { latitude: options.geolocation.latitude, longitude: options.geolocation.longitude },
+      timezoneId: options.geolocation.timezoneId,
+    } : {}),
   });
   const page = await context.newPage();
 

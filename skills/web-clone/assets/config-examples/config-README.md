@@ -2,16 +2,19 @@
 
 ## Config File Locations
 
-web-clone searches for configuration in the following order (lower number = lower priority):
+web-clone merges configuration from multiple sources (lower number = lower priority):
 
-| Priority | Location | Description |
-|----------|----------|-------------|
+| Priority | Source | Description |
+|----------|--------|-------------|
 | 0 (base) | Built-in defaults | Hardcoded in `packages/core/src/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | User-global config (applies to all projects) |
 | 2 | `./web-clone.config.json` | Project-level config (nearest ancestor) |
 | 2 | `.web-clonerc` | Alternative project config (JSON) |
 | 2 | `.web-clonerc.json` | Alternative project config (JSON) |
-| 3 | CLI flags | Highest priority, overrides everything |
+| 3 | `--config <path>` | Explicit config file (replaces auto-discovery) |
+| 4 | CLI flags | Highest priority, overrides everything |
+
+> When `--config` is provided, the auto-discovered project config is **skipped**, but the global config (`~/.config/web-clone/config.json`) still applies.
 
 ## Config File Format
 
@@ -22,7 +25,7 @@ All config files use JSON format with the following top-level fields:
   // (Optional) Schema reference — ignored by runtime
   "$schema": "https://example.com/web-clone/schema.json",
 
-  // Resource filtering preset
+  // ── Resource filtering ──────────────────────────────
   "resourcePreset": "default",
 
   // Explicit skip list (bypasses preset entirely)
@@ -38,6 +41,43 @@ All config files use JSON format with the following top-level fields:
   "include": {
     "wasm": true,
     "fonts": true
+  },
+
+  // ── Browser adapter configuration ───────────────────
+  "browser": {
+    "adapter": "playwright",
+    "headless": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "viewport": "1920x1080",
+    "locale": "zh-CN",
+    "waitForLoadState": "networkidle",
+    "launchArgs": ["--disable-gpu"],
+    "hybrid": false
+  },
+
+  // ── Component extraction ────────────────────────────
+  "extraction": {
+    "enabled": true,
+    "depth": 3,
+    "framework": "react",
+    "extractLogic": true,
+    "memoryLimit": 1536
+  },
+
+  // ── Code generation ─────────────────────────────────
+  "codegen": {
+    "framework": "react",
+    "typescript": true,
+    "cssModules": true,
+    "generateDrafts": false,
+    "extractShared": true
+  },
+
+  // ── Server mode ─────────────────────────────────────
+  "server": {
+    "enabled": false,
+    "port": 8080,
+    "proxy": true
   },
 
   // Default values for SnapshotOptions (overridable by CLI)
@@ -56,6 +96,67 @@ All config files use JSON format with the following top-level fields:
   }
 }
 ```
+
+## Browser Config Fields
+
+| Field | Type | CLI Equivalent | Description |
+|-------|------|----------------|-------------|
+| `adapter` | `string` | `--adapter` | Adapter type: `playwright` / `puppeteer` |
+| `headless` | `boolean` | `--headed` / `--no-headed` | Headless mode (default: `true`) |
+| `userAgent` | `string` | `--user-agent` | Custom User-Agent to avoid anti-bot detection |
+| `viewport` | `string` | `--viewport` | Viewport size, e.g. `"1920x1080"` |
+| `locale` | `string` | `--locale` | Browser locale, e.g. `"zh-CN"` |
+| `waitForLoadState` | `string` | — | Wait state: `load` / `domcontentloaded` / `networkidle` |
+| `launchArgs` | `string[]` | `--launch-args` | Extra Chromium launch arguments |
+| `hybrid` | `boolean` | `--hybrid` | Browser for HTML, HTTP for assets |
+
+## Extraction Config Fields
+
+| Field | Type | CLI Equivalent | Description |
+|-------|------|----------------|-------------|
+| `enabled` | `boolean` | `--extract-components` | Enable component extraction |
+| `depth` | `number` | `--component-depth` | Recognition depth limit |
+| `framework` | `string` | `--framework` | Framework hint: `vue` / `react` / `svelte` |
+| `filter` | `string` | `--component-filter` | Filter expression, e.g. `"confidence >= 0.7"` |
+| `extractLogic` | `boolean` | `--extract-logic` | Extract JS logic |
+| `memoryLimit` | `number` | `--memory-limit` | Memory budget (MB) |
+
+## Codegen Config Fields
+
+| Field | Type | CLI Equivalent | Description |
+|-------|------|----------------|-------------|
+| `framework` | `string` | `--codegen-framework` | Target: `vue` / `react` / `angular` / `svelte` / `jquery` |
+| `typescript` | `boolean` | `--codegen-typescript` | Use TypeScript |
+| `cssModules` | `boolean` | `--codegen-css-modules` | Use CSS Modules (React) |
+| `generateDrafts` | `boolean` | `--codegen-generate-drafts` | Generate full project templates |
+| `extractShared` | `boolean` | `--codegen-extract-shared` | Extract shared logic |
+
+## Server Config Fields
+
+| Field | Type | CLI Equivalent | Description |
+|-------|------|----------------|-------------|
+| `enabled` | `boolean` | `--serve` | Generate server files |
+| `port` | `number` | `--serve-port` | HTTP server port |
+| `proxy` | `boolean` | `--proxy` | Enable reverse proxy |
+
+## defaults Extra Fields
+
+In addition to all `SnapshotOptions`, `defaults` supports:
+
+| Field | Type | CLI Equivalent | Description |
+|-------|------|----------------|-------------|
+| `adapter` | `string` | `--adapter` | Browser adapter type |
+| `headless` | `boolean` | `--headed` | Headless mode |
+| `userAgent` | `string` | `--user-agent` | User-Agent |
+| `viewport` | `string` | `--viewport` | Viewport size |
+| `locale` | `string` | `--locale` | Locale |
+| `launchArgs` | `string[]` | `--launch-args` | Launch args |
+| `hybrid` | `boolean` | `--hybrid` | Hybrid mode |
+| `serve` | `boolean` | `--serve` | Generate server files |
+| `servePort` | `number` | `--serve-port` | Server port |
+| `run` | `boolean` | `--run` | Start server |
+| `proxy` | `boolean` | `--proxy` | Reverse proxy |
+| `convertLocal` | `string` | `--convert-local` | Local conversion path |
 
 ## Preset Reference
 
@@ -121,7 +222,15 @@ Create `web-clone.config.json` in your project root:
 }
 ```
 
-### 3. Run snapshot
+### 3. Use explicit config path
+
+```bash
+# Uses the specified config file instead of auto-discovery
+pnpm dev:cli -- https://example.com --config ./my-config.json
+pnpm dev:cli -- https://example.com -c ./my-config.json
+```
+
+### 4. Run snapshot
 
 ```bash
 # Uses merged config (global + project) + CLI overrides
@@ -134,3 +243,6 @@ pnpm dev:cli -- https://example.com --output ./custom-out
 - `web-clone.config.minimal.json` — Minimal production config
 - `web-clone.config.vue-project.json` — Vue/Nuxt project config
 - `.web-clonerc` — Alt-format project config
+
+A comprehensive example with Chinese comments is also at the project root:
+- `web-clone.config.example.json` — Full config with all sections

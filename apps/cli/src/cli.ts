@@ -55,11 +55,18 @@ program
   .option('--scan-json', 'Scan JSON files for media URLs during recursive discovery (default: false)')
   .option('--hybrid', 'Use browser for HTML rendering, HTTP pool for asset downloads (requires --adapter playwright|puppeteer)')
   .option('--adapter <type>', 'Browser automation adapter: playwright | puppeteer (default: http)')
+  .option('--headed', 'Launch browser in headed mode (visible window), useful for debugging and bypassing anti-bot detection. Only applies with --adapter playwright|puppeteer')
+  .option('--no-headed', 'Launch browser in headless mode (default). Only applies with --adapter playwright|puppeteer')
+  .option('--user-agent <ua>', 'Browser User-Agent string (override Playwright/Puppeteer default)')
+  .option('--viewport <size>', 'Browser viewport size, e.g. "1920x1080" (default: 1280x720)')
+  .option('--locale <locale>', 'Browser locale, e.g. "zh-CN" (affects Accept-Language header)')
+  .option('--launch-args <args>', 'Extra Chromium launch arguments (comma-separated)')
   .option('--convert-local <path>', 'Run component extraction + codegen on an existing local bundle/single output directory (skips URL fetch)')
   .option('--serve', 'Generate server files for self-contained snapshot serving (use --run to start the server)')
   .option('--serve-port <port>', 'Port for the HTTP server (default: 8080)', '8080')
   .option('--run', 'Start the HTTP server immediately (only valid with --serve)')
   .option('--proxy', 'Enable reverse proxy for runtime API requests (default: on, only with --serve --run)')
+  .option('-c, --config <path>', 'Path to a JSON config file (overrides auto-discovered project config)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);
     const isLocal = !!opts.convertLocal;
@@ -109,7 +116,7 @@ program
           process.exit(1);
         }
 
-        const { createBrowserAdapter, ensureBrowserDeps } = await import('./browser.js');
+        const { createBrowserAdapter, ensureBrowserDeps, parseViewport } = await import('./browser.js');
 
         // Check dependencies are installed before launching
         await ensureBrowserDeps(adapterType);
@@ -121,6 +128,11 @@ program
 
         const handle = await createBrowserAdapter(adapterType, {
           timeout: options.timeout,
+          headless: opts.headed !== undefined ? !opts.headed : true,
+          userAgent: opts.userAgent,
+          viewport: opts.viewport ? parseViewport(opts.viewport) : undefined,
+          locale: opts.locale,
+          launchArgs: opts.launchArgs ? opts.launchArgs.split(',') : undefined,
         });
 
         try {

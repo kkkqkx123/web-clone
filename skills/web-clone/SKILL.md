@@ -58,6 +58,14 @@ pnpm dev:cli https://spa-site.com --adapter playwright
 - Config hierarchy (built-in → global → project → CLI args)
 - Platform notes (PowerShell, proxy), testing commands
 
+### Config File → [references/config.md](references/config.md)
+- Full config file format reference (browser, extraction, codegen, server sections)
+- Layer priority and merge order
+- `--config` explicit config path support
+- Preset reference and include/exclude categories
+- Anti-bot recommended config
+- Merge examples
+
 ### Architecture → [references/architecture.md](references/architecture.md)
 - Snapshot pipeline (fetch → parse → dedupe → download → assemble)
 - Component extraction pipeline (analysis → correlation → generation)

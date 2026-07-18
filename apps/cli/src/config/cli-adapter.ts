@@ -1,6 +1,6 @@
 import { DEFAULTS, loadMergedConfig } from '@web-clone/core';
 import { safeInt, parseBool, parseCodegenFramework, parseFrameworkHint, parseResourcePreset, parseFileSize, validateOptions, resolveGroupOverrides } from '@web-clone/core';
-import type { SnapshotOptions, MergedConfig } from '@web-clone/core';
+import type { SnapshotOptions, MergedConfig, MergedBrowserConfig } from '@web-clone/core';
 
 /**
  * Fallback to environment variable if the CLI value is still the default.
@@ -59,6 +59,18 @@ export interface CommanderOpts {
   strictStatusCodes?: boolean;
   /** Browser automation adapter: 'playwright' | 'puppeteer' | undefined */
   adapter?: string;
+  /** Launch browser in headed mode (visible window) */
+  headed?: boolean;
+  /** Browser User-Agent string */
+  userAgent?: string;
+  /** Browser viewport size, e.g. "1920x1080" */
+  viewport?: string;
+  /** Browser locale, e.g. "zh-CN" */
+  locale?: string;
+  /** Extra Chromium launch arguments (comma-separated) */
+  launchArgs?: string;
+  /** Path to an explicit config file */
+  configFile?: string;
   /** Start a local HTTP server after snapshot */
   serve?: boolean;
   /** Port for the HTTP server */
@@ -78,12 +90,12 @@ export interface CommanderOpts {
  *   3. CLI flags (Commander opts)
  *   4. CLI --include-* / --exclude-* overrides (applied last)
  */
-export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions {
+export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions & { browserConfig?: MergedBrowserConfig } {
   const isLocal = !!cmd.convertLocal;
   const localPath = cmd.convertLocal as string | undefined;
 
   // ── Step 1: Load config file hierarchy ──────────────────────
-  const mergedConfig: MergedConfig = loadMergedConfig();
+  const mergedConfig: MergedConfig = loadMergedConfig(undefined, cmd.configFile);
 
   const outputPath = isLocal && cmd.output === DEFAULTS.output
     ? (localPath ?? DEFAULTS.output)
@@ -210,5 +222,8 @@ export function fromCommander(cmd: CommanderOpts, url: string): SnapshotOptions 
 
   // ── Step 3: Validate ────────────────────────────────────────
   validateOptions(opts);
-  return opts;
+  return {
+    ...opts,
+    browserConfig: mergedConfig.browserConfig,
+  };
 }

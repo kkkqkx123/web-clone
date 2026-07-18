@@ -29,6 +29,38 @@ export interface BrowserAdapterOptions {
   customHeaders?: Record<string, string>;
   /** Debug screenshot path */
   debugScreenshot?: string;
+  /**
+   * Whether to launch browser in headless mode
+   *
+   * - true: Headless mode (default, no visible browser window)
+   * - false: Headed mode (shows browser window, useful for debugging
+   *   and bypassing anti-bot detection that targets headless browsers)
+   *
+   * @default true
+   */
+  headless?: boolean;
+  /**
+   * Browser User-Agent string.
+   * Set to a normal Chrome UA to reduce anti-bot detection probability.
+   */
+  userAgent?: string;
+  /**
+   * Browser viewport size.
+   * Format: { width, height }, e.g. { width: 1920, height: 1080 }.
+   */
+  viewport?: { width: number; height: number };
+  /**
+   * Browser locale (e.g. 'zh-CN', 'en-US').
+   * Affects Accept-Language header and browser locale APIs.
+   */
+  locale?: string;
+  /**
+   * Extra Chromium launch arguments.
+   * These are appended to the default args.
+   *
+   * @example ['--disable-gpu', '--disable-software-rasterizer']
+   */
+  launchArgs?: string[];
 }
 
 /**
@@ -75,4 +107,17 @@ export async function ensureBrowserDeps(type: BrowserType): Promise<void> {
       `Run: pnpm add ${pkg}`
     );
   }
+}
+
+/**
+ * Parse a viewport string like "1920x1080" into { width, height }.
+ * Returns undefined and logs a warning for invalid formats.
+ */
+export function parseViewport(val: string): { width: number; height: number } | undefined {
+  const m = val.match(/^(\d+)x(\d+)$/);
+  if (!m) {
+    console.warn(`⚠ Invalid viewport format: "${val}", expected "WIDTHxHEIGHT" (e.g. "1920x1080")`);
+    return undefined;
+  }
+  return { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
 }

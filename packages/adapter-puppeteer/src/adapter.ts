@@ -101,6 +101,9 @@ interface PuppeteerPage {
     ...args: unknown[]
   ): Promise<unknown>;
   waitForTimeout(timeout: number): Promise<void>;
+  setUserAgent(userAgent: string): Promise<void>;
+  setViewport(viewport: { width: number; height: number }): Promise<void>;
+  setExtraHTTPHeaders(headers: Record<string, string>): Promise<void>;
 }
 
 import {
@@ -472,20 +475,35 @@ export async function createPuppeteerAdapter(
     ?? process.env.HTTP_PROXY ?? process.env.http_proxy
     ?? '';
 
-  const browserArgs: string[] = ['--no-sandbox', '--disable-dev-shm-usage'];
+  const browserArgs: string[] = [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    ...(options.launchArgs ?? []),
+  ];
   if (proxyUrl) {
     const proxyHost = proxyUrl.replace(/^https?:\/\//, '');
     browserArgs.push(`--proxy-server=${proxyHost}`);
     browserArgs.push('--ignore-certificate-errors');
   }
 
+  // Headless mode: default true (headless), false = headed (visible window)
+  // Used for debugging and bypassing anti-bot detection
+  const headless = options.headless !== false;
+
   const browser = await puppeteer.launch({
-    headless: true,
+    headless,
     timeout: options.timeout ?? 30000,
     args: browserArgs,
   });
 
   const page = await browser.newPage() as unknown as PuppeteerPage;
+
+  // Set browser context parameters (Puppeteer sets these at page level)
+  if (options.userAgent) await page.setUserAgent(options.userAgent);
+  if (options.viewport) await page.setViewport(options.viewport);
+  if (options.locale) {
+    await page.setExtraHTTPHeaders({ 'Accept-Language': options.locale.replace('_', '-') });
+  }
 
   const adapter = new PuppeteerFetcherAdapter(page, {
     waitForLoadState: options.waitForLoadState as 'load' | 'domcontentloaded' | 'networkidle' | undefined,

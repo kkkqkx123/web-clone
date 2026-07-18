@@ -1,0 +1,62 @@
+{
+  "$schema": "https://example.com/schemas/web-clone-config.json",
+
+  "//": "── 资源过滤 ──────────────────────────────────────",
+  "resourcePreset": "default",
+
+  "include": {
+    "fonts": true,
+    "wasm": false,
+    "bin": false,
+    "video": false,
+    "audio": false
+  },
+
+  "//": "── 浏览器适配器配置 ──────────────────────────────",
+  "browser": {
+    "adapter": "playwright",
+    "headless": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "viewport": "1920x1080",
+    "locale": "zh-CN",
+    "waitForLoadState": "networkidle"
+  },
+
+  "//": "── 组件提取 ──────────────────────────────────────",
+  "extraction": {
+    "enabled": true,
+    "depth": 3,
+    "framework": "react",
+    "extractLogic": true,
+    "memoryLimit": 1536
+  },
+
+  "//": "── 代码生成 ──────────────────────────────────────",
+  "codegen": {
+    "framework": "react",
+    "typescript": true,
+    "cssModules": true,
+    "generateDrafts": false,
+    "extractShared": true
+  },
+
+  "//": "── 服务器模式 ────────────────────────────────────",
+  "server": {
+    "enabled": false,
+    "port": 8080,
+    "proxy": true
+  },
+
+  "//": "── 全局默认值（可被 CLI 参数覆盖） ────────────────",
+  "defaults": {
+    "mode": "bundle",
+    "maxAssets": 200,
+    "concurrency": 8,
+    "timeout": 30000,
+    "retryCount": 3,
+    "scanDepth": 2,
+    "scanJs": true,
+    "resourcePreset": "no-media",
+    "includeFonts": true
+  }
+}

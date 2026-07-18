@@ -119,7 +119,47 @@ node scripts/analyze-rendered.mjs https://example.com --no-proxy
 
 ---
 
-## 3. `compare-snapshot.mjs` — 快照完整性检查
+## 3. `analyze-headed.mjs` — 有头模式渲染分析（反爬调试）
+
+使用 Playwright 有头模式（`headless: false`）渲染目标页面，捕获所有网络请求、
+API 响应和最终 DOM。适用于反爬调试：对比有头模式与无头模式下的页面内容差异。
+
+### 前置条件
+
+Playwright 环境需已配置，且**有头模式需要显示环境**（Windows 桌面可用，CI 中不可用）。
+
+### 用法
+
+```bash
+# 有代理
+HTTPS_PROXY=http://127.0.0.1:7890 node scripts/analyze-headed.mjs <url>
+
+# 无代理
+node scripts/analyze-headed.mjs <url> --no-proxy
+
+# 减速运行（便于观察浏览器窗口中的渲染过程）
+node scripts/analyze-headed.mjs <url> --slow-mo 500
+```
+
+### 与无头模式对比
+
+| 对比项 | `analyze-rendered.mjs`（无头） | `analyze-headed.mjs`（有头） |
+|--------|-------------------------------|------------------------------|
+| 浏览器模式 | `headless: true` | `headless: false`（显示窗口） |
+| 反爬检测绕过 | 无 | 注入 `navigator.webdriver` 覆盖 + 合理 UA/Viewport |
+| API 错误检测 | 基本网络请求统计 | 自动检测 `errorCode`/`error_code` 响应 |
+| 内容分析 | 仅 DOM 大小 | 检测 SPA 空壳、内容元素数量、页面是否为空 |
+| 浏览器指纹 | 不检测 | 输出 `navigator.webdriver`、`chrome` 对象状态 |
+
+### 适用场景
+
+- **反爬调试**：对比有头/无头模式下 API 响应的差异
+- **SPA 空壳检测**：快速判断页面是否因 JS 被阻断而显示空状态
+- **验证码触发检测**：观察页面是否触发了验证码（captcha）流程
+
+---
+
+## 4. `compare-snapshot.mjs` — 快照完整性检查
 
 比较原始页面与快照输出，检查元素数量、脚本内容、样式等是否一致。
 

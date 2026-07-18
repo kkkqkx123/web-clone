@@ -35,8 +35,68 @@ export interface WebCloneConfigFile {
     archives?: boolean;
   };
 
+  /** Browser adapter configuration. */
+  browser?: {
+    /** Adapter type: 'playwright' | 'puppeteer' */
+    adapter?: string;
+    /** Whether to use headless mode */
+    headless?: boolean;
+    /** User-Agent string */
+    userAgent?: string;
+    /** Viewport size, e.g. "1920x1080" */
+    viewport?: string;
+    /** Browser locale, e.g. "zh-CN" */
+    locale?: string;
+    /** Extra Chromium launch arguments */
+    launchArgs?: string[];
+    /** Page load wait state */
+    waitForLoadState?: 'load' | 'domcontentloaded' | 'networkidle';
+    /** Whether to enable hybrid mode */
+    hybrid?: boolean;
+  };
+
+  /** Component extraction configuration. */
+  extraction?: {
+    enabled?: boolean;
+    depth?: number;
+    framework?: string;
+    filter?: string;
+    extractLogic?: boolean;
+    memoryLimit?: number;
+  };
+
+  /** Code generation configuration. */
+  codegen?: {
+    framework?: string;
+    typescript?: boolean;
+    cssModules?: boolean;
+    generateDrafts?: boolean;
+    extractShared?: boolean;
+  };
+
+  /** Server mode configuration. */
+  server?: {
+    enabled?: boolean;
+    port?: number;
+    proxy?: boolean;
+  };
+
   /** Global defaults (overridable by CLI). */
-  defaults?: Partial<SnapshotOptions>;
+  defaults?: Partial<SnapshotOptions> & {
+    /** Browser adapter type (not in SnapshotOptions) */
+    adapter?: string;
+    headless?: boolean;
+    userAgent?: string;
+    viewport?: string;
+    locale?: string;
+    launchArgs?: string[];
+    hybrid?: boolean;
+    serve?: boolean;
+    servePort?: number;
+    run?: boolean;
+    proxy?: boolean;
+    convertLocal?: string;
+  };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -105,18 +165,60 @@ export interface MergedConfig {
   excludeExtensions: string[];
   /** Other SnapshotOptions overrides from config defaults. */
   optionOverrides: Partial<SnapshotOptions>;
+  /** Browser adapter configuration (merged from global → project config). */
+  browserConfig?: MergedBrowserConfig;
+}
+
+/** Merged browser adapter configuration from config files. */
+export interface MergedBrowserConfig {
+  adapter?: string;
+  headless?: boolean;
+  userAgent?: string;
+  viewport?: string;
+  locale?: string;
+  launchArgs?: string[];
+  hybrid?: boolean;
+  waitForLoadState?: string;
+}
+
+/**
+ * Load a config file from an explicit path.
+ * Returns null if the file doesn't exist or contains invalid JSON.
+ */
+export function loadConfigFile(configPath: string): WebCloneConfigFile | null {
+  const resolved = resolve(configPath);
+  if (!existsSync(resolved)) {
+    return null;
+  }
+  try {
+    const raw = readFileSync(resolved, 'utf8');
+    return JSON.parse(raw) as WebCloneConfigFile;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Load and merge config files from:
  * 1. User-global config (~/.config/web-clone/config.json)
- * 2. Project-level config (nearest ancestor with config file)
+ * 2. Explicit --config file (if provided, replaces auto-discovered project config)
+ * 3. Project-level config (nearest ancestor with config file, skipped if --config given)
  *
  * Returns a MergedConfig object with the combined settings.
  */
-export function loadMergedConfig(projectDir?: string): MergedConfig {
+export function loadMergedConfig(projectDir?: string, configFile?: string): MergedConfig {
   const global = loadGlobalConfig();
-  const project = projectDir ? searchConfigFile(projectDir) : searchConfigFile(process.cwd());
+
+  // Explicit --config file takes precedence over auto-discovery
+  let explicitConfig: { path: string; config: WebCloneConfigFile } | null = null;
+  if (configFile) {
+    const config = loadConfigFile(configFile);
+    if (config) {
+      explicitConfig = { path: resolve(configFile), config };
+    }
+  }
+
+  const project = explicitConfig ?? (projectDir ? searchConfigFile(projectDir) : searchConfigFile(process.cwd()));
 
   const layers: WebCloneConfigFile[] = [];
   if (global) layers.push(global);
@@ -151,10 +253,19 @@ export function loadMergedConfig(projectDir?: string): MergedConfig {
     }
   }
 
+  // Merge browser config (global → project, so project wins)
+  const browserConfig: Record<string, unknown> = {};
+  for (const layer of layers) {
+    if (layer.browser) {
+      Object.assign(browserConfig, layer.browser);
+    }
+  }
+
   return {
     resourcePreset: preset,
     includeExtensions: [...new Set(includeExts)],
     excludeExtensions: [...new Set(excludeExts)],
     optionOverrides,
+    browserConfig: Object.keys(browserConfig).length > 0 ? browserConfig as MergedBrowserConfig : undefined,
   };
 }
