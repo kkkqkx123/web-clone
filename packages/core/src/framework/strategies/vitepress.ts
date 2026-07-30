@@ -1,25 +1,24 @@
 /**
- * VitePress Hydration Strategy.
+ * VitePress Post-Snapshot Probe Strategy.
  * 
  * Matching conditions:
  * - meta generator contains "vitepress"
  * - or HTML contains id="VPContent"
  * 
- * Hydration method:
- * VitePress is loaded dynamically using Vite's ESM import, and the script is inlined in the HTML.
- * There's no need to actively trigger the hydration - VitePress' JS import script is automatically called after loading
- * createApp(App).mount('#app').
- * We just need to make sure the mount point exists and wait for Vue to finish hydrating.
+ * Probe method:
+ * VitePress uses Vite's ESM import to load and call createApp(App).mount('#app').
+ * This script is a diagnostic observer that polls for `__vue__` on the app element.
+ * It does NOT trigger re-hydration.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const vitepressStrategy: HydrationStrategy = {
+export const vitepressStrategy: PostSnapshotStrategy = {
   framework: 'vitepress',
   matches: (d) =>
     d.framework === 'vitepress' ||
     d.markers.some(m => m.includes('generator:vitepress') || m.includes('VPContent')),
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     const appEl = d.appElement || '#app';
     return `
 <script type="text/javascript">

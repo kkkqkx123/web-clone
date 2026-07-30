@@ -1,20 +1,22 @@
 /**
- * Vue 3 hydration strategy.
+ * Vue 3 Post-Snapshot Probe Strategy.
  * 
  * Match condition:
- * - JS content contains createSSRApp or __VUE__ tags
+ * - JS content contains createSSRApp or __VUE__ markers
  * - or the meta generator is VuePress.
  * 
- * hydration method:
- * Vue 3's createSSRApp is automatically hydrated, the script just waits for it to complete.
+ * Probe method:
+ * Vue 3's createSSRApp hydrates automatically. This script is a diagnostic
+ * observer that polls for `__vue__` on the app element.
+ * It does NOT trigger re-hydration.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const vue3Strategy: HydrationStrategy = {
+export const vue3Strategy: PostSnapshotStrategy = {
   framework: 'vue3',
   matches: (d) => d.framework === 'vue3',
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     const appEl = d.appElement || '#app';
     return `
 <script type="text/javascript">

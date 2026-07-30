@@ -10,6 +10,7 @@ import {
   waitForSpaHydration,
   type SpaPageLike,
   type SpaDetectorOptions,
+  type SpaDetectionResult,
   type AutomationAdapterOptions,
   type AutomationAuthOptions,
   type PageLoadWaitStrategy,
@@ -43,6 +44,20 @@ describe('@web-clone/adapter-common exports', () => {
   it('should export SpaDetectorOptions with optional logPrefix', () => {
     const opts: SpaDetectorOptions = { timeout: 10000, logPrefix: '[Test]' };
     expect(opts.logPrefix).toBe('[Test]');
+  });
+
+  it('should export SpaDetectionResult type', () => {
+    const result: SpaDetectionResult = {
+      framework: 'nuxt3',
+      appElement: '#__nuxt',
+      isHydrated: true,
+      markers: ['__NUXT__', 'hydration-confirmed'],
+      confidence: 0.98,
+    };
+    expect(result.framework).toBe('nuxt3');
+    expect(result.appElement).toBe('#__nuxt');
+    expect(result.isHydrated).toBe(true);
+    expect(result.markers).toHaveLength(2);
   });
 
   it('should export AutomationAdapterOptions type', () => {

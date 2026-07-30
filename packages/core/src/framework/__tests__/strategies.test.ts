@@ -1,10 +1,10 @@
 /**
- * Hydration Strategy Unit Tests.
+ * Post-Snapshot Probe Strategy Unit Tests.
  *
  * Covers:
  * - Each strategy's matches() correctly identifies / rejects detection results
- * - Each strategy's generateScript() produces framework-specific output
- * - generateScript() uses d.appElement from detection (design fix verification)
+ * - Each strategy's generateProbeScript() produces framework-specific output
+ * - generateProbeScript() uses d.appElement from detection (design fix verification)
  * - Static strategy always matches, generates empty script
  * - Strategy registry ordering
  */
@@ -20,7 +20,7 @@ import { react18Strategy } from '../strategies/react18.js';
 import { angularStrategy } from '../strategies/angular.js';
 import { sveltekitStrategy } from '../strategies/sveltekit.js';
 import { staticStrategy } from '../strategies/static.js';
-import { hydrationStrategies } from '../strategies/index.js';
+import { postSnapshotStrategies } from '../strategies/index.js';
 import type { FrameworkDetection } from '../types.js';
 
 function makeDetection(overrides: Partial<FrameworkDetection>): FrameworkDetection {
@@ -45,13 +45,13 @@ describe('nuxt3Strategy', () => {
   });
 
   it('should generate script referencing Nuxt 3', () => {
-    const script = nuxt3Strategy.generateScript(makeDetection({ appElement: '#__nuxt' }));
+    const script = nuxt3Strategy.generateProbeScript(makeDetection({ appElement: '#__nuxt' }));
     expect(script).toContain('Nuxt 3');
     expect(script).toContain('#__nuxt');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = nuxt3Strategy.generateScript(makeDetection({ appElement: '#custom-app' }));
+    const script = nuxt3Strategy.generateProbeScript(makeDetection({ appElement: '#custom-app' }));
     expect(script).toContain('#custom-app');
   });
 });
@@ -71,8 +71,17 @@ describe('nextjsStrategy', () => {
     expect(nextjsStrategy.matches(makeDetection({ framework: 'nuxt3' }))).toBe(false);
   });
 
+  it('should NOT match via exclusionary fallthrough when only appElement is #__next', () => {
+    // P2-2: Removed exclusionary condition — #__next with nuxt markers
+    // must not match nextjs (handled by registry order instead)
+    expect(nextjsStrategy.matches(makeDetection({
+      appElement: '#__next',
+      markers: ['__NUXT__'],
+    }))).toBe(false);
+  });
+
   it('should generate script referencing Next.js', () => {
-    const script = nextjsStrategy.generateScript(makeDetection({ appElement: '#__next' }));
+    const script = nextjsStrategy.generateProbeScript(makeDetection({ appElement: '#__next' }));
     expect(script).toContain('Next.js');
     expect(script).toContain('#__next');
   });
@@ -93,13 +102,13 @@ describe('vitepressStrategy', () => {
   });
 
   it('should generate script referencing VitePress', () => {
-    const script = vitepressStrategy.generateScript(makeDetection({ appElement: '#app' }));
+    const script = vitepressStrategy.generateProbeScript(makeDetection({ appElement: '#app' }));
     expect(script).toContain('VitePress');
     expect(script).toContain('#app');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = vitepressStrategy.generateScript(makeDetection({ appElement: '#custom' }));
+    const script = vitepressStrategy.generateProbeScript(makeDetection({ appElement: '#custom' }));
     expect(script).toContain('#custom');
   });
 });
@@ -119,7 +128,7 @@ describe('astroStrategy', () => {
   });
 
   it('should generate empty script (static islands)', () => {
-    const script = astroStrategy.generateScript(makeDetection({}));
+    const script = astroStrategy.generateProbeScript(makeDetection({}));
     expect(script).toBe('');
   });
 });
@@ -135,13 +144,13 @@ describe('nuxt2Strategy', () => {
   });
 
   it('should generate script referencing Nuxt 2', () => {
-    const script = nuxt2Strategy.generateScript(makeDetection({ appElement: '#__nuxt' }));
+    const script = nuxt2Strategy.generateProbeScript(makeDetection({ appElement: '#__nuxt' }));
     expect(script).toContain('Nuxt 2');
     expect(script).toContain('#__nuxt');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = nuxt2Strategy.generateScript(makeDetection({ appElement: '#custom' }));
+    const script = nuxt2Strategy.generateProbeScript(makeDetection({ appElement: '#custom' }));
     expect(script).toContain('#custom');
   });
 });
@@ -158,13 +167,13 @@ describe('vue3Strategy', () => {
   });
 
   it('should generate script referencing Vue 3', () => {
-    const script = vue3Strategy.generateScript(makeDetection({ appElement: '#app' }));
+    const script = vue3Strategy.generateProbeScript(makeDetection({ appElement: '#app' }));
     expect(script).toContain('Vue 3');
     expect(script).toContain('#app');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = vue3Strategy.generateScript(makeDetection({ appElement: '#custom' }));
+    const script = vue3Strategy.generateProbeScript(makeDetection({ appElement: '#custom' }));
     expect(script).toContain('#custom');
   });
 });
@@ -184,13 +193,13 @@ describe('react18Strategy', () => {
   });
 
   it('should generate script referencing React 18', () => {
-    const script = react18Strategy.generateScript(makeDetection({ appElement: '#root' }));
+    const script = react18Strategy.generateProbeScript(makeDetection({ appElement: '#root' }));
     expect(script).toContain('React 18');
     expect(script).toContain('#root');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = react18Strategy.generateScript(makeDetection({ appElement: '#custom' }));
+    const script = react18Strategy.generateProbeScript(makeDetection({ appElement: '#custom' }));
     expect(script).toContain('#custom');
   });
 });
@@ -216,8 +225,16 @@ describe('angularStrategy', () => {
   });
 
   it('should generate script referencing Angular', () => {
-    const script = angularStrategy.generateScript(makeDetection({}));
+    const script = angularStrategy.generateProbeScript(makeDetection({}));
     expect(script).toContain('Angular');
+  });
+
+  it('should include enhanced root element selectors (P2-4)', () => {
+    const script = angularStrategy.generateProbeScript(makeDetection({}));
+    // Verify enhanced root element selectors from P2-4
+    expect(script).toContain("querySelector('app-root')");
+    expect(script).toContain("querySelector('[main]')");
+    expect(script).toContain('document.body');
   });
 });
 
@@ -241,18 +258,18 @@ describe('sveltekitStrategy', () => {
   });
 
   it('should generate script referencing SvelteKit', () => {
-    const script = sveltekitStrategy.generateScript(makeDetection({ appElement: '#svelte' }));
+    const script = sveltekitStrategy.generateProbeScript(makeDetection({ appElement: '#svelte' }));
     expect(script).toContain('SvelteKit');
     expect(script).toContain('#svelte');
   });
 
   it('should fall back to #svelte when appElement is null', () => {
-    const script = sveltekitStrategy.generateScript(makeDetection({ appElement: null }));
+    const script = sveltekitStrategy.generateProbeScript(makeDetection({ appElement: null }));
     expect(script).toContain('#svelte');
   });
 
   it('should use d.appElement as mount selector', () => {
-    const script = sveltekitStrategy.generateScript(makeDetection({ appElement: '#custom' }));
+    const script = sveltekitStrategy.generateProbeScript(makeDetection({ appElement: '#custom' }));
     expect(script).toContain('#custom');
   });
 });
@@ -266,30 +283,30 @@ describe('staticStrategy', () => {
   });
 
   it('should generate empty script', () => {
-    expect(staticStrategy.generateScript(makeDetection({}))).toBe('');
+    expect(staticStrategy.generateProbeScript(makeDetection({}))).toBe('');
   });
 });
 
 // ─── Strategy Registry Ordering ────────────────────────────────────
-describe('hydrationStrategies registry', () => {
-  it('should have all 10 strategies registered', () => {
-    expect(hydrationStrategies).toHaveLength(10);
+describe('postSnapshotStrategies registry', () => {
+  it('should have all 11 strategies registered', () => {
+    expect(postSnapshotStrategies).toHaveLength(11);
   });
 
   it('should have the correct order: Nuxt 3 first, static last', () => {
-    expect(hydrationStrategies[0].framework).toBe('nuxt3');
-    expect(hydrationStrategies[hydrationStrategies.length - 1].framework).toBe('static');
+    expect(postSnapshotStrategies[0].framework).toBe('nuxt3');
+    expect(postSnapshotStrategies[postSnapshotStrategies.length - 1].framework).toBe('static');
   });
 
   it('should find the first matching strategy for a given detection', () => {
     const detection = makeDetection({ framework: 'vue3' });
-    const matched = hydrationStrategies.find(s => s.matches(detection));
+    const matched = postSnapshotStrategies.find(s => s.matches(detection));
     expect(matched?.framework).toBe('vue3');
   });
 
   it('should fall through to static for unknown frameworks', () => {
     const detection = makeDetection({ framework: 'unknown' });
-    const matched = hydrationStrategies.find(s => s.matches(detection));
+    const matched = postSnapshotStrategies.find(s => s.matches(detection));
     expect(matched?.framework).toBe('static');
   });
 
@@ -299,7 +316,7 @@ describe('hydrationStrategies registry', () => {
       framework: 'nuxt3',
       markers: ['__NUXT__', '__VUE__'],
     });
-    const matched = hydrationStrategies.find(s => s.matches(detection));
+    const matched = postSnapshotStrategies.find(s => s.matches(detection));
     // nuxt3Strategy is first in the array
     expect(matched?.framework).toBe('nuxt3');
   });

@@ -3,6 +3,33 @@
  * Maps generic component structure to Vue/React/Angular/Svelte/jQuery syntax
  */
 
+/**
+ * Maps framework detection results (from core's FrameworkType) to code
+ * generation framework types. Used to auto-bridge the detection pipeline
+ * to the code generation pipeline, so users don't have to manually
+ * specify --codegen-framework.
+ *
+ * Returns null for frameworks that don't have a corresponding code generator
+ * (e.g., Astro, static pages).
+ *
+ * Uses a string-keyed record to avoid importing FrameworkType from @web-clone/core
+ * (which would create a circular dependency between codegen and core packages).
+ */
+export const FRAMEWORK_TO_CODEGEN: Record<string, 'vue' | 'react' | 'angular' | 'svelte' | 'jquery' | null> = {
+  vue2: 'vue',
+  vue3: 'vue',
+  nuxt2: 'vue',
+  nuxt3: 'vue',
+  vitepress: 'vue',
+  react18: 'react',
+  nextjs: 'react',
+  angular: 'angular',
+  sveltekit: 'svelte',
+  astro: null,
+  static: null,
+  unknown: null,
+};
+
 export const frameworkRules = {
   vue: {
     // State binding: StateVariable => ref/reactive declaration
@@ -287,9 +314,14 @@ function convertCssToObject(css: string): string {
  * Template transformation rules
  */
 export const templateRules = {
-  // Remove all data-* snapshot attributes from final output
+  // Remove only tool-injected data-* snapshot attributes from final output.
+  // Third-party data-* attributes are preserved.
   cleanAttributes: (html: string): string => {
-    return html.replace(/\s*data-[\w-]+(?:="[^"]*")?/g, '');
+    return html
+      .replace(/\s*data-binding="[^"]*"/g, '')
+      .replace(/\s*data-event="[^"]*"/g, '')
+      .replace(/\s*data-condition="[^"]*"/g, '')
+      .replace(/\s*data-snapshot-[\w-]+(?:="[^"]*")?/g, '');
   },
 
   // Convert HTML attributes to JSX equivalents

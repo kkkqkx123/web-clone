@@ -172,4 +172,24 @@ export interface PuppeteerAdapterOptions {
    * @example ['--disable-gpu', '--disable-software-rasterizer']
    */
   launchArgs?: string[];
+
+  /**
+   * Whether to use browser context for sub-resource fetching.
+   *
+   * When enabled, sub-resources (CSS, JS, fonts, images) are fetched through
+   * `page.evaluate(fetch)` inside the browser context rather than raw HTTP.
+   * This preserves browser-level features:
+   * - Service worker intercepts
+   * - Browser cache
+   * - Automatic HTTP auth header forwarding
+   * - Full cookie handling (including HTTP-only, secure, cross-domain)
+   *
+   * Trade-offs:
+   * - Increased serialization overhead (text passes through evaluate bridge)
+   * - Binary resources (images, fonts) still use raw HTTP to avoid base64 overhead
+   * - Text resources (CSS, JS) are fetched as text through the evaluate bridge
+   *
+   * @default false
+   */
+  useBrowserContextForSubResources?: boolean;
 }

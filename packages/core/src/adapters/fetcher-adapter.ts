@@ -104,6 +104,22 @@ export interface FetchResult {
   url?: string;
 
   /**
+   * Browser-detected framework hint (filled by browser adapters).
+   * When present, this takes priority over static HTML/JS-based framework detection
+   * in the assembler pipeline.
+   */
+  browserFramework?: {
+    /** Detected framework: 'nuxt3' | 'nextjs' | 'vue3' | 'react18' | 'angular' | 'sveltekit' | 'astro' | 'static' | 'unknown' */
+    framework: string;
+    /** Confidence level (0-1) */
+    confidence: number;
+    /** Mount point element selector */
+    appElement?: string;
+    /** Whether hydration was confirmed in the browser context */
+    isHydrated?: boolean;
+  };
+
+  /**
    * Redirect history for this request
    * Tracks all 3xx redirects that occurred before reaching the final resource
    * Format: [{ from, to, status }, ...]

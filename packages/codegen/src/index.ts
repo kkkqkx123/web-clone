@@ -143,3 +143,4 @@ export const codeGenerator = new FrameworkCodeGenerator();
 // Re-exports for convert.ts
 export { ConfigGenerator } from './config-generator.js';
 export { SharedLogicExtractor } from './shared-logic-extractor.js';
+export { FRAMEWORK_TO_CODEGEN } from './framework-rules.js';

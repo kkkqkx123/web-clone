@@ -43,3 +43,18 @@ Thumbs.db
 # Turbo
 .turbo
 test-output/
+
+# E2E 测试输出（运行时生成，不提交）
+tests/e2e/outputs/
+
+# Fixture 构建临时文件
+tests/e2e/fixtures/*/node_modules/
+tests/e2e/fixtures/*/dist/
+tests/e2e/fixtures/*/.next/
+tests/e2e/fixtures/*/.nuxt/
+tests/e2e/fixtures/*/.output/
+tests/e2e/fixtures/*/.svelte-kit/
+tests/e2e/fixtures/*/.angular/
+tests/e2e/fixtures/*/package-lock.json
+tests/e2e/fixtures/*/pnpm-lock.yaml
+tests/e2e/fixtures/*/.npmrc

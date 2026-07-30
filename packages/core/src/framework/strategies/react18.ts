@@ -1,28 +1,24 @@
 /**
- * React 18 Hydration Strategy.
+ * React 18 Post-Snapshot Probe Strategy.
  *
  * Match conditions:
- * - JS content contains hydrateRoot or __REACT_DEVTOOLS tags (detector returns react18)
- * - Low confidence detection without specific framework markers (e.g. no
- *   __NEXT_DATA__, no __NUXT__)
+ * - JS content contains hydrateRoot or __REACT_DEVTOOLS markers
+ * - Low confidence detection without specific framework markers
  *
- * Hydration method:
+ * Probe method:
  * React 18's hydrateRoot() is called automatically by the application code.
- * The script just waits for the root element to gain React's internal markers.
- *
- * Path rewriting:
- * React 18 apps load chunks via DOM <script src="..."> attributes,
- * handled generically by assembleBundle. No framework-internal path configs exist.
+ * This script is a diagnostic observer that polls for __reactRoot$ on the
+ * root element. It does NOT trigger re-hydration.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const react18Strategy: HydrationStrategy = {
+export const react18Strategy: PostSnapshotStrategy = {
   framework: 'react18',
   matches: (d) =>
     d.framework === 'react18' ||
     d.markers.includes('__REACT_DEVTOOLS'),
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     const rootEl = d.appElement || '#root';
     return `
 <script type="text/javascript">

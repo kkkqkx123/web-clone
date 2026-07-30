@@ -52,6 +52,8 @@ export interface SnapshotOptions {
   scanJson?: boolean;
   /** Hybrid mode: use browser adapter for HTML rendering, HTTP pool for asset downloads. */
   hybrid?: boolean;
+  /** Domains that should use the browser adapter in hybrid mode (preserves auth context). */
+  hybridAuthDomains?: string[];
 }
 
 /**

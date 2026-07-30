@@ -9,6 +9,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./framework-rules": {
+      "types": "./dist/framework-rules.d.ts",
+      "default": "./dist/framework-rules.js"
+    },
     "./vue": {
       "types": "./dist/vue-generator.d.ts",
       "default": "./dist/vue-generator.js"

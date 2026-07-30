@@ -108,6 +108,21 @@ function matchStyles(root: ComponentRoot, css: CssAnalysisResult) {
     matchSignals.push(0.12); // Weak signal: dynamic style hint
   }
 
+  // DOM-structure-based fallback for modern CSS schemes
+  // (Tailwind, CSS Modules, CSS-in-JS) where class-name-based matching
+  // often produces zero or very few results
+  if (needsDomStructureFallback(css.scheme, matchSignals)) {
+    const domStyles = matchByDomStructure(root, css);
+    if (domStyles.styles.length > 0) {
+      for (const style of domStyles.styles) {
+        if (!matched.includes(style)) {
+          matched.push(style);
+        }
+      }
+      matchSignals.push(domStyles.signal);
+    }
+  }
+
   // Combine multiple signals using probability model
   // Instead of sum (which can exceed 1), use: confidence = 1 - ∏(1 - signal)
   // This is more realistic: multiple weak signals reinforce, but don't guarantee
@@ -120,6 +135,124 @@ function matchStyles(root: ComponentRoot, css: CssAnalysisResult) {
     css: Array.from(new Set(matched)).join('\n'),
     confidence: Math.min(1, confidence)
   };
+}
+
+/**
+ * Determine whether to use DOM-structure-based CSS matching fallback.
+ *
+ * Triggered when:
+ * 1. CSS scheme is Tailwind, CSS Modules, CSS-in-JS, or utility-first
+ * 2. Traditional class-name matching yields zero or very few results
+ */
+function needsDomStructureFallback(
+  scheme: import('./types.js').CssScheme | undefined,
+  matchSignals: number[]
+): boolean {
+  if (!scheme || scheme === 'bem' || scheme === 'unknown') return false;
+
+  // For modern CSS schemes, fall back to DOM structure when
+  // class-name matching yields no or very few results
+  if (matchSignals.length === 0) return true;
+
+  // If only tag-based matching succeeded (weak signal), still try DOM structure
+  if (matchSignals.length === 1 && matchSignals[0] <= 0.10) return true;
+
+  return false;
+}
+
+/**
+ * Match CSS rules to a component using its DOM element structure.
+ *
+ * Strategies by scheme:
+ * - Tailwind/utility-first: Scan the element's outerHTML for utility classes
+ *   and find matching CSS rules that define those utilities
+ * - CSS Modules/CSS-in-JS: Group by the element's tag name and class fragments
+ *   that appear in both the HTML and CSS selectors
+ */
+function matchByDomStructure(
+  root: ComponentRoot,
+  css: CssAnalysisResult
+): { styles: string[]; signal: number } {
+  const styles: string[] = [];
+  const outerHtml = root.element.outerHTML || '';
+  const tag = root.element.tagName?.toLowerCase() || '';
+
+  const scheme = css.scheme || 'unknown';
+
+  if (scheme === 'tailwind' || scheme === 'utility-first') {
+    // For utility-first CSS: extract utility class names from the HTML element
+    // and match against CSS rules that target those classes
+    const htmlClassNames = extractClassNamesFromHtml(outerHtml);
+    for (const rule of css.rules) {
+      const ruleClasses = extractClassNamesFromSelector(rule.selector);
+      if (ruleClasses.some(rc => htmlClassNames.has(rc))) {
+        styles.push(rule.source);
+      }
+    }
+    return { styles, signal: 0.35 };
+  }
+
+  if (scheme === 'css-modules' || scheme === 'css-in-js') {
+    // For CSS Modules/CSS-in-JS: try to match by tag name + partial class fragments
+    const htmlClassNames = extractClassNamesFromHtml(outerHtml);
+
+    for (const rule of css.rules) {
+      // If the rule targets the same tag, and has any class overlap with the HTML,
+      // it's likely related to this component
+      const selectorLower = rule.selector.toLowerCase();
+      if (selectorLower.startsWith(tag + '.') || selectorLower.startsWith(tag + '[')) {
+        styles.push(rule.source);
+      }
+    }
+
+    // If tag-based matching found nothing, try class fragment matching
+    if (styles.length === 0) {
+      for (const rule of css.rules) {
+        const ruleClasses = extractClassNamesFromSelector(rule.selector);
+        // Check for partial substring matches (CSS Modules hashes share prefixes)
+        if (ruleClasses.some(rc => {
+          return [...htmlClassNames].some(hc =>
+            rc.startsWith(hc + '_') || hc.startsWith(rc + '_') || rc === hc
+          );
+        })) {
+          styles.push(rule.source);
+        }
+      }
+    }
+
+    return { styles, signal: 0.25 };
+  }
+
+  return { styles: [], signal: 0 };
+}
+
+/**
+ * Extract class names from an HTML element's opening tag.
+ */
+function extractClassNamesFromHtml(outerHtml: string): Set<string> {
+  const classNames = new Set<string>();
+  // Match class="..." or class='...'
+  const classMatch = outerHtml.match(/class\s*=\s*["']([^"']*)["']/i);
+  if (classMatch) {
+    const classes = classMatch[1].split(/\s+/).filter(Boolean);
+    for (const c of classes) {
+      classNames.add(c);
+    }
+  }
+  return classNames;
+}
+
+/**
+ * Extract class names from a CSS selector.
+ */
+function extractClassNamesFromSelector(selector: string): string[] {
+  const classes: string[] = [];
+  const classRegex = /\.([a-zA-Z_][\w-]*)/g;
+  let match: RegExpExecArray | null;
+  while ((match = classRegex.exec(selector)) !== null) {
+    classes.push(match[1]);
+  }
+  return classes;
 }
 
 function matchLogic(root: ComponentRoot, js: JsAnalysisResult) {

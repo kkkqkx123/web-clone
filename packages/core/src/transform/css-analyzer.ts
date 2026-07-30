@@ -8,11 +8,11 @@
  */
 import postcss from 'postcss';
 import type { Root, Declaration, Rule } from 'postcss';
-import type { CssAnalysisResult, CssRule } from './types.js';
+import type { CssAnalysisResult, CssRule, CssScheme } from './types.js';
 
 // ── Public API ─────────────────────────────────────────────────────
 
-export function analyzeCss(css: string): CssAnalysisResult {
+export function analyzeCss(css: string, sourceMap?: string): CssAnalysisResult {
   if (!css.trim()) {
     return { variables: {}, rules: [], componentStyles: {}, globalStyles: [], dynamicStyles: [] };
   }
@@ -20,17 +20,35 @@ export function analyzeCss(css: string): CssAnalysisResult {
   const size = css.length;
 
   try {
+    // Detect CSS scheme before processing (lightweight, regex-based)
+    const scheme = detectCssScheme(css);
+    // Parse source map if available to build a class name mapping table
+    const classMappings = sourceMap ? parseSourceMapForClasses(sourceMap, css) : undefined;
+
+    let result: CssAnalysisResult;
+
     // Size Graded Strategy
     if (size > 1024 * 1024) {
       // > 1MB: Extract CSS variables only
-      return analyzeCssVariablesOnly(css);
+      result = analyzeCssVariablesOnly(css);
     } else if (size > 100 * 1024) {
       // 100KB - 1MB: streaming parsing
-      return analyzeCssStreaming(css);
+      result = analyzeCssStreaming(css);
     } else {
       // < 100KB: full postcss parse
-      return analyzeCssFull(css);
+      result = analyzeCssFull(css);
     }
+
+    result.scheme = scheme;
+    result.classMappings = classMappings;
+
+    // For CSS Modules / CSS-in-JS with source mappings, remap hashed class names
+    // to original names in componentStyles so downstream correlator can match them
+    if (classMappings && (scheme === 'css-modules' || scheme === 'css-in-js')) {
+      result.componentStyles = remapComponentStyles(result.componentStyles, classMappings);
+    }
+
+    return result;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`CSS analysis error: ${message}`);
@@ -186,6 +204,17 @@ function processRule(
     if (!componentStyles[name].includes(block)) {
       componentStyles[name].push(block);
     }
+    return;
+  }
+
+  // CSS Modules hash pattern: .ClassName_hash1a2b3c → group by prefix "ClassName"
+  const cssModMatch = selector.match(/\.([A-Za-z_][\w-]*?)_[a-zA-Z0-9]{5,}(?=\s|,|:|$|\{)/);
+  if (cssModMatch) {
+    const name = cssModMatch[1];
+    if (!componentStyles[name]) componentStyles[name] = [];
+    if (!componentStyles[name].includes(block)) {
+      componentStyles[name].push(block);
+    }
   }
 }
 
@@ -257,6 +286,15 @@ function groupStylesByComponent(rules: CssRule[]): {
       }
       componentGroups[componentName].push(rule.source);
     } else {
+      // CSS Modules hash pattern: .ClassName_hash1a2b3c → group by prefix
+      const cssModMatch = selector.match(/\.([A-Za-z_][\w-]*?)_[a-zA-Z0-9]{5,}(?=\s|,|:|$|\{)/);
+      if (cssModMatch) {
+        const componentName = cssModMatch[1];
+        if (!componentGroups[componentName]) {
+          componentGroups[componentName] = [];
+        }
+        componentGroups[componentName].push(rule.source);
+      } else {
       // Try ID-based
       const idMatch = selector.match(/#([a-z0-9_-]+)/i);
       if (idMatch) {
@@ -282,7 +320,8 @@ function groupStylesByComponent(rules: CssRule[]): {
             if (!componentGroups[tagName]) {
               componentGroups[tagName] = [];
             }
-            componentGroups[tagName].push(rule.source);
+              componentGroups[tagName].push(rule.source);
+            }
           }
         }
       }
@@ -338,4 +377,171 @@ function detectDynamicStyles(rules: CssRule[]): Array<{ selector: string; proper
   });
 
   return dynamic;
+}
+
+// ── CSS Scheme Detection ────────────────────────────────────────────────────
+
+/**
+ * Detect the CSS authoring scheme from the stylesheet content.
+ *
+ * Uses a tiered confidence approach to classify the CSS into one of:
+ * - 'bem': Standard BEM naming convention (block__element--modifier)
+ * - 'tailwind': Tailwind CSS with @tailwind/@apply directives
+ * - 'css-modules': Hashed class names with source map references
+ * - 'css-in-js': Runtime-generated class names (styled-components, emotion)
+ * - 'utility-first': Utility-first approach without Tailwind-specific directives
+ * - 'unknown': No discernible pattern
+ */
+function detectCssScheme(css: string): CssScheme {
+  // Take a representative sample (first 50KB) for performance
+  const sample = css.slice(0, 50 * 1024);
+
+  // 1. Tailwind CSS detection: @tailwind or @apply directives
+  const hasTailwindDirectives = /@tailwind\s+(base|components|utilities)/.test(sample)
+    || /@apply\s+[\w-]+/.test(sample)
+    || /--tw-[\w-]+/.test(sample) || /\.tw-/.test(sample);
+  if (hasTailwindDirectives) return 'tailwind';
+
+  // 2. CSS Modules detection: hashed class names pattern
+  // CSS Modules generates selectors like .Header_hash1a2b3c or ._1a2b3c4d
+  const hasModuledClasses = /\.\w+_[a-zA-Z0-9]{5,}(?:\s|,|:|$)/.test(sample)
+    || /\._[a-zA-Z0-9]{5,}(?:\s|,|:|$)/.test(sample);
+  // Also check for CSS Modules composition markers
+  const hasComposes = /composes:\s*[\w-]+/.test(sample);
+  if (hasModuledClasses || hasComposes) return 'css-modules';
+
+  // 3. CSS-in-JS detection: styled-components / emotion patterns
+  // styled-components generates .sc-xxxxx, emotion generates .css-xxxx or .emotion-0
+  const hasCssInJs = /\.sc-[a-zA-Z0-9]+(?:\s|,|:|$)/.test(sample)
+    || /\.css-[a-zA-Z0-9]+(?:\s|,|:|$)/.test(sample)
+    || /\.emotion-\d+/.test(sample);
+  if (hasCssInJs) return 'css-in-js';
+
+  // 4. BEM detection: count selector lines matching BEM pattern
+  const selectors = sample.match(/[^{]+(?=\{)/g) || [];
+  let bemCount = 0;
+  let totalSelectors = 0;
+  for (const sel of selectors) {
+    totalSelectors++;
+    if (/\.([a-z0-9][a-z0-9-]*?)(?:__|--)/i.test(sel.trim())) {
+      bemCount++;
+    }
+  }
+  // If >= 30% of selectors follow BEM pattern, classify as BEM
+  if (totalSelectors > 0 && bemCount / totalSelectors >= 0.3) return 'bem';
+
+  // 5. Utility-first detection: short, single-purpose class patterns
+  // Like Tailwind but without the directives; e.g., .flex, .grid, .p-4, .m-2
+  const utilityPatterns = [
+    /\.[mp][trblxy]?-\d+/g,          // .m-2, .p-4, .mt-1, .px-3
+    /\.(flex|grid|block|inline|hidden)\b/g, // .flex, .grid
+    /\.(items|justify|self)-(start|end|center|between|around|stretch|baseline)\b/g,
+    /\.(text|bg|border)-\w+/g,        // .text-sm, .bg-red-500
+    /\.(w|h)-\d+\/\d+/g,              // .w-1/2, .h-full
+    /\.(rounded|shadow|opacity)-\w+/g, // .rounded-lg
+  ];
+  let utilityScore = 0;
+  for (const pattern of utilityPatterns) {
+    const matches = sample.match(pattern);
+    if (matches) utilityScore += matches.length;
+  }
+  // If >= 15 utility-class instances, classify as utility-first
+  if (utilityScore >= 15) return 'utility-first';
+
+  return 'unknown';
+}
+
+// ── Source Map Support (CSS Modules) ─────────────────────────────────────────
+
+/**
+ * Parse a CSS source map (JSON) to extract class name mappings.
+ *
+ * CSS Modules source maps contain mappings from generated (hashed) class names
+ * back to the original class names in the source file. This function extracts
+ * a mapping table: hashedName -> originalName.
+ */
+function parseSourceMapForClasses(
+  sourceMapJson: string,
+  css: string
+): Record<string, string> | undefined {
+  try {
+    const map: { sources?: string[]; sourcesContent?: string[]; mappings?: string } =
+      JSON.parse(sourceMapJson);
+    if (!map.sourcesContent || !map.sources || map.sourcesContent.length === 0) return undefined;
+
+    const mappings: Record<string, string> = {};
+
+    for (let i = 0; i < map.sourcesContent.length; i++) {
+      const source = map.sourcesContent[i];
+      if (!source) continue;
+
+      // Extract original class names from CSS Modules source (e.g., .header { composes: ... })
+      // CSS Modules source uses local class names as selectors
+      const origClasses = new Set<string>();
+      // Match CSS class selectors: .className, .className:hover, .className .child
+      const classRegex = /\.([a-zA-Z_][\w-]*)(?![\w-]*\s*=)(?=\s|,|:|$|\{)/g;
+      let match: RegExpExecArray | null;
+      while ((match = classRegex.exec(source)) !== null) {
+        origClasses.add(match[1]);
+      }
+
+      // Match CSS Modules :local(.className) syntax
+      const localRegex = /:local\(\.([a-zA-Z_][\w-]*)\)/g;
+      while ((match = localRegex.exec(source)) !== null) {
+        origClasses.add(match[1]);
+      }
+
+      // Now find the corresponding generated classes in the compiled CSS
+      // CSS Modules typically appends a hash suffix to the original name: .name_hash
+      for (const origName of origClasses) {
+        const hashRegex = new RegExp(
+          `\\.${escapeRegExp(origName)}_([a-zA-Z0-9]+)(?=\\s|,|:|\\{|$)`,
+          'g'
+        );
+        let hashMatch: RegExpExecArray | null;
+        while ((hashMatch = hashRegex.exec(css)) !== null) {
+          const hashedName = hashMatch[0].slice(1); // Remove leading '.'
+          if (!mappings[hashedName]) {
+            mappings[hashedName] = origName;
+          }
+        }
+      }
+    }
+
+    return Object.keys(mappings).length > 0 ? mappings : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Remap component styles keys from hashed class names to original names.
+ * Merges duplicate groups that map to the same original name.
+ */
+function remapComponentStyles(
+  componentStyles: Record<string, string[]>,
+  classMappings: Record<string, string>
+): Record<string, string[]> {
+  const remapped: Record<string, string[]> = {};
+
+  for (const [key, styles] of Object.entries(componentStyles)) {
+    const resolved = classMappings[key] || key;
+    if (!remapped[resolved]) {
+      remapped[resolved] = [];
+    }
+    for (const style of styles) {
+      if (!remapped[resolved].includes(style)) {
+        remapped[resolved].push(style);
+      }
+    }
+  }
+
+  return remapped;
+}
+
+/**
+ * Escape special regex characters in a string.
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -1,28 +1,23 @@
 /**
- * Astro Hydration Strategy.
+ * Astro Post-Snapshot Probe Strategy.
  *
  * Match conditions:
  * - Meta generator contains "astro" (detector returns astro)
  *
- * Hydration method:
+ * Probe method:
  * Astro outputs static HTML by default. Interactive components ("islands")
- * are self-bootstrapping via data-astro-* attributes and do not need
- * framework-level hydration monitoring. This strategy is a no-op, similar
- * to the static strategy.
- *
- * Path rewriting:
- * Astro chunks are loaded via DOM <script src="..."> attributes,
- * handled generically by assembleBundle. No framework-internal path configs exist.
+ * are self-bootstrapping via data-astro-* attributes. No probe script needed.
+ * This strategy is a no-op (empty script).
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const astroStrategy: HydrationStrategy = {
+export const astroStrategy: PostSnapshotStrategy = {
   framework: 'astro',
   matches: (d) =>
     d.framework === 'astro' ||
     d.markers.some(m => m.includes('generator:astro')),
-  generateScript: () => {
+  generateProbeScript: () => {
     // Astro outputs static HTML; interactive islands are self-bootstrapping.
     // No framework-level hydration script needed.
     return '';

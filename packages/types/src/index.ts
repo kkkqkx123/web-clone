@@ -11,6 +11,8 @@ export type CodegenFramework = 'vue' | 'react' | 'angular' | 'svelte' | 'jquery'
 
 export interface FrameworkCodeGenOptions {
   framework?: CodegenFramework;
+  /** Original detected framework (e.g., 'nuxt2', 'nuxt3', 'nextjs') for version-aware codegen */
+  detectedFramework?: string;
   typescript?: boolean;
   cssModules?: boolean;
   generateDrafts?: boolean;

@@ -196,7 +196,51 @@ function quickScanJs(js: string): { state: string[]; handlers: string[] } {
     }
   }
 
+  // Scan JSX event handlers: onXxx={handlerName}
+  const jsxEventPattern = /\bon(\w+)\s*=\s*\{([^}]+)\}/g;
+  while ((match = jsxEventPattern.exec(js)) !== null) {
+    const handlerExpr = match[2].trim();
+    // Extract handler name from simple references: {handleClick} or {() => handleClick(e)}
+    const handlerName = extractJsxHandlerName(handlerExpr);
+    if (handlerName && isLikelyHandler(handlerName) && !handlers.includes(handlerName)) {
+      handlers.push(handlerName);
+    }
+  }
+
+  // Scan JSX expressions for state references: {stateVar && <Element />}
+  const jsxExprPattern = /\{(\w+)\s*(?:&&|\|\||\?|&&|\|\|)/g;
+  while ((match = jsxExprPattern.exec(js)) !== null) {
+    const varName = match[1];
+    if (varName && isLikelyState(varName) && !state.includes(varName)) {
+      state.push(varName);
+    }
+  }
+
+  // Scan JSX map() calls for state references: {items.map(item => ...)}
+  const jsxMapPattern = /\{(\w+)\.\s*map\s*\(/g;
+  while ((match = jsxMapPattern.exec(js)) !== null) {
+    const varName = match[1];
+    if (varName && isLikelyState(varName) && !state.includes(varName)) {
+      state.push(varName);
+    }
+  }
+
   return { state, handlers };
+}
+
+/**
+ * Extract handler name from a JSX event handler expression.
+ * Handles: {handleClick}, {(e) => handleClick(e)}, {() => this.handleClick()}
+ */
+function extractJsxHandlerName(expr: string): string | null {
+  // Simple reference: {handleClick}
+  if (/^\w+$/.test(expr)) return expr;
+
+  // Arrow function body: {(e) => handleClick(e)} or {() => this.handler()}
+  const arrowMatch = expr.match(/(?:\(\w*\)\s*=>\s*)?(\w+)(?:\s*\([^)]*\))?$/);
+  if (arrowMatch) return arrowMatch[1];
+
+  return null;
 }
 
 /**
@@ -208,7 +252,8 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
       sourceType: 'unambiguous',
       errorRecovery: true,
       allowImportExportEverywhere: true,
-      allowAwaitOutsideFunction: true
+      allowAwaitOutsideFunction: true,
+      plugins: ['jsx', 'typescript']
     });
 
     const stateVariables = new Map<string, StateVariable>();
@@ -216,15 +261,85 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
     const eventListeners: EventBinding[] = [];
     const domRefs: DomRef[] = [];
 
+    // Track framework API imports for reactive state detection
+    const frameworkAPIs = new Map<string, string>();
+    // Map<importedName, frameworkName> to know which framework an API belongs to
+
     interface BabelPath {
       node: Node & Record<string, unknown>;
       parent?: Node & Record<string, unknown>;
     }
 
     traverse(ast, {
+      ImportDeclaration(path: BabelPath) {
+        const node = path.node as Record<string, unknown>;
+        const source = node.source as Record<string, unknown> | undefined;
+        const sourceValue = source?.value as string | undefined;
+        if (!sourceValue) return;
+
+        // Vue / Nuxt reactive APIs
+        if (/^vue|^@vue\//.test(sourceValue)) {
+          const specifiers = node.specifiers as Array<Record<string, unknown>> | undefined;
+          if (specifiers) {
+            for (const spec of specifiers) {
+              if (spec.type === 'ImportSpecifier') {
+                const imported = spec.imported as Record<string, unknown> | undefined;
+                const local = spec.local as Record<string, unknown> | undefined;
+                const name = ((imported ? imported.name : undefined) || (local ? local.name : undefined)) as string | undefined;
+                if (name) frameworkAPIs.set(name, 'vue');
+              } else if (spec.type === 'ImportDefaultSpecifier') {
+                const local = spec.local as Record<string, unknown> | undefined;
+                const name = (local ? local.name : undefined) as string | undefined;
+                if (name) frameworkAPIs.set(name, 'vue');
+              }
+            }
+          }
+        }
+
+        // React hooks
+        if (sourceValue === 'react' || sourceValue === '@preact/hooks') {
+          const specifiers = node.specifiers as Array<Record<string, unknown>> | undefined;
+          if (specifiers) {
+            for (const spec of specifiers) {
+              if (spec.type === 'ImportSpecifier') {
+                const imported = spec.imported as Record<string, unknown> | undefined;
+                const local = spec.local as Record<string, unknown> | undefined;
+                const name = ((imported ? imported.name : undefined) || (local ? local.name : undefined)) as string | undefined;
+                if (name) frameworkAPIs.set(name, 'react');
+              }
+            }
+          }
+        }
+
+        // Svelte stores
+        if (sourceValue === 'svelte/store') {
+          const specifiers = node.specifiers as Array<Record<string, unknown>> | undefined;
+          if (specifiers) {
+            for (const spec of specifiers) {
+              if (spec.type === 'ImportSpecifier') {
+                const imported = spec.imported as Record<string, unknown> | undefined;
+                const local = spec.local as Record<string, unknown> | undefined;
+                const name = ((imported ? imported.name : undefined) || (local ? local.name : undefined)) as string | undefined;
+                if (name) frameworkAPIs.set(name, 'svelte');
+              }
+            }
+          }
+        }
+      },
+
       VariableDeclarator(path: BabelPath) {
         const sv = extractStateVariable(path);
         if (sv) stateVariables.set(sv.name, sv);
+
+        // Detect framework API calls: const count = ref(0) / useState(0)
+        const fwSv = extractFrameworkState(path, frameworkAPIs);
+        if (fwSv) {
+          // Merge or override: framework API-created state is more reliable
+          const existing = stateVariables.get(fwSv.name);
+          if (!existing || existing.confidence < fwSv.confidence) {
+            stateVariables.set(fwSv.name, fwSv);
+          }
+        }
       },
 
       ObjectProperty(path: BabelPath) {
@@ -267,7 +382,95 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
         // Try to extract DOM references
         const ref = tryExtractDomRef(path);
         if (ref) domRefs.push(ref);
-      }
+      },
+
+      // JSX-specific traversals (React/Preact components)
+      JSXElement(path: BabelPath) {
+        const node = path.node as Record<string, unknown>;
+        const openingEl = node.openingElement as Record<string, unknown> | undefined;
+        if (!openingEl) return;
+
+        // Extract component name from JSX tag
+        const name = extractJSXComponentName(openingEl);
+        if (name) {
+          const sv: StateVariable = {
+            name,
+            type: 'component',
+            initial: undefined,
+            bindings: [],
+            mutators: [],
+            confidence: 0.80,
+          };
+          stateVariables.set(name, sv);
+        }
+
+        // Extract event handlers from JSX attributes
+        const attributes = openingEl.attributes || [];
+        for (const attr of (attributes as Array<Record<string, unknown>>)) {
+          if (attr.type === 'JSXAttribute') {
+            const attrName = attr.name as Record<string, unknown> | undefined;
+            const attrValue = attr.value as Record<string, unknown> | undefined;
+
+            // Handle JSX event handlers like onClick={handleClick}
+            if (attrName?.name && typeof attrName.name === 'string' && attrName.name.startsWith('on')) {
+              const eventName = attrName.name.slice(2).toLowerCase();
+              let handlerName = '';
+              if (attrValue?.type === 'JSXExpressionContainer') {
+                const expr = (attrValue as Record<string, unknown>).expression as Record<string, unknown> | undefined;
+                handlerName = (expr?.name as string) || '';
+              }
+              if (handlerName) {
+                eventListeners.push({
+                  selector: '',
+                  event: eventName,
+                  handler: handlerName,
+                  preventDefault: false,
+                });
+
+                // Also register the handler as a method if not already captured
+                if (isLikelyHandler(handlerName)) {
+                  methodMap.set(handlerName, {
+                    name: handlerName,
+                    kind: 'handler',
+                    code: '',
+                    parameters: [],
+                    sideEffects: [],
+                  });
+                }
+              }
+            }
+
+            // Handle JSX state bindings like isVisible={condition}
+            if (attrName?.name && typeof attrName.name === 'string' && !attrName.name.startsWith('on')) {
+              if (attrValue?.type === 'JSXExpressionContainer') {
+                const expr = (attrValue as Record<string, unknown>).expression as Record<string, unknown> | undefined;
+                if (expr?.type === 'Identifier') {
+                  const stateName = expr.name as string;
+                  if (stateName) {
+                    stateVariables.set(stateName, {
+                      name: stateName,
+                      type: 'unknown',
+                      initial: undefined,
+                      bindings: [],
+                      mutators: [],
+                      confidence: 0.55,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      // Extract binary/logical expressions in JSX (e.g., {isVisible && <Component />})
+      JSXExpressionContainer(path: BabelPath) {
+        const node = path.node as Record<string, unknown>;
+        const expr = node.expression as Record<string, unknown> | undefined;
+        if (expr) {
+          collectJSXExpressionIdentifiers(expr, stateVariables);
+        }
+      },
     });
 
     result.state = Array.from(stateVariables.values());
@@ -286,6 +489,108 @@ function parseWithBabel(js: string, result: JsAnalysisResult): JsAnalysisResult 
   return result;
 }
 
+/**
+ * Extract component name from JSX opening element.
+ * E.g., <Header /> -> "Header", <div className="x"> -> null (native element)
+ */
+function extractJSXComponentName(openingElement: Record<string, unknown>): string | null {
+  const name = openingElement.name as Record<string, unknown> | undefined;
+  if (!name) return null;
+
+  // JSXIdentifier: <MyComponent />
+  if (name.type === 'JSXIdentifier') {
+    const identName = name.name as string;
+    // Only PascalCase names are custom components (native HTML elements are lowercase)
+    if (identName && /^[A-Z]/.test(identName)) {
+      return identName;
+    }
+  }
+
+  // JSXMemberExpression: <Foo.Bar />
+  if (name.type === 'JSXMemberExpression') {
+    const obj = name.object as Record<string, unknown> | undefined;
+    const prop = name.property as Record<string, unknown> | undefined;
+    if (obj?.name && prop?.name) {
+      return `${obj.name}.${prop.name}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Recursively collect Identifier references from JSX expressions.
+ * Handles common patterns:
+ *   {isVisible && <div />} → isVisible
+ *   {items.map(item => <li />)} → items
+ *   {condition ? <A /> : <B />} → condition
+ */
+function collectJSXExpressionIdentifiers(
+  expr: Record<string, unknown>,
+  stateVariables: Map<string, StateVariable>,
+): void {
+  if (!expr) return;
+
+  // Simple identifier reference
+  if (expr.type === 'Identifier' && expr.name && typeof expr.name === 'string') {
+    const name = expr.name;
+    if (name && !stateVariables.has(name)) {
+      stateVariables.set(name, {
+        name,
+        type: 'unknown',
+        initial: undefined,
+        bindings: [],
+        mutators: [],
+        confidence: 0.45, // Lower confidence — could be a prop, not necessarily state
+      });
+    }
+    return;
+  }
+
+  // LogicalExpression: left && right, left || right
+  if (expr.type === 'LogicalExpression') {
+    const left = expr.left as Record<string, unknown> | undefined;
+    const right = expr.right as Record<string, unknown> | undefined;
+    if (left) collectJSXExpressionIdentifiers(left, stateVariables);
+    if (right) collectJSXExpressionIdentifiers(right, stateVariables);
+    return;
+  }
+
+  // ConditionalExpression: test ? consequent : alternate
+  if (expr.type === 'ConditionalExpression') {
+    const test = expr.test as Record<string, unknown> | undefined;
+    const consequent = expr.consequent as Record<string, unknown> | undefined;
+    const alternate = expr.alternate as Record<string, unknown> | undefined;
+    if (test) collectJSXExpressionIdentifiers(test, stateVariables);
+    if (consequent) collectJSXExpressionIdentifiers(consequent, stateVariables);
+    if (alternate) collectJSXExpressionIdentifiers(alternate, stateVariables);
+    return;
+  }
+
+  // CallExpression: foo.method(args) — extract callee
+  if (expr.type === 'CallExpression') {
+    const callee = expr.callee as Record<string, unknown> | undefined;
+    // MemberExpression: items.map(...)
+    if (callee?.type === 'MemberExpression') {
+      const obj = callee.object as Record<string, unknown> | undefined;
+      if (obj?.type === 'Identifier' && obj.name) {
+        const name = obj.name as string;
+        if (name && !stateVariables.has(name)) {
+          stateVariables.set(name, {
+            name,
+            type: 'unknown',
+            initial: undefined,
+            bindings: [],
+            mutators: [],
+            confidence: 0.50,
+          });
+        }
+      }
+    }
+    return;
+  }
+}
+
 function extractStateVariable(path: BabelPath): StateVariable | null {
   const node = path.node as unknown;
   const { id, init } = node as { id?: unknown; init?: unknown };
@@ -302,6 +607,145 @@ function extractStateVariable(path: BabelPath): StateVariable | null {
     mutators: [],
     confidence: scoreAsState(name)
   };
+}
+
+/**
+ * Detect variables created via framework reactive APIs.
+ * Tracks import bindings from 'vue', 'react', 'svelte/store' and
+ * marks variables initialized with framework API calls as reactive.
+ *
+ * Examples:
+ *   import { ref } from 'vue'       → const count = ref(0)    → type='ref'
+ *   import { reactive } from 'vue'   → const state = reactive({}) → type='reactive'
+ *   import { useState } from 'react' → const [val, setVal] = useState(0) → type='reactive-state'
+ */
+function extractFrameworkState(
+  path: BabelPath,
+  frameworkAPIs: Map<string, string>
+): StateVariable | null {
+  const node = path.node as unknown;
+  const { id, init } = node as { id?: unknown; init?: unknown };
+  if (!id || !init) return null;
+
+  const initObj = init as Record<string, unknown>;
+
+  // Handle: const count = ref(0) / const state = reactive({})
+  if (initObj.type === 'CallExpression') {
+    const callee = initObj.callee as Record<string, unknown> | undefined;
+    if (!callee) return null;
+
+    let apiName: string | undefined;
+
+    // Direct call: ref(...), reactive(...), useState(...)
+    if (callee.type === 'Identifier') {
+      apiName = callee.name as string;
+    }
+
+    if (apiName && frameworkAPIs.has(apiName)) {
+      const framework = frameworkAPIs.get(apiName)!;
+      const name = extractVariableName(id);
+      if (!name) return null;
+
+      // Map framework API to state type
+      const type = mapFrameworkApiToType(apiName, framework);
+
+      // Extract first argument as initial value if available
+      const args = initObj.arguments as Array<Record<string, unknown>> | undefined;
+      const initial = args && args.length > 0 ? extractSimpleValue(args[0]) : undefined;
+
+      return {
+        name,
+        type,
+        initial,
+        bindings: [],
+        mutators: [],
+        confidence: 0.90, // High confidence: framework API-created state
+      };
+    }
+  }
+
+  // Handle: const [state, setState] = useState(0) — destructured React hooks
+  if (initObj.type === 'CallExpression') {
+    const callee = initObj.callee as Record<string, unknown> | undefined;
+    if (!callee || callee.type !== 'Identifier') return null;
+
+    const apiName = callee.name as string;
+    if (!frameworkAPIs.has(apiName)) return null;
+
+    const framework = frameworkAPIs.get(apiName)!;
+
+    if ((id as Record<string, unknown>).type === 'ArrayPattern') {
+      const elements = (id as Record<string, unknown>).elements as Array<Record<string, unknown>> | undefined;
+      if (elements && elements.length > 0 && elements[0].type === 'Identifier') {
+        const name = elements[0].name as string;
+        const args = initObj.arguments as Array<Record<string, unknown>> | undefined;
+        const initial = args && args.length > 0 ? extractSimpleValue(args[0]) : undefined;
+
+        return {
+          name,
+          type: 'reactive-state',
+          initial,
+          bindings: [],
+          mutators: [],
+          confidence: 0.90,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract variable name from an AST identifier or pattern node.
+ */
+function extractVariableName(id: unknown): string | null {
+  if (!id) return null;
+  const idObj = id as Record<string, unknown>;
+  if (idObj.type === 'Identifier') {
+    return idObj.name as string;
+  }
+  return null;
+}
+
+/**
+ * Extract a simple literal value from an AST expression node.
+ * Returns undefined for complex expressions.
+ */
+function extractSimpleValue(expr: Record<string, unknown>): unknown {
+  switch (expr.type) {
+    case 'NumericLiteral': return expr.value;
+    case 'StringLiteral': return expr.value;
+    case 'BooleanLiteral': return expr.value;
+    case 'NullLiteral': return null;
+    case 'ObjectExpression': return {};
+    case 'ArrayExpression': return [];
+    default: return undefined;
+  }
+}
+
+/**
+ * Map a framework API name to a state type string.
+ */
+function mapFrameworkApiToType(apiName: string, framework: string): string {
+  if (framework === 'vue') {
+    if (apiName === 'ref' || apiName === 'shallowRef') return 'ref';
+    if (apiName === 'reactive' || apiName === 'shallowReactive') return 'reactive';
+    if (apiName === 'computed') return 'computed';
+    if (apiName === 'toRefs') return 'toRefs';
+  }
+  if (framework === 'react') {
+    if (apiName === 'useState') return 'reactive-state';
+    if (apiName === 'useRef') return 'ref';
+    if (apiName === 'useReducer') return 'reducer';
+    if (apiName === 'useMemo') return 'computed';
+  }
+  if (framework === 'svelte') {
+    if (apiName === 'writable') return 'store';
+    if (apiName === 'readable') return 'store';
+    if (apiName === 'derived') return 'computed';
+  }
+  return 'reactive';
 }
 
 function extractObjectPropertyState(path: BabelPath): StateVariable | null {

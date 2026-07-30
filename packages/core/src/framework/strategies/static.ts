@@ -1,14 +1,14 @@
 /**
- * Degradation strategy (purely static pages).
- * Always matches, but does not generate any hydration scripts.
+ * Fallback strategy (purely static pages).
+ * Always matches, but generates no probe script.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const staticStrategy: HydrationStrategy = {
+export const staticStrategy: PostSnapshotStrategy = {
   framework: 'static',
-  matches: () => true,      // Always match, as a pocket
-  generateScript: () => '',  // No scripts are generated
+  matches: () => true,      // Always match, as fallback
+  generateProbeScript: () => '',  // No script generated
   rewritePaths: () => {
     // Static pages have no framework; no rewriting needed.
   },

@@ -1,29 +1,24 @@
 /**
- * Angular Hydration Strategy.
+ * Angular Post-Snapshot Probe Strategy.
  *
  * Match conditions:
  * - JS content contains ng.probe or platformBrowser (detector returns angular)
  * - HTML contains ng-version attribute or ng-app directive
  *
- * Hydration method:
- * Angular SSR uses platformBrowserDynamic().bootstrapModule(AppModule) to
- * bootstrap the application. The script waits for the root element to gain
- * the ng-version attribute (set by Angular after successful bootstrapping).
- *
- * Path rewriting:
- * Angular chunks are loaded via DOM <script src="..."> attributes,
- * handled generically by assembleBundle. No framework-internal path configs
- * exist in the detected SSR output.
+ * Probe method:
+ * Angular uses platformBrowserDynamic().bootstrapModule() to bootstrap.
+ * This script is a diagnostic observer that polls for [ng-version] attribute
+ * on the document. It does NOT trigger re-bootstrapping.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const angularStrategy: HydrationStrategy = {
+export const angularStrategy: PostSnapshotStrategy = {
   framework: 'angular',
   matches: (d) =>
     d.framework === 'angular' ||
     d.markers.includes('angular'),
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     // Find the Angular root element (has ng-version attribute after bootstrap)
     return `
 <script type="text/javascript">
@@ -34,7 +29,11 @@ export const angularStrategy: HydrationStrategy = {
       console.log('[Hydration] Angular already hydrated');
       return;
     }
-    var appEl = document.querySelector('[ng-app]') || document.querySelector('.app-root');
+    var appEl = document.querySelector('[ng-app]') ||
+                document.querySelector('.app-root') ||
+                document.querySelector('app-root') ||
+                document.querySelector('[main]') ||
+                document.body;
     if (!appEl) return;
     console.log('[Hydration] Angular detected, waiting for bootstrapping...');
     var retries = 0;

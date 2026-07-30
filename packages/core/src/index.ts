@@ -44,6 +44,9 @@ export type {
   FrameworkCodeGenOptions,
   GeneratedComponent,
   GeneratedFramework,
+  SnapshotIssue,
+  IssueSeverity,
+  IssueCategory,
 } from './types.js';
 
 // Resource filtering exports
@@ -132,6 +135,9 @@ export type {
 export { sanitizeLine, emitLines, emitJson } from './output/emit.js';
 export type { EmitOptions, EmitResult } from './output/emit.js';
 
+// Issues report
+export { formatIssueSummary, formatLogSummary, writeIssuesFiles, writeLogFiles } from './output/issues.js';
+
 // Snapshot HTTP server (static serving + cache control + optional reverse proxy)
 export { startSnapshotServer } from './server/index.js';
 export type { SnapshotServerOptions } from './server/index.js';
@@ -140,15 +146,15 @@ export type { SnapshotServerOptions } from './server/index.js';
 export { generateStandaloneServerFiles } from './server/index.js';
 export type { GenerateServerOptions } from './server/index.js';
 
-// Framework hydration detection & injection
+// Framework detection & post-snapshot probe injection
 export {
   detectFramework,
   injectHydrationScript,
-  hydrationStrategies,
+  postSnapshotStrategies,
 } from './framework/index.js';
 export type {
   FrameworkType,
   FrameworkDetection,
-  HydrationStrategy,
+  PostSnapshotStrategy,
   HydrationInjectOptions,
 } from './framework/index.js';

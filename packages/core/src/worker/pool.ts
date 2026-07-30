@@ -44,7 +44,7 @@ export async function runPool<T>(
   onTaskComplete?: (result: T, index: number, completedCount: number) => void,
 ): Promise<T[]> {
   const total = tasks.length;
-  const maxConcurrent = Math.max(1, Math.min(options.concurrency, total));
+  const maxConcurrent = Math.max(1, Math.min(options.concurrency ?? 1, total));
   const results: T[] = new Array(total);
   let nextIndex = 0;
   let completedCount = 0;

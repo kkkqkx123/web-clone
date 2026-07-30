@@ -14,6 +14,17 @@ export class VueGenerator extends BaseFrameworkGenerator {
   ): GeneratedComponent {
     const componentName = this.pascalCase(spec.name);
     const useTs = options.typescript !== false;
+    const detectedFw = options.detectedFramework;
+
+    // Nuxt 3: Composition API with <script setup>, useFetch/useAsyncData
+    if (detectedFw === 'nuxt3') {
+      return this.generateNuxt3(spec, options, componentName, useTs);
+    }
+
+    // Nuxt 2: Options API with asyncData, <nuxt-link>, $nuxt context
+    if (detectedFw === 'nuxt2') {
+      return this.generateNuxt2(spec, options, componentName, useTs);
+    }
 
     // Branch: Options API or Composition API
     if (options.vueApi === 'options') {
@@ -106,6 +117,180 @@ ${styles}`;
       dependencies: this.resolveDependencies(spec, options),
       metadata: this.buildMetadata(spec)
     };
+  }
+
+  /**
+   * Generate Nuxt 2 component with asyncData, Options API, and <nuxt-link>.
+   */
+  private generateNuxt2(
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions,
+    componentName: string,
+    useTs: boolean
+  ): GeneratedComponent {
+    const template = this.mapNuxtTemplate(spec.template, spec.logic, options, 'nuxt2');
+    const styles = this.mapStyles(spec.styles || '', options);
+    const langAttr = useTs ? ' lang="ts"' : '';
+
+    const parts: string[] = [];
+
+    // data()
+    const stateProps = this.mapOptionsState(spec.logic?.state || [], options);
+    if (stateProps) {
+      parts.push(`  data() {
+    return { ${stateProps} }
+  }`);
+    }
+
+    // asyncData (Nuxt 2 specific)
+    if (spec.type === 'stateful' || (spec.logic?.state && spec.logic.state.length > 0)) {
+      parts.push(`  // Nuxt 2: fetch async data before component mounts
+  async asyncData({ $axios, params }) {
+    // TODO: Replace with actual API call
+    return {}
+  }`);
+    }
+
+    // methods
+    const methodsStr = this.mapOptionsMethods(spec.logic);
+    if (methodsStr) {
+      parts.push(`  methods: {
+${methodsStr}
+  }`);
+    }
+
+    // Lifecycle hooks
+    const lifecycleStr = this.mapOptionsLifecycle(spec.logic?.methods);
+    if (lifecycleStr) {
+      parts.push(lifecycleStr);
+    }
+
+    const optionsStr = parts.join(',\n');
+
+    const code = `<template>
+  ${template}
+</template>
+
+<script${langAttr}>
+export default {
+  name: '${componentName}',${optionsStr ? `\n${optionsStr}\n` : ''}
+}
+</script>
+
+${styles}`;
+
+    return {
+      name: componentName,
+      code,
+      language: 'vue',
+      imports: [],
+      dependencies: this.resolveDependencies(spec, options),
+      metadata: this.buildMetadata(spec)
+    };
+  }
+
+  /**
+   * Generate Nuxt 3 component with <script setup>, useFetch/useAsyncData, and <NuxtLink>.
+   */
+  private generateNuxt3(
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions,
+    componentName: string,
+    useTs: boolean
+  ): GeneratedComponent {
+    const langAttr = useTs ? ' lang="ts"' : '';
+    let scriptContent = '';
+
+    // Nuxt 3 auto-imports: ref, computed, etc. are available without explicit import
+    if (spec.type === 'stateful' || (spec.logic?.state && spec.logic.state.length > 0)) {
+      scriptContent += `// Nuxt 3: auto-imported composables (ref, computed, etc.) are available globally
+`;
+
+      if (spec.logic?.state && spec.logic.state.length > 0) {
+        scriptContent += spec.logic.state
+          .map((s) => {
+            const typeHint = useTs && s.type !== 'unknown' ? `<${s.type}>` : '';
+            const initialValue = s.initial !== undefined ? JSON.stringify(s.initial) : 'undefined';
+            return `const ${s.name} = ref${typeHint}(${initialValue})`;
+          })
+          .join('\n');
+        scriptContent += '\n';
+      }
+
+      // Add useAsyncData for data fetching (Nuxt 3 equivalent of asyncData)
+      scriptContent += `
+// Nuxt 3: Server-side data fetching composable
+const { data, pending, error } = await useAsyncData(
+  '${componentName.toLowerCase()}-data',
+  () => {
+    // TODO: Replace with actual API call
+    return $fetch('/api/data')
+  }
+)\n`;
+    } else if (!spec.logic?.state && !spec.logic?.methods) {
+      scriptContent += '// Nuxt 3 auto-imports available: ref, computed, useFetch, useAsyncData, etc.\n';
+      scriptContent += '// TODO: Add component logic\n';
+    }
+
+    if (spec.logic?.methods && spec.logic.methods.length > 0) {
+      scriptContent += this.extractMethods(spec.logic);
+      scriptContent += '\n';
+    }
+
+    const template = this.mapNuxtTemplate(spec.template, spec.logic, options, 'nuxt3');
+    const styles = this.mapStyles(spec.styles || '', options);
+
+    const code = `<template>
+  ${template}
+</template>
+
+<script setup${langAttr}>
+${scriptContent.trim()}
+</script>
+
+${styles}`;
+
+    return {
+      name: componentName,
+      code,
+      language: 'vue',
+      imports: [],
+      dependencies: this.resolveDependencies(spec, options),
+      metadata: this.buildMetadata(spec)
+    };
+  }
+
+  /**
+   * Map template with Nuxt-specific component/tag replacements.
+   */
+  private mapNuxtTemplate(
+    html: string,
+    logic: unknown,
+    options: FrameworkCodeGenOptions,
+    nuxtVersion: 'nuxt2' | 'nuxt3'
+  ): string {
+    let result = this.processTemplate(html, logic, options);
+
+    if (nuxtVersion === 'nuxt2') {
+      // Replace standard <router-link> / <a> patterns with <nuxt-link>
+      result = result.replace(/<router-link\b/g, '<nuxt-link');
+      result = result.replace(/<\/router-link>/g, '</nuxt-link>');
+    } else {
+      // Nuxt 3: Use <NuxtLink> (capitalized)
+      result = result.replace(/<router-link\b/g, '<NuxtLink');
+      result = result.replace(/<\/router-link>/g, '</NuxtLink>');
+      // Also replace bare <a href="/..."> with <NuxtLink to="/...">
+      result = result.replace(
+        /<a\s+([^>]*?)href="(\/[^"]*)"([^>]*)>/g,
+        (_, before, path, after) => {
+          const attrs = (before + after).replace(/\s+/g, ' ').trim();
+          return `<NuxtLink to="${path}"${attrs ? ' ' + attrs : ''}>`;
+        }
+      );
+      result = result.replace(/<\/a>/g, '</NuxtLink>');
+    }
+
+    return result.trim();
   }
 
   private mapOptionsState(

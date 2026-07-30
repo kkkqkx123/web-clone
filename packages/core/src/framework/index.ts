@@ -1,15 +1,15 @@
 /**
- * Framework-aware hydration injection module portal
+ * Framework-aware post-snapshot probe module entry point.
  * 
- * Export:
- * - detectFramework - Unified Framework Detector
- * - injectHydrationScript - hydration script injector
- * - All type definitions
- * - All strategies (for testing or extension use)
+ * Exports:
+ * - detectFramework — unified framework detector
+ * - injectHydrationScript — probe script injector
+ * - PostSnapshotStrategy type
+ * - All strategies (for testing or extension)
  */
 
 export { detectFramework } from './detector.js';
 export { injectHydrationScript } from './injector.js';
 export type { HydrationInjectOptions } from './injector.js';
-export type { FrameworkType, FrameworkDetection, HydrationStrategy } from './types.js';
-export { hydrationStrategies } from './strategies/index.js';
+export type { FrameworkType, FrameworkDetection, PostSnapshotStrategy } from './types.js';
+export { postSnapshotStrategies } from './strategies/index.js';

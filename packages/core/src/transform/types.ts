@@ -52,7 +52,14 @@ export interface CssAnalysisResult {
   componentStyles: Record<string, string[]>;
   globalStyles?: string[];
   dynamicStyles?: Array<{ selector: string; properties: string[] }>;
+  /** Detected CSS authoring scheme */
+  scheme?: CssScheme;
+  /** Mapped class names (from source map or heuristic), hashed -> original */
+  classMappings?: Record<string, string>;
 }
+
+/** CSS authoring scheme detected during analysis */
+export type CssScheme = 'bem' | 'tailwind' | 'css-modules' | 'css-in-js' | 'utility-first' | 'unknown';
 
 export interface CssRule {
   selector: string;

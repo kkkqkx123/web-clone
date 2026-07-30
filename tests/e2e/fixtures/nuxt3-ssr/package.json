@@ -1,0 +1,17 @@
+{
+  "name": "e2e-fixture-nuxt3-ssr",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "nuxt": "^3.0.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@nuxt/types": "^2.0.0"
+  }
+}

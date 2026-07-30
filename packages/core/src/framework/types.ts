@@ -7,7 +7,7 @@
  * Append to this enumeration each time a new policy is added.
  */
 export type FrameworkType =
-  | 'nuxt2' | 'nuxt3' | 'vitepress' | 'vue3'
+  | 'nuxt2' | 'nuxt3' | 'vitepress' | 'vue2' | 'vue3'
   | 'nextjs' | 'react18'
   | 'angular'
   | 'sveltekit'
@@ -29,23 +29,37 @@ export interface FrameworkDetection {
 }
 
 /**
- * Hydration Policy Interface.
- * Each framework implements a policy that matches in a deterministic order.
+ * 水合策略接口 → 重命名为 PostSnapshotStrategy。
+ *
+ * 原因：大部分框架的 generateScript 只在快照后用 setInterval 轮询
+ * 框架内部标记（__vue__/__reactRoot$ 等），仅输出诊断日志，并不触发实际的
+ * 挂载/水合过程。唯一例外为 Nuxt 2（主动调用 $nuxt.$mount()）。
+ *
+ * 重命名以消除"水合"一词的误导性，明确表达这是快照后诊断探测。
  */
-export interface HydrationStrategy {
-  /** Frame type identification */
+export interface PostSnapshotStrategy {
+  /** 框架类型标识 */
   framework: FrameworkType;
 
-  /** Detect if this policy matches */
+  /** 检测此策略是否匹配 */
   matches(detection: FrameworkDetection): boolean;
 
-  /** Generate hydration script (HTML string, injected before </body>) */
-  generateScript(detection: FrameworkDetection): string;
+  /**
+   * 生成快照后探测脚本（HTML 字符串，注入在 </body> 之前）。
+   * 该脚本是诊断观察者，不重注水合（Nuxt 2 除外）。
+   */
+  generateProbeScript(detection: FrameworkDetection): string;
 
   /**
-   * Rewrite framework-internal paths (e.g. Nuxt's window.__NUXT__.assetsPath)
-   * that are not reachable through DOM element attribute modifications.
-   * Called after HTML parsing, before assembleBundle.
+   * 重写框架内部路径（如 Nuxt 的 window.__NUXT__.assetsPath），
+   * 这些路径无法通过 DOM 元素属性修改触及。
+   * 在 HTML 解析后、assembleBundle 前调用。
    */
   rewritePaths(document: Document): void;
+
+  /**
+   * 如果为 true，探针脚本始终注入，不受 debugProbe 控制。
+   * 仅用于功能性探针（如 Nuxt 2 的 $nuxt.$mount() 重挂载）。
+   */
+  alwaysInject?: boolean;
 }

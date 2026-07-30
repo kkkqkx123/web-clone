@@ -1,30 +1,29 @@
 /**
- * Next.js Hydration Strategy.
+ * Next.js Post-Snapshot Probe Strategy.
  *
  * Match conditions:
  * - window.__NEXT_DATA__ global variable exists (detector returns nextjs)
  * - or HTML contains id="__next" (low confidence fallback)
  *
- * Hydration method:
- * Next.js uses React 18's hydrateRoot() automatically after loading the
- * bootstrap chunks. The script waits for __reactRoot$ to appear on #__next.
+ * Probe method:
+ * Next.js uses React 18's hydrateRoot() automatically. This script is a
+ * diagnostic observer that polls for __reactRoot$ on #__next.
+ * It does NOT trigger re-hydration.
  *
  * Path rewriting:
  * Next.js chunks are loaded via DOM <script src="/_next/static/chunks/...">
- * attributes, which are handled generically by assembleBundle via data-origin-url.
- * The __NEXT_DATA__ script contains only route/component data (page, buildId),
- * not asset paths, so no framework-internal path rewriting is needed.
+ * attributes, handled generically by assembleBundle via data-origin-url.
+ * The __NEXT_DATA__ script contains only route/component data, not asset paths.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const nextjsStrategy: HydrationStrategy = {
+export const nextjsStrategy: PostSnapshotStrategy = {
   framework: 'nextjs',
   matches: (d) =>
     d.framework === 'nextjs' ||
-    d.markers.includes('__NEXT_DATA__') ||
-    (!d.markers.includes('__NUXT__') && !d.markers.includes('__VUE__') && d.appElement === '#__next'),
-  generateScript: (d) => `
+    d.markers.includes('__NEXT_DATA__'),
+  generateProbeScript: (d) => `
 <script type="text/javascript">
 (function() {
   var appEl = document.querySelector('#__next');

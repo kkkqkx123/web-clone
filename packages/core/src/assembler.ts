@@ -1,7 +1,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { mkdirSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
-import { type SnapshotOptions, type SnapshotResult, type AssetRef, type Asset } from './types.js';
+import { type SnapshotOptions, type SnapshotResult, type AssetRef, type Asset, type SnapshotIssue } from './types.js';
 import { parseHtml } from './parser/html-parser.js';
 import { extractCssAssets } from './parser/css-parser.js';
 import { downloadAllAssets } from './fetcher.js';
@@ -14,42 +14,74 @@ import { assessMemoryBudget, formatDegradationSummary } from './memory-budget.js
 import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './resource-filter.js';
 import { detectFramework } from './framework/detector.js';
-import { hydrationStrategies } from './framework/strategies/index.js';
+import { postSnapshotStrategies } from './framework/strategies/index.js';
+import type { FrameworkType, FrameworkDetection } from './framework/types.js';
+import { FRAMEWORK_TO_CODEGEN } from '@web-clone/codegen/framework-rules';
 import { extractJsUrls, extractJsonUrls, extractWebpackChunks } from './discovery/recursive-scanner.js';
-import type { FetcherAdapter } from './adapters/fetcher-adapter.js';
+import type { FetcherAdapter, FetchResult } from './adapters/fetcher-adapter.js';
 import { HttpFetcherAdapter } from './adapters/http-fetcher-adapter.js';
+import { writeIssuesFiles, writeLogFiles } from './output/issues.js';
+import { DEFAULTS } from './config/defaults.js';
 
 async function fetchHtml(
   url: string,
   timeout: number,
   maxSize: number | undefined,
-  adapter: FetcherAdapter
-): Promise<string | null> {
+  adapter: FetcherAdapter,
+  logs: SnapshotIssue[],
+  issues: SnapshotIssue[]
+): Promise<{ html: string; browserFramework?: FetchResult['browserFramework'] } | null> {
   try {
     const result = await adapter.fetch(url, { timeout, maxSize, isMainDocument: true });
+    const browserFramework = result.browserFramework;
     if (!result.ok) {
-      process.stdout.write(`Warning: Origin returned HTTP ${result.status} for HTML page\n`);
+      // Always log the HTTP status for debugging
+      logs.push({
+        severity: result.status >= 400 ? 'error' : 'info',
+        category: 'html_fetch',
+        source: url,
+        message: `Origin returned HTTP ${result.status} for HTML page`,
+        detail: `HTTP status code ${result.status}`,
+      });
 
       // Handle 3xx status codes (redirects that weren't followed, 304 Not Modified, etc.)
       if (result.status >= 300 && result.status < 400) {
         if (result.buffer.length > 0) {
-          // Some servers return content with 3xx (e.g. 304 with cached body)
-          return result.buffer.toString('utf8');
+          return { html: result.buffer.toString('utf8'), browserFramework };
         }
-        process.stdout.write(`  HTTP ${result.status} with no content body — cannot proceed\n`);
+        const errMsg = `HTTP ${result.status} with no content body — cannot proceed`;
+        process.stdout.write(`  ${errMsg}\n`);
         return null;
       }
 
       // Handle 4xx/5xx: accept if the response is HTML-like (404 error page, 401 login form, etc.)
       if (result.status >= 400 && (result.isHtmlLike || isHtmlLike(result.buffer))) {
-        return result.buffer.toString('utf8');
+        // Quality issue: the page content might not be what the user expected
+        issues.push({
+          severity: 'warning',
+          category: 'html_fetch',
+          source: url,
+          message: `HTML page returned HTTP ${result.status} — content accepted but may not be the intended page`,
+          detail: `Server returned ${result.status}; the response body was accepted as HTML`,
+          action: 'Review the snapshot output to verify the page content is correct',
+        });
+        return { html: result.buffer.toString('utf8'), browserFramework };
       }
       return null;
     }
-    return result.buffer.toString('utf8');
+    return { html: result.buffer.toString('utf8'), browserFramework };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    process.stdout.write(`Warning: Failed to fetch HTML: ${message}\n`);
+    const errMsg = `Failed to fetch HTML: ${message}`;
+    process.stdout.write(`Warning: ${errMsg}\n`);
+    logs.push({
+      severity: 'error',
+      category: 'html_fetch',
+      source: url,
+      message: errMsg,
+      detail: message,
+      action: 'Verify the URL is accessible and the network is available',
+    });
     return null;
   }
 }
@@ -204,19 +236,26 @@ async function snapshotInternal(
   options: SnapshotOptions,
   adapter: FetcherAdapter
 ): Promise<SnapshotResult> {
-  const timestamp = new Date().toISOString();
+  // Apply defaults for any option not explicitly set by the caller.
+  // CLI path applies DEFAULTS via fromCommander(); library API path does not.
+  options = { ...DEFAULTS, ...options };
 
-  // ── Hybrid mode: use provided adapter for HTML fetch (SPA rendering),
-  //    then switch to HTTP adapter for asset downloads (faster).
+  const timestamp = new Date().toISOString();
+  const issues: SnapshotIssue[] = [];
+  const logs: SnapshotIssue[] = [];
+
+  const hybridAuthDomains = options.hybridAuthDomains ?? [];
   const downloadAdapter = (options.hybrid && adapter.constructor.name !== 'HttpFetcherAdapter')
     ? new HttpFetcherAdapter()
     : adapter;
 
   process.stdout.write(`Fetching HTML from ${options.url}...\n`);
-  const html = await fetchHtml(options.url, options.timeout, options.maxFileSize, adapter);
-  if (!html) {
+  const fetchResult = await fetchHtml(options.url, options.timeout, options.maxFileSize, adapter, logs, issues);
+  if (!fetchResult) {
     throw new Error('Failed to retrieve page content');
   }
+  const html = fetchResult.html;
+  const browserFramework = fetchResult.browserFramework;
 
   if (downloadAdapter !== adapter) {
     process.stdout.write(`Using hybrid mode: browser for HTML, HTTP pool for asset downloads.\n`);
@@ -260,10 +299,27 @@ async function snapshotInternal(
           const childRefs = extractCssAssets(cssText, ref.url);
           return { url: ref.url, ok: true, cssText, childRefs };
         }
+        // CSS fetch returned non-ok status
+        const msg = `HTTP ${result.status || 'error'}`;
+        process.stdout.write(`  CSS fetch skipped: ${ref.url} — ${msg}\n`);
+        logs.push({
+          severity: 'warning',
+          category: 'css_fetch',
+          source: ref.url,
+          message: `Failed to fetch CSS: ${msg}`,
+          detail: `HTTP status ${result.status || 'unknown'}`,
+        });
         return { url: ref.url, ok: false };
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         process.stdout.write(`  CSS fetch skipped: ${ref.url} — ${message}\n`);
+        logs.push({
+          severity: 'warning',
+          category: 'css_fetch',
+          source: ref.url,
+          message: `Failed to fetch CSS: ${message}`,
+          detail: message,
+        });
         return { url: ref.url, ok: false };
       }
     });
@@ -303,6 +359,13 @@ async function snapshotInternal(
     process.stdout.write(`Filtered ${filterStats.filtered} resource(s):\n`);
     for (const [reason, count] of Object.entries(filterStats.filterReasons)) {
       process.stdout.write(`  • ${reason}: ${count}\n`);
+      logs.push({
+        severity: 'info',
+        category: 'resource_filter',
+        source: 'Resource Filter',
+        message: `${count} resource(s) filtered: ${reason}`,
+        detail: `Total filtered: ${filterStats.filtered}`,
+      });
     }
   }
 
@@ -311,10 +374,74 @@ async function snapshotInternal(
   } else {
     process.stdout.write(`Downloading ${filteredRefs.length} assets (max: ${options.maxAssets})...\n`);
   }
-  const assets = await downloadAllAssets(filteredRefs, options, (asset, index, total) => {
+  
+  /**
+   * Download assets with hybrid auth domain support.
+   * When hybridAuthDomains is configured, assets from auth domains
+   * use the browser adapter to preserve authentication context.
+   */
+  async function downloadAssetsWithAuthSupport(
+    refs: AssetRef[],
+    onProgress: (asset: Asset, index: number, total: number) => void,
+  ): Promise<Asset[]> {
+    if (hybridAuthDomains.length === 0) {
+      return downloadAllAssets(refs, options, onProgress, downloadAdapter);
+    }
+
+    // Split assets into auth and non-auth groups
+    const authRefs: AssetRef[] = [];
+    const nonAuthRefs: AssetRef[] = [];
+    for (const ref of refs) {
+      try {
+        const hostname = new URL(ref.url).hostname;
+        const needsAuth = hybridAuthDomains.some(
+          domain => hostname === domain || hostname.endsWith('.' + domain)
+        );
+        (needsAuth ? authRefs : nonAuthRefs).push(ref);
+      } catch {
+        nonAuthRefs.push(ref);
+      }
+    }
+
+    const results: Asset[] = [];
+
+    if (nonAuthRefs.length > 0) {
+      process.stdout.write(`  Downloading ${nonAuthRefs.length} non-auth assets via HTTP pool...\n`);
+      const nonAuthAssets = await downloadAllAssets(nonAuthRefs, options, onProgress, downloadAdapter);
+      results.push(...nonAuthAssets);
+    }
+
+    if (authRefs.length > 0) {
+      process.stdout.write(`  Downloading ${authRefs.length} auth assets via browser adapter...\n`);
+      const authAssets = await downloadAllAssets(authRefs, options, onProgress, adapter);
+      results.push(...authAssets);
+    }
+
+    return results;
+  }
+
+  const assets = await downloadAssetsWithAuthSupport(filteredRefs, (asset, index, total) => {
     const icon = asset.status === 'fetched' ? '✓' : '✗';
     process.stdout.write(`  ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
-  }, downloadAdapter);
+    // Collect issues for failed/skipped downloads
+    if (asset.status === 'failed') {
+      logs.push({
+        severity: 'error',
+        category: 'asset_download',
+        source: asset.originUrl,
+        message: `Failed to download: ${asset.error || 'Unknown error'}`,
+        detail: asset.error,
+      });
+    } else if (asset.status === 'skipped' && asset.error) {
+      logs.push({
+        severity: 'info',
+        category: 'asset_download',
+        source: asset.originUrl,
+        message: `Skipped: ${asset.error}`,
+        detail: asset.error,
+      });
+    }
+  });
 
   // Log resources accepted with non-2xx status codes (lenient acceptance)
   const lenientAcceptedAssets = assets.filter(a => a.acceptedWithWarning);
@@ -322,6 +449,14 @@ async function snapshotInternal(
     process.stdout.write(`\n✓ Lenient acceptance (4xx/5xx with valid content):\n`);
     for (const asset of lenientAcceptedAssets) {
       process.stdout.write(`  ⚠ HTTP ${asset.statusCode} → ${asset.type.toUpperCase()} (${fmt(asset.size)}) ${asset.originUrl}\n`);
+      issues.push({
+        severity: 'warning',
+        category: 'asset_download',
+        source: asset.originUrl,
+        message: `Accepted with HTTP ${asset.statusCode} — content may be incorrect`,
+        detail: `Resource returned ${asset.statusCode} but contained valid ${asset.type.toUpperCase()} content and was accepted in lenient mode`,
+        action: 'Verify this resource manually to ensure correct content was captured',
+      });
     }
     process.stdout.write('\n');
   }
@@ -339,6 +474,14 @@ async function snapshotInternal(
     process.stdout.write(`\nIntegrity validation warnings:\n`);
     for (const failure of validationFailures) {
       process.stdout.write(`  ⚠ ${failure.url}: ${failure.error}\n`);
+      issues.push({
+        severity: 'warning',
+        category: 'asset_validation',
+        source: failure.url,
+        message: `Integrity validation: ${failure.error}`,
+        detail: failure.error,
+        action: 'This asset may be corrupted or incomplete; verify manually or re-run the snapshot',
+      });
     }
   }
 
@@ -449,10 +592,19 @@ async function snapshotInternal(
       }
 
       process.stdout.write(`    Downloading ${filteredNewRefs.length} asset(s)...\n`);
-      const newAssets = await downloadAllAssets(filteredNewRefs, options, (asset, index, total) => {
+      const newAssets = await downloadAssetsWithAuthSupport(filteredNewRefs, (asset, index, total) => {
         const icon = asset.status === 'fetched' ? '✓' : '✗';
         process.stdout.write(`    ${icon} [${index}/${total}] ${asset.originUrl}${asset.error ? ` (${asset.error})` : ` (${fmt(asset.size)})`}\n`);
-      }, downloadAdapter);
+        if (asset.status === 'failed') {
+          logs.push({
+            severity: 'error',
+            category: 'asset_download',
+            source: asset.originUrl,
+            message: `Failed to download (recursive scan): ${asset.error || 'Unknown error'}`,
+            detail: asset.error,
+          });
+        }
+      });
 
       assets.push(...newAssets);
 
@@ -491,17 +643,56 @@ async function snapshotInternal(
 
   process.stdout.write(`\nAssembling output (${options.mode} mode)...\n`);
 
-  // Fix paths for file:// protocol compatibility via framework strategy.
-  // Each framework strategy handles its own internal path rewriting
-  // (e.g. Nuxt's window.__NUXT__.assetsPath → relative paths).
-  const detection = detectFramework(html);
-  const strategy = hydrationStrategies.find(s => s.matches(detection));
+  // Collect downloaded JS contents for enhanced framework detection.
+  // Include both textContent and dataUri (Base64-encoded) content to cover
+  // all asset storage modes (HTTP adapter uses textContent, Playwright adapter
+  // may use dataUri for sub-resources fetched via browser context).
+  const jsContents = assets
+    .filter(a => a.type === 'js' && a.status === 'fetched')
+    .map(a => {
+      if (a.textContent) return a.textContent;
+      if (a.dataUri) {
+        const base64 = a.dataUri.split(',')[1];
+        if (base64) {
+          try {
+            return Buffer.from(base64, 'base64').toString('utf8');
+          } catch { /* skip unreadable */ }
+        }
+      }
+      return '';
+    })
+    .filter(Boolean);
+  
+  // Framework detection: prefer browser-collected info (from SPA hydration)
+  // over static HTML/JS scanning, as the browser has direct access to runtime
+  // framework internals (__NUXT__, __NEXT_DATA__, devtools hooks, etc.).
+  // When confidence is equal, browser detection wins — the browser accesses
+  // runtime state (window.__NUXT__ etc.) which is objectively more reliable
+  // than static text scanning of the same confidence level.
+  let detection = detectFramework(html, jsContents);
+  if (browserFramework && browserFramework.framework !== 'unknown') {
+    const browserConfidence = browserFramework.confidence;
+    if (browserConfidence >= detection.confidence) {
+      detection = {
+        framework: browserFramework.framework as FrameworkType,
+        confidence: browserFramework.confidence,
+        appElement: browserFramework.appElement || detection.appElement || null,
+        markers: [
+          `browser:${browserFramework.framework}`,
+          ...(browserFramework.isHydrated ? ['hydration-confirmed'] : []),
+          ...detection.markers,
+        ],
+      };
+    }
+  }
+  const strategy = postSnapshotStrategies.find(s => s.matches(detection));
   if (strategy) {
     strategy.rewritePaths(parsed.document);
   }
 
-  // NOTE: Vue hydration script injection has been moved to the CLI layer.
-  // The library stays framework-agnostic; CLI callers can post-process the output.
+  // NOTE: Post-snapshot probe script injection is handled by the caller
+  // (CLI) as a post-processing step, not by the assembler itself.
+  // The library stays framework-agnostic; callers can post-process the output.
 
   if (options.mode === 'bundle') {
     mkdirSync(options.output, { recursive: true });
@@ -513,6 +704,11 @@ async function snapshotInternal(
     await mkdir(dirname(options.output), { recursive: true });
     await writeFile(options.output, outputHtml, 'utf8');
   }
+
+  // Write issues and log report files (both bundle and single-file modes)
+  const issuesOutputDir = options.mode === 'bundle' ? options.output : dirname(options.output);
+  writeIssuesFiles(issuesOutputDir, issues, options.url);
+  writeLogFiles(issuesOutputDir, logs, options.url);
 
   // Handle component extraction if requested
   if (options.extractComponents) {
@@ -537,11 +733,27 @@ async function snapshotInternal(
 
     if (degradations.length > 0) {
       process.stdout.write(`⚠ Memory budget: ${degradations.join(', ')} — results may be partial\n`);
+      issues.push({
+        severity: 'warning',
+        category: 'memory_budget',
+        source: options.url,
+        message: `Memory budget exceeded: ${degradations.join(', ')}`,
+        detail: `HTML: ${fmt(html.length)}, CSS: ${fmt(css.length)}, JS: ${fmt(js.length)}`,
+        action: 'Increase --memory-limit or reduce page scope for better component extraction results',
+      });
     }
 
     // If the HTML is marked as skip, the entire component extraction is skipped.
     if (budget.htmlStrategy === 'skip') {
       process.stdout.write(`⚠ HTML too large (${(html.length / 1024 / 1024).toFixed(1)}MB), skipping component extraction\n`);
+      issues.push({
+        severity: 'error',
+        category: 'memory_budget',
+        source: options.url,
+        message: `HTML too large (${(html.length / 1024 / 1024).toFixed(1)}MB), component extraction skipped`,
+        detail: `HTML size exceeds memory budget threshold`,
+        action: 'Increase --memory-limit to allow component extraction, or reduce page scope',
+      });
     } else {
       // Pass the downgrade policy to convert
       const convertOptions = {
@@ -550,7 +762,7 @@ async function snapshotInternal(
       };
 
       process.stdout.write(`Converting to component structure...\n`);
-      const converted = await convert(html, css, js, convertOptions);
+      const converted = await convert(html, css, js, convertOptions, detection);
 
       process.stdout.write(`Writing component output...\n`);
       const componentOutputDir = options.mode === 'bundle'
@@ -562,11 +774,50 @@ async function snapshotInternal(
         output: componentOutputDir,
       };
 
+      // Auto-bridge framework detection to code generation when the user
+      // hasn't explicitly specified a codegen framework via CLI/config.
+      if (detection.framework !== 'unknown' && !componentOptions.frameworkCodegen?.framework) {
+        const suggested = FRAMEWORK_TO_CODEGEN[detection.framework];
+        if (suggested) {
+          process.stdout.write(`Auto-detected codegen framework: ${suggested} (from ${detection.framework})\n`);
+          componentOptions.frameworkCodegen = {
+            ...componentOptions.frameworkCodegen,
+            framework: suggested,
+            detectedFramework: detection.framework,
+          };
+        }
+      }
+
+      // Auto-select Vue API style based on detected framework version.
+      // Nuxt 2 / Vue 2 use Options API; Nuxt 3 / Vue 3 use Composition API.
+      // Only applies when the user hasn't explicitly set vueApi.
+      if (!componentOptions.frameworkCodegen?.vueApi) {
+        if (detection.framework === 'vue2' || detection.framework === 'nuxt2') {
+          componentOptions.frameworkCodegen = {
+            ...componentOptions.frameworkCodegen,
+            vueApi: 'options',
+          };
+        }
+      }
+
       assembleConvert(converted, componentOptions);
     }
   }
 
-  return { sourceUrl: options.url, timestamp, html, assets, stats };
+  // Convert browserFramework (from FetchResult) to FrameworkDetection format
+  const browserFrameworkResult: FrameworkDetection | undefined = browserFramework && browserFramework.framework !== 'unknown'
+    ? {
+        framework: browserFramework.framework as FrameworkType,
+        confidence: browserFramework.confidence,
+        appElement: browserFramework.appElement || null,
+        markers: [
+          `browser:${browserFramework.framework}`,
+          ...(browserFramework.isHydrated ? ['hydration-confirmed'] : []),
+        ],
+      }
+    : undefined;
+
+  return { sourceUrl: options.url, timestamp, html, assets, stats, frameworkDetection: detection, browserFramework: browserFrameworkResult, issues, logs };
 }
 
 /**
@@ -658,6 +909,24 @@ export async function convertLocalSnapshot(options: SnapshotOptions): Promise<Sn
   // Use dummy assets to satisfy SnapshotResult type
   const assets: Asset[] = [];
 
+  const localIssues: SnapshotIssue[] = [];
+
+  if (degradations.length > 0) {
+    localIssues.push({
+      severity: 'warning',
+      category: 'memory_budget',
+      source: localPath,
+      message: `Memory budget: ${degradations.join(', ')} — results may be partial`,
+      detail: `HTML: ${fmt(html.length)}, CSS: ${fmt(css.length)}, JS: ${fmt(js.length)}`,
+      action: 'Increase --memory-limit or reduce scope for better results',
+    });
+  }
+
+  // Write issues files for local conversion
+  const localIssuesDir = isDir ? join(options.output, 'components') : options.output.replace(/(\.html?)?$/i, '_components');
+  writeIssuesFiles(localIssuesDir, localIssues, localPath);
+  writeLogFiles(localIssuesDir, [], localPath);
+
   return {
     sourceUrl: localPath,
     timestamp,
@@ -670,9 +939,12 @@ export async function convertLocalSnapshot(options: SnapshotOptions): Promise<Sn
       skipped: 0,
       validationWarnings: 0,
       totalBytes: 0,
+      htmlBytes: html.length,
       stateful: componentList.filter(c => c.type === 'stateful').length,
       presentational: componentList.filter(c => c.type === 'presentational').length,
     },
+    issues: localIssues,
+    logs: [],
   } as SnapshotResult;
 }
 

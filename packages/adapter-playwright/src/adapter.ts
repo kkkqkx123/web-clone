@@ -170,12 +170,13 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     // Additional wait for SPA frameworks (Vue/React/Angular) to initialize
     // Uses the shared SPA hydration detector (framework-agnostic, works for
     // both Playwright and Puppeteer adapters).
-    if (pwOptions.waitForLoadState === 'networkidle' || pwOptions.waitForLoadState === 'load') {
-      await waitForSpaHydration(this.page as unknown as SpaPageLike, {
-        timeout: options.timeout ?? 30000,
-        logPrefix: '[Playwright Adapter]',
-      });
-    }
+    // Always runs regardless of waitForLoadState — the detector has its own
+    // timeout protection and four-phase progressive detection, so it won't
+    // cause excessive delays even after 'domcontentloaded'.
+    const spaResult = await waitForSpaHydration(this.page as unknown as SpaPageLike, {
+      timeout: options.timeout ?? 30000,
+      logPrefix: '[Playwright Adapter]',
+    });
 
     // Optional: debug screenshot
     if (pwOptions.debugScreenshot) {
@@ -192,6 +193,9 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
     const html = await this.page.content();
     const buffer = Buffer.from(html, 'utf-8');
 
+    // Build browserFramework from spa-detector's fine-grained result.
+    // spa-detector now returns types consistent with core's FrameworkType
+    // (nuxt3, nuxt2, nextjs, vue3, react18, angular, sveltekit).
     // Constructing the return value
     const allHeaders = await response.allHeaders();
     return {
@@ -202,6 +206,12 @@ export class PlaywrightFetcherAdapter implements FetcherAdapter {
       isHtmlLike: true,
       headers: Object.fromEntries(Object.entries(allHeaders)),
       url: this.page.url() || '',
+      browserFramework: {
+        framework: spaResult.framework,
+        confidence: spaResult.confidence,
+        appElement: spaResult.appElement || undefined,
+        isHydrated: spaResult.isHydrated,
+      },
     };
   }
 

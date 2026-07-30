@@ -1,33 +1,27 @@
 /**
- * SvelteKit Hydration Strategy.
+ * SvelteKit Post-Snapshot Probe Strategy.
  *
  * Match conditions:
- * - window.__SVELTEKIT__ global variable exists (detector returns sveltekit)
+ * - window.__sveltekit__ global variable or window.__SVELTEKIT__ marker
  * - <meta generator="SvelteKit"> tag present
  * - JS content contains @sveltejs/kit or __sveltekit
  * - HTML contains id="svelte" (low confidence fallback)
  *
- * Hydration method:
- * SvelteKit uses Svelte's automatic hydration mechanism. After the JS bundle
- * is loaded, SvelteKit's client-side app hydrates the SSR-rendered DOM.
- * The script waits for the mount point to gain the __svelte internal marker
- * (set by Svelte after successful hydration).
- *
- * Path rewriting:
- * SvelteKit chunks are loaded via DOM <script src="..."> attributes,
- * handled generically by assembleBundle. No framework-internal path configs
- * exist in the detected SSR output.
+ * Probe method:
+ * SvelteKit uses Svelte's automatic hydration. This script is a diagnostic
+ * observer that polls for the __svelte internal marker on the mount point.
+ * It does NOT trigger re-hydration.
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const sveltekitStrategy: HydrationStrategy = {
+export const sveltekitStrategy: PostSnapshotStrategy = {
   framework: 'sveltekit',
   matches: (d) =>
     d.framework === 'sveltekit' ||
     d.markers.includes('__SVELTEKIT__') ||
     d.markers.includes('__sveltekit'),
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     const appEl = d.appElement || '#svelte';
     return `
 <script type="text/javascript">

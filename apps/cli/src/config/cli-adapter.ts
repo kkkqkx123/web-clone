@@ -79,6 +79,8 @@ export interface CommanderOpts {
   run?: boolean;
   /** Enable reverse proxy for runtime API requests in --serve mode */
   proxy?: boolean;
+  /** Inject diagnostic probe scripts for framework hydration monitoring */
+  debugHydration?: boolean;
 }
 
 /**

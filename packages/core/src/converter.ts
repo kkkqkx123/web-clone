@@ -1,5 +1,6 @@
 import type { SnapshotOptions, ConvertResult, MemoryBudget, ComponentSpec } from './types.js';
 import type { ComponentRoot } from './transform/types.js';
+import type { FrameworkDetection, FrameworkType } from './framework/types.js';
 import { analyzeHtml } from './transform/component-analyzer.js';
 import { analyzeCss } from './transform/css-analyzer.js';
 import { analyzeJavaScript } from './transform/js-analyzer.js';
@@ -26,13 +27,16 @@ function buildComponentHierarchy(roots: ComponentRoot[]): Map<string, string[]> 
 interface HtmlAnalysisOptions {
   depth?: number;
   maxTagScan?: number;
+  /** Framework hint for framework-aware component detection */
+  framework?: FrameworkType;
 }
 
 export async function convert(
   html: string,
   css: string,
   js: string,
-  options: SnapshotOptions
+  options: SnapshotOptions,
+  frameworkDetection?: FrameworkDetection
 ): Promise<ConvertResult> {
   // Memory budget downgrade strategy
   const budget = (options as SnapshotOptions & { memoryBudget?: MemoryBudget }).memoryBudget;
@@ -43,6 +47,7 @@ export async function convert(
   // Phase 1: Parallel analysis (CPU-bound, wrapped in microtasks to yield event loop)
   const htmlOptions: HtmlAnalysisOptions = {
     depth: options.componentDepth,
+    framework: frameworkDetection?.framework,
   };
   if (budget) {
     if (budget.htmlStrategy === 'streaming') {
@@ -151,6 +156,8 @@ export async function convert(
     stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0, htmlBytes: html.length },
     components,
     componentTree,
-    index
+    index,
+    issues: [],
+    logs: [],
   };
 }

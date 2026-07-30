@@ -1,9 +1,10 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
-import type { SnapshotOptions, ConvertResult, ComponentSpec } from '../types.js';
+import type { SnapshotOptions, ConvertResult, ComponentSpec, SnapshotIssue } from '../types.js';
 import { codeGenerator, ConfigGenerator, SharedLogicExtractor } from '@web-clone/codegen';
 import { toMarkdown } from '../query/html-query.js';
+import { writeIssuesFiles, writeLogFiles } from './issues.js';
 
 interface LowConfidenceComponent {
   name: string;
@@ -94,6 +95,9 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
     // Collect low-confidence components for review
     const lowConfidenceComponents: LowConfidenceComponent[] = [];
 
+    // Collect component analysis issues
+    const componentIssues: SnapshotIssue[] = [];
+
     result.components.forEach((comp) => {
       // Sanitize component name: reject path traversal characters
       const safeName = comp.name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -124,11 +128,23 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
 
       // Track low-confidence matches
       if ((comp.matchConfidence ?? 0) < 0.6) {
+        const confidence = Math.round((comp.matchConfidence ?? 0) * 100);
+        const reason = (comp.matchConfidence ?? 0) < 0.3
+          ? 'Very low confidence - strong manual review recommended'
+          : 'Low confidence - manual review suggested';
         lowConfidenceComponents.push({
           name: safeName,
-          confidence: Math.round((comp.matchConfidence ?? 0) * 100),
+          confidence,
           type: comp.type,
-          reason: (comp.matchConfidence ?? 0) < 0.3 ? 'Very low confidence - strong manual review recommended' : 'Low confidence - manual review suggested'
+          reason,
+        });
+        componentIssues.push({
+          severity: 'warning',
+          category: 'component_analysis',
+          source: safeName,
+          message: `Low confidence component match (${confidence}%)`,
+          detail: reason,
+          action: `Review ${safeName}/template.html and ${safeName}/manifest.json manually to verify correctness`,
         });
       }
 
@@ -189,6 +205,28 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
         join(outputDir, 'REVIEW_REQUIRED.md'),
         generateReviewReport(lowConfidenceComponents)
       );
+    }
+
+    // Merge component analysis issues into the unified issues report
+    // Read existing issues if already written by the assembler, then append
+    let existingIssues: SnapshotIssue[] = [];
+    const issuesJsonPath = join(outputDir, 'SNAPSHOT_ISSUES.json');
+    if (existsSync(issuesJsonPath)) {
+      try {
+        const existing = JSON.parse(readFileSync(issuesJsonPath, 'utf8'));
+        if (existing.issues && Array.isArray(existing.issues)) {
+          existingIssues = existing.issues;
+        }
+      } catch {
+        // Ignore parse errors — start fresh
+      }
+    }
+    writeIssuesFiles(outputDir, [...existingIssues, ...componentIssues], result.sourceUrl);
+
+    // Write empty log file if none exists (component analysis produces no fetch logs)
+    const logJsonPath = join(outputDir, 'SNAPSHOT_LOG.json');
+    if (!existsSync(logJsonPath)) {
+      writeLogFiles(outputDir, [], result.sourceUrl);
     }
 
   // Generate application template if requested

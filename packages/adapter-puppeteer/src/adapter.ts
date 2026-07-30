@@ -165,6 +165,10 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
       if (options.isMainDocument) {
         return await this.fetchWithPage(url, options, mergedOptions);
       } else {
+        // Sub-resource: use browser context when requested and resource is textual
+        if (mergedOptions.useBrowserContextForSubResources) {
+          return await this.fetchWithBrowserContext(url, options, mergedOptions);
+        }
         return await this.fetchWithHttp(url, options, mergedOptions);
       }
     } catch (error) {
@@ -216,13 +220,14 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
     }
 
     // Additional wait for SPA frameworks (Vue/React/Angular) to initialize
-    // This ensures event handlers and state management are properly set up
-    if (poOptions.waitForLoadState === 'networkidle' || poOptions.waitForLoadState === 'load') {
-      await waitForSpaHydration(this.page as unknown as SpaPageLike, {
-        timeout: options.timeout ?? 30000,
-        logPrefix: '[Puppeteer Adapter]',
-      });
-    }
+    // This ensures event handlers and state management are properly set up.
+    // Always runs regardless of waitForLoadState — the detector has its own
+    // timeout protection and four-phase progressive detection, so it won't
+    // cause excessive delays even after 'domcontentloaded'.
+    const spaResult = await waitForSpaHydration(this.page as unknown as SpaPageLike, {
+      timeout: options.timeout ?? 30000,
+      logPrefix: '[Puppeteer Adapter]',
+    });
 
     // Optional: debug screenshot
     if (poOptions.debugScreenshot) {
@@ -239,6 +244,9 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
     const html = await this.page.content();
     const buffer = Buffer.from(html, 'utf-8');
 
+    // Build browserFramework from spa-detector's fine-grained result.
+    // spa-detector now returns types consistent with core's FrameworkType
+    // (nuxt3, nuxt2, nextjs, vue3, react18, angular, sveltekit).
     // Constructing the return value
     const headers = response.headers();
     return {
@@ -249,6 +257,12 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
       isHtmlLike: true,
       headers: Object.fromEntries(Object.entries(headers || {})),
       url: this.page.url() || '',
+      browserFramework: {
+        framework: spaResult.framework,
+        confidence: spaResult.confidence,
+        appElement: spaResult.appElement || undefined,
+        isHydrated: spaResult.isHydrated,
+      },
     };
   }
 
@@ -330,6 +344,106 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
           delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
         }
       }
+    }
+  }
+
+  /**
+   * Use page.evaluate(fetch) to get sub-resources through the browser context.
+   *
+   * Strategy:
+   * 1. For text resources (CSS, JS, HTML, SVG, JSON): execute fetch() inside
+   *    the browser page context via page.evaluate(), which inherits:
+   *    - All browser cookies (including HTTP-only, SameSite, cross-domain)
+   *    - Service worker intercepts
+   *    - Browser cache
+   *    - Automatic HTTP auth headers
+   *    - Custom headers set via page.setExtraHTTPHeaders()
+   * 2. For binary resources (images, fonts, video): fall back to fetchWithHttp()
+   *    to avoid the serialization overhead of base64 encoding through the
+   *    evaluate bridge.
+   * 3. On any error in browser-context fetch, fall back to fetchWithHttp().
+   *
+   * Limitations:
+   * - May be slower for large text files due to serialization over the CDP bridge
+   * - Subject to CORS restrictions (same as any browser fetch)
+   * - Cannot bypass Content Security Policy of the page
+   *
+   * @private
+   */
+  private async fetchWithBrowserContext(
+    url: string,
+    options: FetchOptions,
+    poOptions: PuppeteerAdapterOptions
+  ): Promise<FetchResult> {
+    // Classify resource type from URL extension to decide fetch strategy
+    const binaryExtensions = /\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot|mp4|mp3|webm|pdf|zip|gz|tar)(\?|$)/i;
+
+    if (binaryExtensions.test(url)) {
+      // Binary resources: use raw HTTP to avoid base64 serialization overhead
+      return this.fetchWithHttp(url, options, poOptions);
+    }
+
+    try {
+      const result = await this.page.evaluate(
+        async (resourceUrl: string, fetchTimeout: number) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), fetchTimeout);
+
+          try {
+            const response = await fetch(resourceUrl, {
+              signal: controller.signal,
+              redirect: 'follow',
+            });
+
+            const text = await response.text();
+            const contentType =
+              response.headers.get('content-type') || 'application/octet-stream';
+
+            // Convert headers to a plain object (cannot return Headers object from evaluate)
+            const responseHeaders: Record<string, string> = {};
+            response.headers.forEach((value: string, key: string) => {
+              responseHeaders[key] = value;
+            });
+
+            return {
+              text,
+              contentType,
+              status: response.status,
+              ok: response.ok,
+              isHtmlLike: contentType.includes('text/html'),
+              headers: responseHeaders,
+              finalUrl: response.url,
+              success: true,
+            };
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        },
+        url,
+        options.timeout ?? 15000
+      );
+
+      if (!result.success) {
+        throw new Error('Browser context fetch returned unsuccessful result');
+      }
+
+      return {
+        buffer: Buffer.from(result.text, 'utf-8'),
+        mime: result.contentType,
+        status: result.status,
+        ok: result.ok,
+        isHtmlLike: result.isHtmlLike,
+        headers: result.headers,
+        url: result.finalUrl,
+      };
+    } catch (error) {
+      // Fall back to raw HTTP fetch on any browser-context failure
+      console.warn(
+        `Browser context fetch failed for ${url}: ${
+          error instanceof Error ? error.message : String(error)
+        }. Falling back to raw HTTP.`
+      );
+      return this.fetchWithHttp(url, options, poOptions);
     }
   }
 
@@ -510,6 +624,7 @@ export async function createPuppeteerAdapter(
     validateSSL: options.validateSSL ?? true,
     customHeaders: options.customHeaders,
     debugScreenshot: options.debugScreenshot,
+    useBrowserContextForSubResources: options.useBrowserContextForSubResources,
   });
 
   return {

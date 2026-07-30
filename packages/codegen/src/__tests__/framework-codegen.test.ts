@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ComponentSpec } from '@web-clone/types';
 import { VueGenerator } from '../vue-generator.js';
+import { templateRules } from '../framework-rules.js';
 
 // Mock component for testing
 const mockComponent: ComponentSpec = {
@@ -197,5 +198,50 @@ describe('VueGenerator', () => {
       expect(result.code).toBeTruthy();
       expect(result.metadata.eventCount).toBe(0);
     });
+  });
+});
+
+// ─── cleanAttributes Whitelist (P2-1) ──────────────────────────────
+describe('templateRules.cleanAttributes', () => {
+  it('should remove tool-injected data-* attributes', () => {
+    const html = '<div data-binding="count" data-event="click:handler" data-condition="show">Content</div>';
+    const result = templateRules.cleanAttributes(html);
+    expect(result).not.toContain('data-binding');
+    expect(result).not.toContain('data-event');
+    expect(result).not.toContain('data-condition');
+    expect(result).toContain('Content');
+  });
+
+  it('should remove tool-injected data-snapshot-* attributes', () => {
+    const html = '<div data-snapshot-id="123" data-snapshot-type="component">Content</div>';
+    const result = templateRules.cleanAttributes(html);
+    expect(result).not.toContain('data-snapshot-id');
+    expect(result).not.toContain('data-snapshot-type');
+    expect(result).toContain('Content');
+  });
+
+  it('should preserve third-party data-* attributes', () => {
+    const html = '<div data-testid="my-component" data-tracking="user-click" data-index="0">Content</div>';
+    const result = templateRules.cleanAttributes(html);
+    expect(result).toContain('data-testid="my-component"');
+    expect(result).toContain('data-tracking="user-click"');
+    expect(result).toContain('data-index="0"');
+  });
+
+  it('should remove tool-injected attrs while preserving third-party attrs', () => {
+    const html = '<div data-binding="x" data-testid="comp" data-event="click:y" data-tracking="event" data-snapshot-version="v1">Content</div>';
+    const result = templateRules.cleanAttributes(html);
+    expect(result).not.toContain('data-binding');
+    expect(result).not.toContain('data-event');
+    expect(result).not.toContain('data-snapshot-version');
+    expect(result).toContain('data-testid="comp"');
+    expect(result).toContain('data-tracking="event"');
+    expect(result).toContain('Content');
+  });
+
+  it('should handle HTML without data-* attributes', () => {
+    const html = '<div class="foo">Content</div>';
+    const result = templateRules.cleanAttributes(html);
+    expect(result).toBe(html);
   });
 });

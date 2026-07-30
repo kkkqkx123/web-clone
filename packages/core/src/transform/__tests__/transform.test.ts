@@ -38,16 +38,69 @@ describe('Transform Pipeline - Real World Scenarios', () => {
     });
 
     it('should detect semantic tags (P2 priority)', () => {
+      // <header> and <nav> are always detected as semantic components.
+      // <section> and <article> require heading (h1-h6) + interactive element
+      // (button/input/a/form/select/textarea) to avoid layout-only false positives.
+      // <footer> is filtered out when it is the only (site-wide) footer.
       const html = `
         <header class="navbar">Navigation</header>
-        <section class="hero">Hero section</section>
-        <footer class="footer">Footer</footer>
+        <section class="hero"><h1>Hero</h1><button>Click</button></section>
+      `;
+
+      const result = analyzeHtml(html);
+      expect(result.componentRoots).toHaveLength(2);
+      const types = result.componentRoots.map(r => r.type);
+      expect(types.every(t => t === 'semantic')).toBe(true);
+    });
+
+    it('should filter section/article without heading+interactive content', () => {
+      // Pure layout sections with only class/id should NOT be detected as components.
+      const html = `
+        <section class="features">
+          <h2>Features</h2>
+          <div>Some text here</div>
+        </section>
+      `;
+
+      const result = analyzeHtml(html);
+      // The section has a heading but no interactive element -> filtered out
+      expect(result.componentRoots).toHaveLength(0);
+    });
+
+    it('should filter site-wide footer when it is the only footer', () => {
+      const html = `
+        <footer class="site-footer">Copyright 2024</footer>
+      `;
+
+      const result = analyzeHtml(html);
+      expect(result.componentRoots).toHaveLength(0);
+    });
+
+    it('should keep footer when multiple footers exist', () => {
+      // Multiple footers: the first (non-last) footer is kept as a real component;
+      // the last (site-wide) footer is filtered out.
+      const html = `
+        <footer class="article-footer">Article meta</footer>
+        <footer class="site-footer">Site-wide footer</footer>
+      `;
+
+      const result = analyzeHtml(html);
+      // Only the first footer should be kept (article-footer), site-wide footer filtered out.
+      // Name is inferred from class="article-footer" -> split on first '-' -> "article"
+      expect(result.componentRoots).toHaveLength(1);
+      expect(result.componentRoots[0].name).toBe('article');
+    });
+
+    it('should keep header and nav unconditionally', () => {
+      // <header>, <nav>, <main> are always detected — no heading/interactive requirement.
+      const html = `
+        <header class="page-header">Logo</header>
+        <nav class="main-nav">Links</nav>
+        <main class="content">Body</main>
       `;
 
       const result = analyzeHtml(html);
       expect(result.componentRoots).toHaveLength(3);
-      const types = result.componentRoots.map(r => r.type);
-      expect(types.every(t => t === 'semantic')).toBe(true);
     });
 
     it('should detect Vue/Nuxt scoped styles (P3 priority)', () => {

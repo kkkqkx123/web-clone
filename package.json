@@ -26,19 +26,25 @@
     "browsers:check:puppeteer": "node scripts/check-puppeteer.mjs",
     "browsers:install": "npx playwright install chromium",
     "browsers:install:all": "npx playwright install",
-    "verify-playwright": "node scripts/verify-playwright.mjs"
+    "test:e2e": "vitest run --config tests/e2e/vitest.config.ts tests/e2e/spa-crawl-e2e.test.ts",
+    "test:e2e:all": "pnpm build && pnpm test:e2e",
+    "test:e2e:build": "npx tsx tests/e2e/build-fixtures.ts",
+    "test:e2e:regression": "bash scripts/e2e-regression-check.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.10",
+    "@web-clone/adapter-playwright": "workspace:*",
+    "@web-clone/core": "workspace:*",
     "eslint": "^10.7.0",
+    "jsdom": "^29.1.1",
+    "playwright": "1.58.2",
     "prettier": "^3.6.0",
+    "tsx": "^4.23.0",
     "turbo": "^2.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.63.0",
-    "vitest": "^4.1.10",
-    "jsdom": "^29.1.1",
-    "tsx": "^4.23.0"
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=20.0.0"

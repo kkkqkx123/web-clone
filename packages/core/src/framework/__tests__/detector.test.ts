@@ -2,7 +2,7 @@
  * Framework Detection Unit Tests.
  *
  * Covers all 12 real detection scenarios:
- * - Dimension 1: Global variables (__NUXT__, __NEXT_DATA__, __SVELTEKIT__)
+ * - Dimension 1: Global variables (__NUXT__, __NEXT_DATA__, __sveltekit__)
  * - Dimension 3: Meta generator tags (VitePress, VuePress, Astro, SvelteKit)
  * - Dimension 4: JS content scanning (Vue 3, React 18, Angular, SvelteKit)
  * - Dimension 5: Generic mount points (Nuxt 2, VitePress, Next.js, SvelteKit)
@@ -32,13 +32,13 @@ describe('detectFramework — Dimension 1: Global Variables', () => {
     expect(result.markers).toContain('__NEXT_DATA__');
   });
 
-  it('should detect SvelteKit from window.__SVELTEKIT__', () => {
-    const html = '<html><body><script>window.__SVELTEKIT__ = {}</script></body></html>';
+  it('should detect SvelteKit from window.__sveltekit__', () => {
+    const html = '<html><body><script>window.__sveltekit__ = {}</script></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('sveltekit');
     expect(result.confidence).toBe(0.95);
     expect(result.appElement).toBe('#svelte');
-    expect(result.markers).toContain('__SVELTEKIT__');
+    expect(result.markers).toContain('__sveltekit__');
   });
 });
 

@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { join, resolve } from 'node:path';
 import { existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles, injectHydrationScript } from '@web-clone/core';
+import { snapshot, convertLocalSnapshot, startSnapshotServer, generateStandaloneServerFiles, injectHydrationScript, formatIssueSummary, formatLogSummary } from '@web-clone/core';
 import { fromCommander, DEFAULTS, type CommanderOpts } from './config/index.js';
 import type { SnapshotResult } from '@web-clone/core';
 import { validateSnapshot, cleanSnapshot, formatValidationReport, formatCleanResult } from '@web-clone/core';
@@ -38,6 +38,7 @@ program
   .option('--codegen-css-modules', 'Use CSS Modules for React (default: false)')
   .option('--codegen-generate-drafts', 'Generate complete project templates in __drafts__/ (requires --codegen-framework)')
   .option('--codegen-extract-shared', 'Extract shared logic to shared/ directory (requires --extract-components)')
+  .option('--debug-hydration', 'Inject diagnostic probe scripts to monitor framework hydration status (default: off)')
   .option('--skip-types <extensions>', 'Comma-separated extensions to skip (e.g. ".zip,.mp4"); empty string "" disables filtering; default: archives/installers/docs (archives: .zip, .rar, .7z, .tar, .gz, .bz2; installers: .exe, .msi, .dmg, .apk, .deb, .rpm; docs: .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx; media: .mp4, .webm, .mp3, .wav, .m4v, .mkv, .avi, .mov, .flv, .aac, .flac, .ogg, .wma; other: .ts, .m3u8, .iso, .torrent, .wasm, .bin)')
   .option('--resource-preset <name>', 'Resource filtering preset: none | minimal | default | no-media | aggressive (default: default; ignored when --skip-types is used)')
   .option('--include-wasm', 'Include .wasm files (remove from skip list)')
@@ -143,13 +144,15 @@ program
         }
 
         // Post-process: inject hydration script for SSR snapshots.
+        // Pass pre-computed detection to avoid redundant re-detection.
         const htmlPath = options.mode === 'bundle'
           ? join(options.output, 'index.html')
           : options.output;
-        const jsContents = result.assets
-          .filter(a => a.type === 'js' && a.status === 'fetched' && a.textContent)
-          .map(a => a.textContent!);
-        injectHydrationScript({ htmlPath, jsContents });
+        injectHydrationScript({
+          htmlPath,
+          detection: result.frameworkDetection,
+          debugProbe: opts.debugHydration === true,
+        });
       } else {
         // HTTP-based snapshot
         result = await snapshot(options.url, options);
@@ -157,13 +160,40 @@ program
         // Post-process: inject hydration script for SSR snapshots.
         // This is a CLI-level optimization (not in the library) to help Vue
         // components hydrate properly when the snapshot is opened locally.
+        // Pass pre-computed detection to avoid redundant re-detection.
         const htmlPath2 = options.mode === 'bundle'
           ? join(options.output, 'index.html')
           : options.output;
-        const jsContents2 = result.assets
-          .filter(a => a.type === 'js' && a.status === 'fetched' && a.textContent)
-          .map(a => a.textContent!);
-        injectHydrationScript({ htmlPath: htmlPath2, jsContents: jsContents2 });
+        injectHydrationScript({
+          htmlPath: htmlPath2,
+          detection: result.frameworkDetection,
+          debugProbe: opts.debugHydration === true,
+        });
+
+        // Detect CSR-only pages (empty shell with many script tags).
+        // HTTP adapter only does GET — it cannot execute JavaScript, so
+        // a pure CSR app renders no visible content. Warn the user.
+        const textContent = result.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const scriptCount = (result.html.match(/<script[\s>]/gi) || []).length;
+        if (textContent.length < 200 && scriptCount > 3) {
+          const detection = result.frameworkDetection;
+          const frameworkName = detection && detection.framework !== 'unknown' ? detection.framework : null;
+          if (frameworkName) {
+            console.warn(chalk.yellow(
+              `\n  ⚠ Detected ${frameworkName} framework but the page is an empty CSR shell\n` +
+              `     (${textContent.length} visible chars, ${scriptCount} scripts).\n` +
+              `     The HTTP adapter cannot execute JavaScript — only browser adapters\n` +
+              `     can render this content. Use --adapter playwright.`
+            ));
+          } else {
+            console.warn(chalk.yellow(
+              `\n  ⚠ This page appears to be a client-side rendered (CSR) application.\n` +
+              `     The HTTP adapter cannot execute JavaScript and only captured\n` +
+              `     an empty HTML shell (${textContent.length} visible chars, ${scriptCount} scripts).\n` +
+              `     Use --adapter playwright (or puppeteer) to get rendered content.`
+            ));
+          }
+        }
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -194,6 +224,19 @@ program
         if (result.stats.total === 0) {
           console.log(chalk.gray(`\n  ℹ No external assets found — page is self-contained (inline CSS/JS/images)`));
         }
+      }
+
+      if (result.issues && result.issues.length > 0) {
+        const errorCount = result.issues.filter(i => i.severity === 'error').length;
+        const warningCount = result.issues.filter(i => i.severity === 'warning').length;
+        if (errorCount > 0 || warningCount > 0) {
+          console.log(chalk.yellow(`\n  Quality: ${formatIssueSummary(result.issues)}`));
+        }
+      }
+
+      // Show logs summary only with verbose flag
+      if (opts.verbose && result.logs && result.logs.length > 0) {
+        console.log(chalk.gray(`\n  Fetch log: ${formatLogSummary(result.logs)}`));
       }
 
       // Generate standalone server files when --serve is used

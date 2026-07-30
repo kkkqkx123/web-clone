@@ -45,7 +45,7 @@ describe('CLI Hydration Injection (Phase 3)', () => {
     const htmlPath = join(testDir, 'index.html');
     writeFileSync(htmlPath, htmlContent, 'utf-8');
 
-    injectHydrationScript({ htmlPath });
+    injectHydrationScript({ htmlPath, debugProbe: true });
 
     const modifiedHtml = readFileSync(htmlPath, 'utf-8');
     expect(modifiedHtml).toContain('[Hydration]');
@@ -66,7 +66,7 @@ describe('CLI Hydration Injection (Phase 3)', () => {
     const htmlPath = join(testDir, 'index.html');
     writeFileSync(htmlPath, htmlContent, 'utf-8');
 
-    injectHydrationScript({ htmlPath });
+    injectHydrationScript({ htmlPath, debugProbe: true });
 
     const modifiedHtml = readFileSync(htmlPath, 'utf-8');
     expect(modifiedHtml).toContain('[Hydration]');
@@ -90,6 +90,7 @@ describe('CLI Hydration Injection (Phase 3)', () => {
     injectHydrationScript({
       htmlPath,
       jsContents: ['function createSSRApp() { /* Vue 3 SSR */ }'],
+      debugProbe: true,
     });
 
     const modifiedHtml = readFileSync(htmlPath, 'utf-8');
@@ -131,7 +132,7 @@ describe('CLI Hydration Injection (Phase 3)', () => {
     const htmlPath = join(testDir, 'index.html');
     writeFileSync(htmlPath, htmlContent, 'utf-8');
 
-    injectHydrationScript({ htmlPath });
+    injectHydrationScript({ htmlPath, debugProbe: true });
 
     const modifiedHtml = readFileSync(htmlPath, 'utf-8');
     // The hydration script should appear before </body>

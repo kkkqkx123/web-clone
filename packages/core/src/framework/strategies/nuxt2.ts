@@ -1,20 +1,24 @@
 /**
- * Nuxt 2 Hydration Strategies.
+ * Nuxt 2 Post-Snapshot Probe Strategy.
  * 
- * Match condition: detection results in nuxt2 (usually recognized by #__nuxt mount point, no __NUXT__ global variable).
+ * Match condition: detection results in nuxt2 (usually recognized by
+ * #__nuxt mount point, no __NUXT__ global variable).
  * 
- * Hydration method:
- * 1. wait for DOM loading to complete
- * 2. trigger hydration by window.$nuxt.$mount('#__nuxt')
- * 3. retry up to 20 times (each time 500ms).
+ * This is the ONLY strategy that actively triggers re-hydration:
+ * 1. Wait for DOM loading to complete
+ * 2. Trigger hydration by window.$nuxt.$mount('#__nuxt')
+ * 3. Retry up to 20 times (500ms each).
+ * 
+ * All other strategies are diagnostic observers only (poll __vue__/__reactRoot$).
  */
 
-import type { HydrationStrategy } from '../types.js';
+import type { PostSnapshotStrategy } from '../types.js';
 
-export const nuxt2Strategy: HydrationStrategy = {
+export const nuxt2Strategy: PostSnapshotStrategy = {
   framework: 'nuxt2',
+  alwaysInject: true, // Functional probe: $nuxt.$mount() triggers re-hydration
   matches: (d) => d.framework === 'nuxt2',
-  generateScript: (d) => {
+  generateProbeScript: (d) => {
     const selector = d.appElement || '#__nuxt';
     return `
 <script type="text/javascript">

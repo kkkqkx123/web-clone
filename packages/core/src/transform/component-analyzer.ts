@@ -34,6 +34,8 @@ interface TagInfo {
   depth: number;
   /** Whether self-closing / empty element */
   isSelfClosing: boolean;
+  /** Index in this.candidates array if this tag created a component root candidate */
+  candidateIndex?: number;
 }
 
 interface ComponentRootCandidate {
@@ -42,6 +44,8 @@ interface ComponentRootCandidate {
   attrs: Record<string, string>;
   depth: number;
   startOffset: number;
+  /** Character offset where this element's closing tag ends (available after processing closing tag) */
+  endOffset?: number;
   type: 'explicit' | 'semantic' | 'implicit';
   confidence: number;
   children: ComponentRootCandidate[];
@@ -59,6 +63,13 @@ const SELF_CLOSING = new Set([
 // ── Semantic labels ─────────────────────────────────────────────────────
 
 const SEMANTIC_TAGS = new Set(['header', 'footer', 'nav', 'main', 'section', 'article']);
+
+// ── Heading and interactive element tags for semantic filtering ──────────
+// Used to filter section/article candidates: only keep those that contain
+// at least one heading (h1-h6) AND one interactive element (button/a/form/input/select/textarea).
+
+const HEADING_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+const INTERACTIVE_TAGS = new Set(['button', 'input', 'a', 'form', 'select', 'textarea']);
 
 // ── Event attribute prefix ────────────────────────────────────────────────
 
@@ -79,8 +90,17 @@ class StreamingHtmlAnalyzer {
   private events: DynamicPoints['events'] = [];
   private conditions: DynamicPoints['conditions'] = [];
 
+  // Track positions of headings and interactive elements for semantic filtering.
+  // During streaming scan these offsets are collected; after feed() completes,
+  // section/article semantic candidates are validated against them.
+  private headingOffsets: number[] = [];
+  private interactiveOffsets: number[] = [];
+
   // Depth threshold for heuristic class-based detection (undefined = no limit)
   private depthThreshold: number | undefined;
+
+  // Framework hint for framework-aware detection
+  private frameworkHint: string | undefined;
 
   // Regular: matches HTML tags
   private readonly TAG_REGEX = /<(\/?)(\w[\w-]*)((?:\s[^>]*?)?)>/g;
@@ -88,10 +108,11 @@ class StreamingHtmlAnalyzer {
   // Regular: parsing attributes (supports double quotes, single quotes, no quotes)
   private readonly ATTR_REGEX = /(\w[\w-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+)))?/g;
 
-  feed(html: string, options?: { maxTagScan?: number; maxDepth?: number }): void {
+  feed(html: string, options?: { maxTagScan?: number; maxDepth?: number; framework?: string }): void {
     let match: RegExpExecArray | null;
     const maxTag = options?.maxTagScan ?? Infinity;
     this.depthThreshold = options?.maxDepth;
+    this.frameworkHint = options?.framework;
 
     while ((match = this.TAG_REGEX.exec(html)) !== null) {
       if (this.tagCount >= maxTag) break;
@@ -104,7 +125,7 @@ class StreamingHtmlAnalyzer {
       this.tagCount++;
 
       if (isClosing) {
-        this.processClosingTag(tagName);
+        this.processClosingTag(tagName, startOffset + match[0].length);
       } else {
         this.processOpeningTag(tagName, attrsRaw, startOffset);
       }
@@ -128,21 +149,35 @@ class StreamingHtmlAnalyzer {
     const candidate = this.checkComponentRoot(tag);
     if (candidate) {
       this.candidates.push(candidate);
+      tag.candidateIndex = this.candidates.length - 1;
     }
 
     // Collection of dynamic points
     this.collectDynamicPoints(tag);
+
+    // Track heading and interactive element positions for semantic filtering
+    if (HEADING_TAGS.has(tagName)) {
+      this.headingOffsets.push(startOffset);
+    }
+    if (INTERACTIVE_TAGS.has(tagName)) {
+      this.interactiveOffsets.push(startOffset);
+    }
 
     if (!isSelfClosing) {
       this.stack.push(tag);
     }
   }
 
-  private processClosingTag(tagName: string): void {
+  private processClosingTag(tagName: string, endOffset: number): void {
     // Find the matching open label from the stack
     for (let i = this.stack.length - 1; i >= 0; i--) {
       if (this.stack[i].tagName === tagName) {
-        // Remove only this element from the stack (was: splice(i) removed i..end)
+        const tagInfo = this.stack[i];
+        // Update the associated candidate's endOffset if one exists
+        if (tagInfo.candidateIndex !== undefined && tagInfo.candidateIndex < this.candidates.length) {
+          this.candidates[tagInfo.candidateIndex].endOffset = endOffset;
+        }
+        // Remove only this element from the stack
         this.stack.splice(i, 1);
         break;
       }
@@ -180,9 +215,34 @@ class StreamingHtmlAnalyzer {
     }
 
     // P2: Semantic Labeling
-    // Allow semantic tags to be recognized even if they're nested within other components
-    // Real websites often have: header > nav, article > section, etc.
+    // <nav>, <header>, <main>: always valid component roots
+    // <section>, <article>: require class/id/data-* to avoid treating layout-only wrappers as components
+    // <footer>: require class/id/data-* (avoids catching entire page footer as a single component)
     if (SEMANTIC_TAGS.has(tagName)) {
+      let shouldDetect = false;
+      let confidence = 0.85;
+
+      const hasSemanticAttr = attrs['id'] !== undefined
+        || attrs['class'] !== undefined
+        || Object.keys(attrs).some(k => k.startsWith('data-'));
+
+      if (tagName === 'nav' || tagName === 'header' || tagName === 'main') {
+        shouldDetect = true;
+        confidence = 0.85;
+      } else if (tagName === 'section' || tagName === 'article') {
+        if (hasSemanticAttr) {
+          shouldDetect = true;
+          confidence = 0.75;
+        }
+      } else if (tagName === 'footer') {
+        if (hasSemanticAttr) {
+          shouldDetect = true;
+          confidence = 0.70;
+        }
+      }
+
+      if (!shouldDetect) return null;
+
       return {
         name: this.inferName(attrs, tagName),
         tagName,
@@ -190,7 +250,7 @@ class StreamingHtmlAnalyzer {
         depth,
         startOffset,
         type: 'semantic',
-        confidence: 0.85,
+        confidence,
         children: [],
         parent: null,
       };
@@ -230,7 +290,7 @@ class StreamingHtmlAnalyzer {
       if (this.depthThreshold === undefined || depth >= this.depthThreshold) {
         // Avoid creating components for trivial wrappers with no nested content
         const isNested = this.candidates.some(c =>
-          c.startOffset < startOffset && this.isCandidateContaining(c, startOffset)
+          c.startOffset < startOffset && this.isCandidateContaining(c, startOffset, depth)
         );
         if (!isNested) {
           const name = this.inferComponentName(attrs, tagName, tagName);
@@ -247,6 +307,113 @@ class StreamingHtmlAnalyzer {
           };
         }
       }
+    }
+
+    // P5: Framework-aware component boundary detection
+    if (this.frameworkHint) {
+      const fwCandidate = this.checkFrameworkComponent(tagName, attrs, depth, startOffset);
+      if (fwCandidate) return fwCandidate;
+    }
+
+    return null;
+  }
+
+  /**
+   * Framework-specific component boundary detection.
+   * Uses framework-internal DOM markers that are more reliable than
+   * generic class/id heuristics.
+   */
+  private checkFrameworkComponent(
+    tagName: string,
+    attrs: Record<string, string>,
+    depth: number,
+    startOffset: number,
+  ): ComponentRootCandidate | null {
+    switch (this.frameworkHint) {
+      case 'angular':
+        // Angular uses _nghost-* attributes on component host elements
+        for (const key of Object.keys(attrs)) {
+          if (key.startsWith('_nghost-')) {
+            const compId = key.replace('_nghost-', '');
+            return {
+              name: `NgComp_${compId.slice(0, 7)}`,
+              tagName,
+              attrs,
+              depth,
+              startOffset,
+              type: 'semantic',
+              confidence: 0.85,
+              children: [],
+              parent: null,
+            };
+          }
+        }
+        break;
+
+      case 'sveltekit':
+        // Svelte components have svelte-* class prefixes
+        if (attrs['class']) {
+          const svelteMatch = attrs['class'].match(/\bsvelte-[a-z0-9]+/);
+          if (svelteMatch && !this.seenDataV.has(`svelte:${svelteMatch[0]}`)) {
+            this.seenDataV.add(`svelte:${svelteMatch[0]}`);
+            return {
+              name: this.inferComponentName(attrs, tagName, `SvelteComp_${svelteMatch[0].slice(7, 14)}`),
+              tagName,
+              attrs,
+              depth,
+              startOffset,
+              type: 'semantic',
+              confidence: 0.80,
+              children: [],
+              parent: null,
+            };
+          }
+        }
+        break;
+
+      case 'nextjs':
+      case 'react18':
+        // React-based frameworks: use class-based div/section heuristics
+        // with higher confidence when framework is confirmed
+        if ((tagName === 'div' || tagName === 'section') && (attrs['class'] || attrs['id'])) {
+          const isNested = this.candidates.some(c =>
+            c.startOffset < startOffset && this.isCandidateContaining(c, startOffset, depth)
+          );
+          // Only boost confidence for non-nested divs at depth >= 1
+          if (!isNested && depth >= 1) {
+            const classes = (attrs['class'] || '').split(/\s+/).filter(c => c.length > 0);
+            // Require meaningful class names (skip utility-only classes)
+            const meaningful = classes.filter(c =>
+              !/^(m[trblxy]?-|p[trblxy]?-|w-|h-|flex|grid|block|hidden|relative|absolute|fixed|text-|font-|bg-|border-|rounded-|shadow-|opacity-|z-|cursor-|overflow-|select-|align-|justify-|items-|self-|order-)/.test(c)
+            );
+            if (meaningful.length > 0) {
+              const name = this.inferComponentName(attrs, tagName, tagName);
+              return {
+                name,
+                tagName,
+                attrs,
+                depth,
+                startOffset,
+                type: 'implicit',
+                confidence: 0.60, // Boosted from 0.50 due to confirmed framework
+                children: [],
+                parent: null,
+              };
+            }
+          }
+        }
+        break;
+
+      case 'nuxt2':
+      case 'nuxt3':
+      case 'vue3':
+      case 'vitepress':
+        // Vue-based: already handled by P3 (data-v-*) and P4 (depth-based)
+        // No additional markers needed for Vue component boundaries in SSR output
+        break;
+
+      default:
+        break;
     }
 
     return null;
@@ -271,9 +438,18 @@ class StreamingHtmlAnalyzer {
     return fallback;
   }
 
-  private isCandidateContaining(candidate: ComponentRootCandidate, targetOffset: number): boolean {
-    // If the candidate has children, check if its range contains the target
-    // Simplification: startOffset-based precedence relations
+  private isCandidateContaining(candidate: ComponentRootCandidate, targetOffset: number, targetDepth?: number): boolean {
+    // If candidate has a known endOffset, use strict range containment check
+    // Otherwise fall back to startOffset-only comparison (candidate's closing tag not yet seen)
+    if (candidate.endOffset !== undefined) {
+      return candidate.startOffset < targetOffset && candidate.endOffset > targetOffset;
+    }
+    // When endOffset is unknown (streaming parse: parent's closing tag not yet seen),
+    // use depth comparison to avoid misidentifying siblings as children.
+    // Siblings have the same depth; children always have greater depth.
+    if (targetDepth !== undefined) {
+      return candidate.startOffset < targetOffset && candidate.depth < targetDepth;
+    }
     return candidate.startOffset < targetOffset;
   }
 
@@ -341,6 +517,112 @@ class StreamingHtmlAnalyzer {
         condition: condAttr,
       });
     }
+
+    // Framework-specific event and binding detection
+    this.collectFrameworkDynamicPoints(tag);
+  }
+
+  /**
+   * Collect framework-specific events and bindings based on the framework hint.
+   */
+  private collectFrameworkDynamicPoints(tag: TagInfo): void {
+    const { attrs } = tag;
+
+    // Angular: [(ngModel)], [property] bindings, (event) handlers
+    if (this.frameworkHint === 'angular') {
+      for (const key of Object.keys(attrs)) {
+        // Two-way binding: [(ngModel)]="value"
+        if (key.startsWith('[(') && key.endsWith(')]')) {
+          const bindingName = key.slice(2, -2);
+          this.bindings.push({
+            selector: this.buildSelector(tag),
+            attribute: key,
+            path: attrs[key],
+          });
+        }
+        // Property binding: [property]="value" (skip ng-version, ng-app)
+        else if (key.startsWith('[') && key.endsWith(']') && !key.startsWith('[ng')) {
+          const bindingName = key.slice(1, -1);
+          this.bindings.push({
+            selector: this.buildSelector(tag),
+            attribute: key,
+            path: attrs[key],
+          });
+        }
+        // Event binding: (event)="handler()"
+        else if (key.startsWith('(') && key.endsWith(')')) {
+          const eventName = key.slice(1, -1);
+          this.events.push({
+            selector: this.buildSelector(tag),
+            event: eventName,
+            handler: attrs[key],
+          });
+        }
+      }
+    }
+
+    // Svelte: bind:value, on:click, class:active, use:action
+    if (this.frameworkHint === 'sveltekit') {
+      for (const key of Object.keys(attrs)) {
+        // Two-way bind: bind:value={variable}
+        if (key.startsWith('bind:')) {
+          const propName = key.slice(5);
+          this.bindings.push({
+            selector: this.buildSelector(tag),
+            attribute: key,
+            path: attrs[key],
+          });
+        }
+        // Event handler: on:click={handler}
+        else if (key.startsWith('on:')) {
+          const eventName = key.slice(3);
+          this.events.push({
+            selector: this.buildSelector(tag),
+            event: eventName,
+            handler: attrs[key],
+          });
+        }
+        // Class toggle: class:active={condition}
+        else if (key.startsWith('class:')) {
+          const className = key.slice(6);
+          this.conditions.push({
+            selector: this.buildSelector(tag),
+            condition: `${className}: ${attrs[key]}`,
+          });
+        }
+      }
+    }
+
+    // Vue: @event, :prop shorthand (already partially handled, but add more)
+    if (this.frameworkHint === 'vue3' || this.frameworkHint === 'nuxt2' || this.frameworkHint === 'nuxt3' || this.frameworkHint === 'vitepress') {
+      for (const key of Object.keys(attrs)) {
+        // @event shorthand
+        if (key.startsWith('@') && key.length > 1) {
+          const eventName = key.slice(1);
+          // Skip if already captured by v-model, etc.
+          if (eventName !== 'model') {
+            this.events.push({
+              selector: this.buildSelector(tag),
+              event: eventName,
+              handler: attrs[key],
+            });
+          }
+        }
+        // :prop shorthand (skip known directives)
+        else if (key.startsWith(':') && key.length > 1) {
+          const propName = key.slice(1);
+          // Skip if already captured
+          const alreadyCaptured = ['key', 'is', 'ref', 'slot'].includes(propName);
+          if (!alreadyCaptured) {
+            this.bindings.push({
+              selector: this.buildSelector(tag),
+              attribute: key,
+              path: attrs[key],
+            });
+          }
+        }
+      }
+    }
   }
 
   private buildSelector(tag: TagInfo): string {
@@ -376,11 +658,61 @@ class StreamingHtmlAnalyzer {
   }
 
   /**
-   * Determine if a child is nested in a parent
-   * Based on startOffset and depth: parent must start before child, and depth is smaller.
+   * Determine if a child is nested in a parent.
+   * Uses strict range containment when endOffset is available,
+   * falling back to depth-based comparison.
    */
   private isNestedIn(parent: ComponentRootCandidate, child: ComponentRootCandidate): boolean {
+    // If parent has endOffset, use strict range containment
+    if (parent.endOffset !== undefined) {
+      return parent.startOffset < child.startOffset && parent.endOffset > child.startOffset;
+    }
+    // Fallback: parent must start before child and have shallower depth
     return parent.startOffset < child.startOffset && parent.depth < child.depth;
+  }
+
+  /**
+   * Filter out section/article semantic candidates that lack content structure.
+   * A section or article is only treated as a component when it contains
+   * at least one heading (h1-h6) AND one interactive element
+   * (button/input/a/form/select/textarea).
+   *
+   * Pure layout wrappers (e.g. <section><h2>Features</h2><div>...</div></section>)
+   * are removed to avoid false positives in the component list.
+   */
+  filterSectionArticleCandidates(): void {
+    this.candidates = this.candidates.filter(candidate => {
+      if (candidate.tagName !== 'section' && candidate.tagName !== 'article') {
+        return true;
+      }
+      if (candidate.type !== 'semantic') {
+        return true;
+      }
+
+      const start = candidate.startOffset;
+      const end = candidate.endOffset ?? Infinity;
+
+      const hasHeading = this.headingOffsets.some(offset => offset >= start && offset < end);
+      const hasInteractive = this.interactiveOffsets.some(offset => offset >= start && offset < end);
+
+      return hasHeading && hasInteractive;
+    });
+  }
+
+  /**
+   * Remove the last <footer> candidate (largest startOffset among footer candidates).
+   * This is typically the site-wide footer and should not be treated as a component.
+   * Only applies to semantic footer candidates.
+   */
+  filterFooterCandidates(): void {
+    const footerCandidates = this.candidates
+      .filter(c => c.tagName === 'footer' && c.type === 'semantic')
+      .sort((a, b) => b.startOffset - a.startOffset);
+
+    if (footerCandidates.length > 0) {
+      const lastFooter = footerCandidates[0]; // largest startOffset
+      this.candidates = this.candidates.filter(c => c !== lastFooter);
+    }
   }
 
   /**
@@ -460,7 +792,7 @@ interface MappedComponent {
   children?: MappedComponent[];
 }
 
-export function analyzeHtml(html: string, options?: { maxTagScan?: number; depth?: number }): HtmlAnalysisResult {
+export function analyzeHtml(html: string, options?: { maxTagScan?: number; depth?: number; framework?: string }): HtmlAnalysisResult {
   if (!html || !html.trim()) {
     return {
       componentRoots: [],
@@ -475,7 +807,14 @@ export function analyzeHtml(html: string, options?: { maxTagScan?: number; depth
     analyzer.feed(html, {
       maxTagScan: options?.maxTagScan,
       maxDepth: options?.depth,
+      framework: options?.framework,
     });
+
+    // Stage 1.5: Semantic Filtering
+    // Remove section/article candidates that lack heading + interactive content,
+    // and filter out the site-wide <footer>.
+    analyzer.filterSectionArticleCandidates();
+    analyzer.filterFooterCandidates();
 
     // Stage 2: Building the Component Tree
     const { dynamicPoints } = analyzer.getResults();
