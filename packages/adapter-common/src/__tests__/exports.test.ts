@@ -8,9 +8,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   waitForSpaHydration,
+  compareTier,
+  tierAtLeast,
   type SpaPageLike,
   type SpaDetectorOptions,
   type SpaDetectionResult,
+  type SignalTier,
   type AutomationAdapterOptions,
   type AutomationAuthOptions,
   type PageLoadWaitStrategy,
@@ -52,12 +55,28 @@ describe('@web-clone/adapter-common exports', () => {
       appElement: '#__nuxt',
       isHydrated: true,
       markers: ['__NUXT__', 'hydration-confirmed'],
-      confidence: 0.98,
+      tier: 'definitive',
     };
     expect(result.framework).toBe('nuxt3');
     expect(result.appElement).toBe('#__nuxt');
     expect(result.isHydrated).toBe(true);
     expect(result.markers).toHaveLength(2);
+    expect(result.tier).toBe('definitive');
+  });
+
+  it('should export SignalTier type', () => {
+    const tier: SignalTier = 'definitive';
+    expect(tier).toBe('definitive');
+  });
+
+  it('should export compareTier utility', () => {
+    expect(compareTier('definitive', 'weak')).toBeGreaterThan(0);
+    expect(compareTier('weak', 'definitive')).toBeLessThan(0);
+  });
+
+  it('should export tierAtLeast utility', () => {
+    expect(tierAtLeast('definitive', 'strong')).toBe(true);
+    expect(tierAtLeast('weak', 'definitive')).toBe(false);
   });
 
   it('should export AutomationAdapterOptions type', () => {
@@ -104,7 +123,7 @@ describe('@web-clone/adapter-common exports', () => {
   it('should export AutomationAuthOptions with cookies', () => {
     const auth: AutomationAuthOptions = {
       cookies: [
-        { name: 'session', value: 'abc123', domain: 'example.com' },
+        { name: 'session', value: 'abc123', domain: '127.0.0.1' },
       ],
     };
     expect(auth.cookies).toHaveLength(1);

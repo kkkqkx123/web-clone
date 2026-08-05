@@ -11,11 +11,34 @@
  */
 
 import { createRequire } from 'node:module';
+import { createServer } from 'node:http';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
+
+// 启动本地验证页面（避免依赖外网 example.com）
+function startLocalPage() {
+  return new Promise((resolveFn, reject) => {
+    const server = createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html lang="en"><head><title>Verify Page</title></head><body><h1>Verify Page</h1></body></html>');
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        reject(new Error('Failed to get server address'));
+        return;
+      }
+      resolveFn({
+        url: `http://127.0.0.1:${addr.port}`,
+        close: () => new Promise((r) => server.close(() => r(undefined))),
+      });
+    });
+  });
+}
 
 // 在 monorepo 中从 adapter-playwright 解析 playwright
 function loadPlaywright() {
@@ -66,10 +89,12 @@ async function main() {
     const page = await context.newPage();
     console.log('✅ Successfully created browser context and page\n');
 
-    // 测试导航
-    console.log('🌐 Testing basic navigation to https://example.com...\n');
+    // 测试导航（默认访问本地页面，可通过 VERIFY_URL 覆盖为任意目标）
+    const localPage = process.env.VERIFY_URL ? null : await startLocalPage();
+    const targetUrl = process.env.VERIFY_URL || localPage.url;
+    console.log(`🌐 Testing basic navigation to ${targetUrl}...\n`);
     try {
-      const response = await page.goto('https://example.com', {
+      const response = await page.goto(targetUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 10000,
       });
@@ -87,6 +112,7 @@ async function main() {
 
     await context.close();
     await browser.close();
+    if (localPage) await localPage.close();
     console.log('✅ Browser closed successfully\n');
     console.log('✨ All verification tests passed!');
     return true;

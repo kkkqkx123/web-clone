@@ -19,7 +19,7 @@ function createMockPage(): Page {
     screenshot: vi.fn(),
     close: vi.fn(),
     isClosed: vi.fn(() => false),
-    url: vi.fn(() => 'https://example.com'),
+    url: vi.fn(() => 'http://127.0.0.1:9000'),
   } as unknown as Page;
 }
 
@@ -35,7 +35,7 @@ function createMockContext(): BrowserContext {
     storageState: vi.fn().mockResolvedValue({
       origins: [
         {
-          origin: 'https://example.com',
+          origin: 'http://127.0.0.1:9000',
           localStorage: [
             { name: 'auth_token', value: 'Bearer token123' },
             { name: 'user_id', value: '12345' },
@@ -78,7 +78,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce(htmlContent);
 
-      const result = await adapter.fetch('https://example.com', {
+      const result = await adapter.fetch('http://127.0.0.1:9000', {
         isMainDocument: true,
         timeout: 5000,
       });
@@ -89,7 +89,7 @@ describe('PlaywrightFetcherAdapter', () => {
       expect(result.isHtmlLike).toBe(true);
       expect(result.buffer.toString('utf-8')).toBe(htmlContent);
 
-      expect(mockPage.goto).toHaveBeenCalledWith('https://example.com', {
+      expect(mockPage.goto).toHaveBeenCalledWith('http://127.0.0.1:9000', {
         timeout: 5000,
         waitUntil: 'networkidle',
       });
@@ -103,7 +103,7 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', { isMainDocument: true });
+      await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       // Verify that page.goto() was called with the correct waitUntil parameter
       expect(mockPage.goto).toHaveBeenCalledWith(
@@ -124,7 +124,7 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -140,7 +140,7 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', { isMainDocument: true, timeout: 60000 });
+      await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true, timeout: 60000 });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -160,7 +160,7 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(mockPage.screenshot).toHaveBeenCalledWith({
         path: '/tmp/debug.png',
@@ -170,13 +170,13 @@ describe('PlaywrightFetcherAdapter', () => {
     it('should throw error when page.goto fails', async () => {
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce(null);
 
-      await expect(adapter.fetch('https://example.com', { isMainDocument: true })).rejects.toThrow(
+      await expect(adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true })).rejects.toThrow(
         'Failed to navigate'
       );
     });
 
     it('should return correct URL from page.url()', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/final');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/final');
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
@@ -184,16 +184,16 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      const result = await adapter.fetch('https://example.com', { isMainDocument: true });
+      const result = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
-      expect(result.url).toBe('https://example.com/final');
+      expect(result.url).toBe('http://127.0.0.1:9000/final');
     });
   });
 
   describe('fetch() - 子资源获取', () => {
     it('should fetch CSS via context.request when not main document', async () => {
       // Settings page loaded
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       const cssContent = 'body { color: red; }';
       const buffer = Buffer.from(cssContent);
@@ -205,10 +205,10 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({ 'content-type': 'text/css' }),
         body: async () => buffer,
-        url: () => 'https://example.com/style.css',
+        url: () => 'http://127.0.0.1:9000/style.css',
       });
 
-      const result = await adapter.fetch('https://cdn.example.com/style.css', {});
+      const result = await adapter.fetch('http://cdn.local.test/style.css', {});
 
       expect(result.status).toBe(200);
       expect(result.mime).toContain('text/css');
@@ -216,7 +216,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should inherit custom headers in sub-resource fetch', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
         customHeaders: { 'Authorization': 'Bearer token123' },
@@ -229,13 +229,13 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({}),
         body: async () => Buffer.from(''),
-        url: () => 'https://api.example.com/data',
+        url: () => 'http://127.0.0.1:9000/data',
       });
 
-      await adapter2.fetch('https://api.example.com/data', {});
+      await adapter2.fetch('http://127.0.0.1:9000/data', {});
 
       expect(mockContext.request.fetch).toHaveBeenCalledWith(
-        'https://api.example.com/data',
+        'http://127.0.0.1:9000/data',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer token123',
@@ -245,7 +245,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should merge fetch options headers with custom headers', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
         customHeaders: { 'Authorization': 'Bearer token' },
@@ -258,10 +258,10 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({}),
         body: async () => Buffer.from(''),
-        url: () => 'https://example.com/api',
+        url: () => 'http://127.0.0.1:9000/api',
       });
 
-      await adapter2.fetch('https://example.com/api', {
+      await adapter2.fetch('http://127.0.0.1:9000/api', {
         headers: { 'Accept': 'application/json' },
       });
 
@@ -277,7 +277,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should fetch images as binary', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       const imageBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]); // PNG header
 
@@ -288,10 +288,10 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({ 'content-type': 'image/png' }),
         body: async () => imageBuffer,
-        url: () => 'https://example.com/image.png',
+        url: () => 'http://127.0.0.1:9000/image.png',
       });
 
-      const result = await adapter.fetch('https://example.com/image.png', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/image.png', {});
 
       expect(result.mime).toBe('image/png');
       expect(result.buffer).toEqual(imageBuffer);
@@ -304,15 +304,15 @@ describe('PlaywrightFetcherAdapter', () => {
         new Error('Network timeout')
       );
 
-      await expect(adapter.fetch('https://example.com', {})).rejects.toThrow(
-        'Playwright fetch failed for https://example.com'
+      await expect(adapter.fetch('http://127.0.0.1:9000', {})).rejects.toThrow(
+        'Playwright fetch failed for http://127.0.0.1:9000'
       );
     });
 
     it('should handle non-error objects thrown', async () => {
       vi.spyOn(mockPage, 'goto').mockRejectedValueOnce('String error');
 
-      await expect(adapter.fetch('https://example.com', {})).rejects.toThrow(
+      await expect(adapter.fetch('http://127.0.0.1:9000', {})).rejects.toThrow(
         'Playwright fetch failed'
       );
     });
@@ -326,11 +326,11 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
       });
 
-      const accessible = await adapter.canAccess('https://example.com/api');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/api');
 
       expect(accessible).toBe(true);
       expect(mockContext.request.head).toHaveBeenCalledWith(
-        'https://example.com/api',
+        'http://127.0.0.1:9000/api',
         { timeout: 5000 }
       );
     });
@@ -342,7 +342,7 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => false,
       });
 
-      const accessible = await adapter.canAccess('https://example.com/missing');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/missing');
 
       expect(accessible).toBe(false);
     });
@@ -354,7 +354,7 @@ describe('PlaywrightFetcherAdapter', () => {
         new Error('Network error')
       );
 
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(accessible).toBe(false);
     });
@@ -366,7 +366,7 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => false,
       });
 
-      const accessible = await adapter.canAccess('https://example.com/500');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/500');
 
       expect(accessible).toBe(false);
     });
@@ -428,7 +428,7 @@ describe('PlaywrightFetcherAdapter', () => {
       vi.spyOn(mockContext, 'storageState').mockResolvedValueOnce({
         origins: [
           {
-            origin: 'https://example.com',
+            origin: 'http://127.0.0.1:9000',
             localStorage: [
               { name: 'AUTH_TOKEN', value: 'token123' },
             ],
@@ -497,11 +497,11 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      const pageResult = await adapter.fetch('https://example.com', { isMainDocument: true });
+      const pageResult = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
       expect(pageResult.ok).toBe(true);
 
       // Step 2: Getting Sub-resources (CSS)
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
       vi.mocked(
         mockContext.request.fetch
       ).mockResolvedValueOnce({
@@ -509,10 +509,10 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({ 'content-type': 'text/css' }),
         body: async () => Buffer.from('body {}'),
-        url: () => 'https://example.com/style.css',
+        url: () => 'http://127.0.0.1:9000/style.css',
       });
 
-      const cssResult = await adapter.fetch('https://example.com/style.css', {});
+      const cssResult = await adapter.fetch('http://127.0.0.1:9000/style.css', {});
       expect(cssResult.ok).toBe(true);
 
       // Step 3: Check Resource Access
@@ -522,7 +522,7 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
       });
 
-      const accessible = await adapter.canAccess('https://example.com/api');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/api');
       expect(accessible).toBe(true);
 
       // Step 4: Obtaining the Authentication Context
@@ -553,7 +553,7 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       // Verify that all options are used correctly
       expect(mockPage.goto).toHaveBeenCalledWith(
@@ -568,7 +568,7 @@ describe('PlaywrightFetcherAdapter', () => {
 
   describe('edge cases', () => {
     it('should handle very large response bodies', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       const largeBuffer = Buffer.alloc(100 * 1024 * 1024); // 100 MB
 
@@ -579,16 +579,16 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({ 'content-type': 'application/octet-stream' }),
         body: async () => largeBuffer,
-        url: () => 'https://example.com/large-file',
+        url: () => 'http://127.0.0.1:9000/large-file',
       });
 
-      const result = await adapter.fetch('https://example.com/large-file', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/large-file', {});
 
       expect(result.buffer.length).toBe(100 * 1024 * 1024);
     });
 
     it('should handle responses with missing content-type', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/page');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
       vi.mocked(
         mockContext.request.fetch
@@ -597,10 +597,10 @@ describe('PlaywrightFetcherAdapter', () => {
         ok: () => true,
         headers: () => ({}), // No content-type
         body: async () => Buffer.from('data'),
-        url: () => 'https://example.com/unknown',
+        url: () => 'http://127.0.0.1:9000/unknown',
       });
 
-      const result = await adapter.fetch('https://example.com/unknown', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/unknown', {});
 
       expect(result.mime).toBe('application/octet-stream');
       expect(result.isHtmlLike).toBe(false);
@@ -625,8 +625,8 @@ describe('PlaywrightFetcherAdapter', () => {
       });
       vi.spyOn(mockPage2, 'content').mockResolvedValueOnce('<html>2</html>');
 
-      const result1 = await adapter.fetch('https://example.com', { isMainDocument: true });
-      const result2 = await adapter2.fetch('https://example.com', { isMainDocument: true });
+      const result1 = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
+      const result2 = await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(result1.buffer.toString()).toBe('<html>1</html>');
       expect(result2.buffer.toString()).toBe('<html>2</html>');

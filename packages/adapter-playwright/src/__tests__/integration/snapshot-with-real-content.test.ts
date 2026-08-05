@@ -2,7 +2,7 @@
  * E2E 测试：Playwright 真实内容快照
  *
  * 使用本地测试服务器验证 PlaywrightFetcherAdapter 正确处理含子资源的页面。
- * 补全现有集成测试中 example.com（零子资源）无法覆盖的场景。
+ * 补全现有集成测试中零子资源页面无法覆盖的场景。
  *
  * 测试场景：
  * 1. 含 CSS/JS/IMG 的真实页面 — 验证子资源下载及路径重写
@@ -30,7 +30,7 @@ beforeAll(async () => {
   console.log(`  Test server started at ${testServer.url}`);
   const { chromium } = await import('playwright');
   browser = await chromium.launch({ headless: true, timeout: 15000 });
-}, 30000);
+}, 60000);
 
 afterAll(async () => {
   if (browser) await browser.close();

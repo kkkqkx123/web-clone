@@ -32,6 +32,47 @@
  */
 
 /**
+ * Signal quality tier for framework detection.
+ *
+ * Replaces the previous continuous 0-1 confidence score with ordinal tiers
+ * that directly correspond to the detection method used. Tiers are ordered:
+ * definitive > strong > moderate > weak > none.
+ *
+ * - definitive: framework-specific global variable (__NUXT__, __NEXT_DATA__, __sveltekit__)
+ * - strong:      framework runtime object or version-checked signal (__VUE__, ng.probe, Vue.version)
+ * - moderate:    production-surviving markers (_nghost-*, ng-version, #__nuxt without version)
+ * - weak:        DOM-only heuristics (#__next, #root, #app)
+ * - none:        no framework detected
+ */
+export type SignalTier = 'definitive' | 'strong' | 'moderate' | 'weak' | 'none';
+
+/** Ordinal rank for SignalTier comparison: higher rank = more reliable detection. */
+const TIER_RANK: Record<SignalTier, number> = {
+  definitive: 4,
+  strong: 3,
+  moderate: 2,
+  weak: 1,
+  none: 0,
+};
+
+/**
+ * Compare two signal tiers. Returns:
+ * - positive if tier a is more reliable than tier b
+ * - negative if tier b is more reliable than tier a
+ * - zero if equal
+ */
+export function compareTier(a: SignalTier, b: SignalTier): number {
+  return TIER_RANK[a] - TIER_RANK[b];
+}
+
+/**
+ * Returns true if tier `a` is at least as reliable as tier `b`.
+ */
+export function tierAtLeast(a: SignalTier, min: SignalTier): boolean {
+  return TIER_RANK[a] >= TIER_RANK[min];
+}
+
+/**
  * Minimal page-like interface required for SPA detection.
  * Compatible with both Playwright's Page and Puppeteer's Page.
  */
@@ -66,11 +107,17 @@ export interface SpaDetectionResult {
   /** Raw detection markers from the browser context */
   markers: string[];
   /**
-   * Detection confidence (0-1), computed from signal quality:
-   * global vars (__NUXT__ etc.) = 0.95, HTML tags (#__nuxt etc.) = 0.70,
-   * DOM heuristics (#app etc.) = 0.40. Hydration confirmation adds +0.03.
+   * Signal quality tier reflecting the detection method used:
+   * - definitive: framework-specific global variable (__NUXT__, __NEXT_DATA__, __sveltekit__)
+   * - strong:      framework runtime object (__VUE__, ng.probe, Vue.version, $nuxt.$mount)
+   * - moderate:    production-surviving markers (_nghost-*, ng-version, #__nuxt w/o version)
+   * - weak:        DOM-only heuristics (#__next, #root, #app)
+   * - none:        no framework detected
+   *
+   * Phase 3 fiber/node detection can upgrade 'weak' to 'moderate' after
+   * confirming framework-specific production signals.
    */
-  confidence: number;
+  tier: SignalTier;
 }
 
 /**
@@ -79,7 +126,8 @@ export interface SpaDetectionResult {
  * Four-phase waiting strategy:
  * 1. Detect SSR frameworks (especially Nuxt/Vue with #__nuxt element)
  * 2. Wait for Vue instance to mount on the app element
- * 3. Wait for any recognized framework to signal readiness (framework-specific)
+ * 3. Waits for any recognized framework to signal readiness, then upgrades
+ *    'weak' tier detections to 'moderate' if production signals are found
  * 4. Small delay for event handler binding
  *
  * All timeouts are non-fatal — if a framework takes too long we proceed anyway.
@@ -97,7 +145,7 @@ export async function waitForSpaHydration(
   let appElement: string | null = null;
   let isHydrated = false;
   const markers: string[] = [];
-  let detectionConfidence = 0;
+  let detectionTier: SignalTier = 'none';
 
   try {
     // Phase 1: Detect SSR framework indicators in the page
@@ -123,7 +171,13 @@ export async function waitForSpaHydration(
         // Additional framework markers
         hasNextData: w.__NEXT_DATA__ !== undefined,
         hasReactHook: w.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== undefined,
-        hasSvelteKit: w.__sveltekit__ !== undefined || w.__SVELTEKIT__ !== undefined,
+        hasSvelteKit:
+          // SvelteKit 5+ sets window.__svelte (Svelte 5 runtime global carrying
+          // { v: version }); older SvelteKit versions used window.__sveltekit__.
+          // Any of these indicates an active Svelte/SvelteKit client runtime.
+          w.__sveltekit__ !== undefined ||
+          w.__SVELTEKIT__ !== undefined ||
+          w.__svelte !== undefined,
         hasAngular: w.ng !== undefined && w.ng.probe !== undefined,
         // Production-safe Angular detection: these signals exist even when
         // devtools (ng.probe) are stripped from production builds.
@@ -146,8 +200,9 @@ export async function waitForSpaHydration(
 
     console.log(`${logPrefix} SSR App Detection:`, isSSRApp);
 
-    // Determine framework with version differentiation
-    // confidence reflects signal quality: global vars > HTML tags > DOM heuristics
+    // Determine framework with version differentiation.
+    // Tier assignment follows the detection method hierarchy:
+    // definitive > strong > moderate > weak > none
 
     if (isSSRApp.hasNuxt) {
       // Nuxt: distinguish v2 ($nuxt.$mount) from v3 (__NUXT__)
@@ -160,85 +215,89 @@ export async function waitForSpaHydration(
       if (nuxtVersion === 3) {
         detectedFramework = 'nuxt3';
         markers.push('__NUXT__');
-        detectionConfidence = 0.95;
+        detectionTier = 'definitive';
       } else if (nuxtVersion === 2) {
         detectedFramework = 'nuxt2';
         markers.push('$nuxt.$mount');
-        detectionConfidence = 0.95;
+        detectionTier = 'strong';
       } else {
-        // has #__nuxt but no version signal — low confidence
+        // has #__nuxt but no version signal — moderate tier
         detectedFramework = 'nuxt2';
         markers.push('#__nuxt');
-        detectionConfidence = 0.50;
+        detectionTier = 'moderate';
       }
       appElement = '#__nuxt';
     } else if (isSSRApp.hasNextData) {
       detectedFramework = 'nextjs';
       appElement = '#__next';
       markers.push('__NEXT_DATA__');
-      detectionConfidence = 0.95;
+      detectionTier = 'definitive';
     } else if (isSSRApp.hasSvelteKit) {
       detectedFramework = 'sveltekit';
       appElement = '#svelte';
       markers.push('__sveltekit__');
-      detectionConfidence = 0.95;
+      detectionTier = 'definitive';
     } else if (isSSRApp.hasAngular || isSSRApp.hasAngularProd || isSSRApp.hasAngularRoot) {
       detectedFramework = 'angular';
       appElement = '[ng-app], [ng-version]';
       markers.push('angular');
       // ng.probe is dev-only; production signals (_nghost-*, ng-version, Zone.js)
-      // are medium confidence; bare [ng-version]/[ng-app] is low confidence
+      // are moderate tier; bare [ng-version]/[ng-app] is weak tier
       if (isSSRApp.hasAngular) {
-        detectionConfidence = 0.80;
+        detectionTier = 'strong';
       } else if (isSSRApp.hasAngularProd) {
-        detectionConfidence = 0.60;
+        detectionTier = 'moderate';
         markers.push('angular-prod-signals');
       } else {
-        detectionConfidence = 0.40;
+        detectionTier = 'weak';
       }
     } else if (isSSRApp.hasVue2) {
       detectedFramework = 'vue2';
       appElement = '#app';
       markers.push('Vue.version:2');
-      detectionConfidence = 0.80;
+      detectionTier = 'strong';
     } else if (isSSRApp.hasVue3) {
       detectedFramework = 'vue3';
       appElement = '#app';
       markers.push('__VUE__');
-      detectionConfidence = 0.80;
+      detectionTier = 'strong';
     } else if (isSSRApp.hasVue) {
       // Vue detected but version differentiation failed — default to vue3
-      // with reduced confidence (occurs when window.Vue exists but neither
+      // with moderate tier (occurs when window.Vue exists but neither
       // Vue.version nor Vue.createApp is available, or in test environments)
       detectedFramework = 'vue3';
       appElement = '#app';
       markers.push('Vue:unknown-version');
-      detectionConfidence = 0.60;
+      detectionTier = 'moderate';
     } else if (isSSRApp.hasReactHook) {
       detectedFramework = 'react18';
       appElement = '#root';
       markers.push('__REACT_DEVTOOLS__');
-      detectionConfidence = 0.70;
+      detectionTier = 'strong';
     } else {
-      // Low-confidence heuristics from DOM
-      detectionConfidence = 0.40;
+      // No strong framework signals; check DOM-only heuristics
       if (isSSRApp.hasNextRoot) {
         detectedFramework = 'nextjs';
         appElement = '#__next';
         markers.push('dom:#__next');
+        detectionTier = 'weak';
       } else if (isSSRApp.hasReactRoot) {
         detectedFramework = 'react18';
         appElement = '#root';
         markers.push('dom:#root');
+        detectionTier = 'weak';
       } else if (isSSRApp.hasAppRoot) {
         detectedFramework = 'vue3';
         appElement = '#app';
         markers.push('dom:#app');
+        detectionTier = 'weak';
       } else if (isSSRApp.hasSvelteRoot) {
         detectedFramework = 'sveltekit';
         appElement = '#svelte';
         markers.push('dom:#svelte');
+        detectionTier = 'weak';
       }
+      // If no DOM heuristics match, tier stays 'none'
     }
 
     // Phase 2: If Nuxt/Vue SSR with unhydrated app element, wait for hydration
@@ -283,9 +342,11 @@ export async function waitForSpaHydration(
         const nuxtRoot = document.querySelector('#__nuxt');
         if (nuxtRoot && nuxtRoot.children.length > 0 && nuxtRoot.querySelectorAll('*').length > 3) return true;
 
-        // SvelteKit: meaningful structure in #svelte
+        // SvelteKit: meaningful structure in #svelte, or the Svelte runtime
+        // global (window.__svelte) is present (SvelteKit 5+)
         const svelteRoot = document.querySelector('#svelte');
         if (svelteRoot && svelteRoot.children.length > 0) return true;
+        if (w.__svelte !== undefined) return true;
 
         // React: #root has meaningful structure (not just Loading text)
         const reactRoot = document.querySelector('#root');
@@ -328,6 +389,35 @@ export async function waitForSpaHydration(
       // Non-fatal: framework detection may time out; proceed with current state
     });
 
+    // Phase 3b: After DOM is confirmed ready, upgrade 'weak' tier detections
+    // to 'moderate' when production-specific framework signals are present.
+    if (detectionTier === 'weak') {
+      const prodSignalFound = await page.evaluate(() => {
+        const w = window as any;
+        // React production: fiber nodes on #root element
+        const reactRoot = document.querySelector('#root');
+        if (reactRoot) {
+          const hasFiber = Object.keys(reactRoot).some(
+            k => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$')
+          );
+          if (hasFiber) return true;
+          if (reactRoot.querySelectorAll('*').length > 2) return true;
+        }
+        // Next.js: #__next with meaningful content
+        const nextRoot = document.querySelector('#__next');
+        if (nextRoot && nextRoot.querySelectorAll('*').length > 3) return true;
+        // Vue: #app with content
+        const appRoot = document.querySelector('#app');
+        if (appRoot && appRoot.querySelectorAll('*').length > 2) return true;
+        return false;
+      });
+
+      if (prodSignalFound) {
+        detectionTier = 'moderate';
+        markers.push('tier-upgraded:weak→moderate');
+      }
+    }
+
     // Phase 4: Small additional delay for event handlers to be fully bound.
     await page.waitForTimeout(500);
 
@@ -348,7 +438,12 @@ export async function waitForSpaHydration(
           !!(rootEl && Object.keys(rootEl).some(k => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'))) ||
           (w.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== undefined),
         angularHydrated: !!document.querySelector('[ng-version]'),
-        sveltekitHydrated: !!(svelteEl?.__svelte) || (w.__sveltekit__ !== undefined),
+        sveltekitHydrated:
+          !!(svelteEl?.__svelte) ||
+          (w.__sveltekit__ !== undefined) ||
+          // SvelteKit 5+: the Svelte runtime global indicates the client
+          // runtime has loaded (hydration/activation complete)
+          (w.__svelte !== undefined),
       };
     });
 
@@ -362,7 +457,6 @@ export async function waitForSpaHydration(
 
     if (isHydrated) {
       markers.push('hydration-confirmed');
-      detectionConfidence = Math.min(1.0, detectionConfidence + 0.03);
     }
   } catch {
     // Non-fatal: if any step fails, the main navigation already completed
@@ -373,6 +467,6 @@ export async function waitForSpaHydration(
     appElement,
     isHydrated,
     markers,
-    confidence: detectionConfidence,
+    tier: detectionTier,
   };
 }

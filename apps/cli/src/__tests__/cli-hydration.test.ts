@@ -98,6 +98,99 @@ describe('CLI Hydration Injection (Phase 3)', () => {
     expect(modifiedHtml).toContain('Vue 3');
   });
 
+  it('should inject hydration script for React 18 page (hydrateRoot in JS)', () => {
+    // React 18: #root + hydrateRoot in JS contents
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <div id="root"></div>
+</body>
+</html>`;
+
+    const htmlPath = join(testDir, 'index.html');
+    writeFileSync(htmlPath, htmlContent, 'utf-8');
+
+    injectHydrationScript({
+      htmlPath,
+      jsContents: ['import { hydrateRoot } from "react-dom/client";'],
+      debugProbe: true,
+    });
+
+    const modifiedHtml = readFileSync(htmlPath, 'utf-8');
+    expect(modifiedHtml).toContain('[Hydration]');
+    expect(modifiedHtml).toContain('React 18');
+    expect(modifiedHtml).toContain('#root');
+  });
+
+  it('should inject hydration script for Angular page (platformBrowser in JS)', () => {
+    // Angular: app-root + platformBrowser bootstrap in JS contents
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <app-root></app-root>
+</body>
+</html>`;
+
+    const htmlPath = join(testDir, 'index.html');
+    writeFileSync(htmlPath, htmlContent, 'utf-8');
+
+    injectHydrationScript({
+      htmlPath,
+      jsContents: ['platformBrowserDynamic().bootstrapModule(AppModule);'],
+      debugProbe: true,
+    });
+
+    const modifiedHtml = readFileSync(htmlPath, 'utf-8');
+    expect(modifiedHtml).toContain('[Hydration]');
+    expect(modifiedHtml).toContain('Angular');
+  });
+
+  it('should inject hydration script for SvelteKit page (window.__sveltekit__)', () => {
+    // SvelteKit: window.__sveltekit__ in HTML
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <div id="svelte">App content</div>
+  <script>window.__sveltekit__ = {}</script>
+</body>
+</html>`;
+
+    const htmlPath = join(testDir, 'index.html');
+    writeFileSync(htmlPath, htmlContent, 'utf-8');
+
+    injectHydrationScript({ htmlPath, debugProbe: true });
+
+    const modifiedHtml = readFileSync(htmlPath, 'utf-8');
+    expect(modifiedHtml).toContain('[Hydration]');
+    expect(modifiedHtml).toContain('SvelteKit');
+    expect(modifiedHtml).toContain('#svelte');
+  });
+
+  it('should inject hydration script for Next.js page (window.__NEXT_DATA__)', () => {
+    // Next.js: window.__NEXT_DATA__ in HTML
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <div id="__next">App content</div>
+  <script>window.__NEXT_DATA__ = {}</script>
+</body>
+</html>`;
+
+    const htmlPath = join(testDir, 'index.html');
+    writeFileSync(htmlPath, htmlContent, 'utf-8');
+
+    injectHydrationScript({ htmlPath, debugProbe: true });
+
+    const modifiedHtml = readFileSync(htmlPath, 'utf-8');
+    expect(modifiedHtml).toContain('[Hydration]');
+    expect(modifiedHtml).toContain('Next.js');
+    expect(modifiedHtml).toContain('#__next');
+  });
+
   it('should NOT inject when no framework markers present', () => {
     const plainHtml = `<!DOCTYPE html>
 <html><head></head><body><p>Hello</p></body></html>`;

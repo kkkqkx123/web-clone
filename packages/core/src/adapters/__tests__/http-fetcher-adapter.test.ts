@@ -38,14 +38,14 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: true,
       });
 
-      const result = await adapter.fetch('https://example.com', { timeout: 5000 });
+      const result = await adapter.fetch('http://127.0.0.1:9000', { timeout: 5000 });
 
       expect(result.status).toBe(200);
       expect(result.ok).toBe(true);
       expect(result.mime).toBe('text/html; charset=utf-8');
       expect(result.isHtmlLike).toBe(true);
       expect(result.buffer).toEqual(buffer);
-      expect(result.url).toBe('https://example.com');
+      expect(result.url).toBe('http://127.0.0.1:9000');
     });
 
     it('should fetch CSS with correct MIME type', async () => {
@@ -60,7 +60,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const result = await adapter.fetch('https://example.com/style.css', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/style.css', {});
 
       expect(result.mime).toBe('text/css');
       expect(result.isHtmlLike).toBe(false);
@@ -78,7 +78,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const result = await adapter.fetch('https://example.com/script.js', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/script.js', {});
 
       expect(result.mime).toBe('application/javascript');
     });
@@ -94,7 +94,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const result = await adapter.fetch('https://example.com/missing', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/missing', {});
 
       expect(result.status).toBe(404);
       expect(result.ok).toBe(false);
@@ -109,10 +109,10 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      await adapter.fetch('https://example.com', { timeout: 30000 });
+      await adapter.fetch('http://127.0.0.1:9000', { timeout: 30000 });
 
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com',
+        'http://127.0.0.1:9000',
         30000,
         undefined,
         undefined
@@ -128,10 +128,10 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      await adapter.fetch('https://example.com', {});
+      await adapter.fetch('http://127.0.0.1:9000', {});
 
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com',
+        'http://127.0.0.1:9000',
         15000,
         undefined,
         undefined
@@ -147,12 +147,12 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      await adapter.fetch('https://example.com/page', {
+      await adapter.fetch('http://127.0.0.1:9000/page', {
         referer: 'https://google.com',
       });
 
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com/page',
+        'http://127.0.0.1:9000/page',
         15000,
         'https://google.com',
         undefined
@@ -168,10 +168,10 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      await adapter.fetch('https://example.com', { maxSize: 50 * 1024 * 1024 });
+      await adapter.fetch('http://127.0.0.1:9000', { maxSize: 50 * 1024 * 1024 });
 
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com',
+        'http://127.0.0.1:9000',
         15000,
         undefined,
         50 * 1024 * 1024
@@ -182,7 +182,7 @@ describe('HttpFetcherAdapter', () => {
       const error = new Error('Network timeout');
       vi.mocked(fetcherModule.fetchWithTimeout).mockRejectedValueOnce(error);
 
-      await expect(adapter.fetch('https://example.com', {})).rejects.toThrow(
+      await expect(adapter.fetch('http://127.0.0.1:9000', {})).rejects.toThrow(
         'Network timeout'
       );
     });
@@ -198,7 +198,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const result = await adapter.fetch('https://example.com/image.png', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/image.png', {});
 
       expect(result.mime).toBe('image/png');
       expect(result.buffer).toEqual(imageBuffer);
@@ -215,11 +215,11 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(accessible).toBe(true);
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com',
+        'http://127.0.0.1:9000',
         5000,
         undefined,
         undefined
@@ -235,7 +235,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const accessible = await adapter.canAccess('https://example.com/missing');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/missing');
 
       expect(accessible).toBe(false);
     });
@@ -245,7 +245,7 @@ describe('HttpFetcherAdapter', () => {
         new Error('Network error')
       );
 
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(accessible).toBe(false);
     });
@@ -259,10 +259,10 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      await adapter.canAccess('https://example.com');
+      await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(fetcherModule.fetchWithTimeout).toHaveBeenCalledWith(
-        'https://example.com',
+        'http://127.0.0.1:9000',
         5000,
         undefined,
         undefined
@@ -278,7 +278,7 @@ describe('HttpFetcherAdapter', () => {
         isHtmlLike: false,
       });
 
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(accessible).toBe(false);
     });
@@ -325,11 +325,11 @@ describe('HttpFetcherAdapter', () => {
       });
 
       // Fetch resource
-      const result = await adapter.fetch('https://example.com', { timeout: 10000 });
+      const result = await adapter.fetch('http://127.0.0.1:9000', { timeout: 10000 });
       expect(result.ok).toBe(true);
 
       // Check access
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
       expect(accessible).toBe(true);
 
       // Get auth context

@@ -1,5 +1,5 @@
-export { waitForSpaHydration } from './spa-detector.js';
-export type { SpaPageLike, SpaDetectorOptions, SpaDetectionResult } from './spa-detector.js';
+export { waitForSpaHydration, compareTier, tierAtLeast } from './spa-detector.js';
+export type { SpaPageLike, SpaDetectorOptions, SpaDetectionResult, SignalTier } from './spa-detector.js';
 export type {
   AutomationAdapterOptions,
   AutomationAuthOptions,

@@ -8,34 +8,34 @@
  */
 export const TEST_URLS = {
   // 基础 URL
-  simple: 'https://example.com',
-  withPath: 'https://example.com/page',
-  withQuery: 'https://example.com/search?q=test',
-  withFragment: 'https://example.com/page#section',
-  withPort: 'https://example.com:8443/secure',
+  simple: 'http://127.0.0.1:9000',
+  withPath: 'http://127.0.0.1:9000/page',
+  withQuery: 'http://127.0.0.1:9000/search?q=test',
+  withFragment: 'http://127.0.0.1:9000/page#section',
+  withPort: 'http://127.0.0.1:9000:8443/secure',
 
   // 同源 URL 组合
   sameOrigin: {
-    main: 'https://example.com',
-    css: 'https://example.com/style.css',
-    js: 'https://example.com/script.js',
-    img: 'https://example.com/logo.png',
+    main: 'http://127.0.0.1:9000',
+    css: 'http://127.0.0.1:9000/style.css',
+    js: 'http://127.0.0.1:9000/script.js',
+    img: 'http://127.0.0.1:9000/logo.png',
   },
 
   // 跨域 URL 组合
   crossOrigin: {
-    main: 'https://example.com',
-    cdn: 'https://cdn.example.com/style.css',
-    api: 'https://api.example.com/data',
-    font: 'https://fonts.example.com/roboto.woff2',
+    main: 'http://127.0.0.1:9000',
+    cdn: 'http://cdn.local.test/style.css',
+    api: 'http://127.0.0.1:9000/data',
+    font: 'http://fonts.local.test/roboto.woff2',
   },
 
   // 特殊 URL
-  redirect: 'https://example.com/redirect',
-  redirectTarget: 'https://example.com/new-page',
-  notFound: 'https://example.com/missing',
-  serverError: 'https://example.com/error',
-  timeout: 'https://example.com/slow',
+  redirect: 'http://127.0.0.1:9000/redirect',
+  redirectTarget: 'http://127.0.0.1:9000/new-page',
+  notFound: 'http://127.0.0.1:9000/missing',
+  serverError: 'http://127.0.0.1:9000/error',
+  timeout: 'http://127.0.0.1:9000/slow',
 
   // 本地 URL (用于集成测试)
   localhost: 'http://localhost:3000',
@@ -96,7 +96,7 @@ export const TEST_COOKIES = [
   {
     name: 'session',
     value: 'abc123def456ghi789',
-    domain: 'example.com',
+    domain: '127.0.0.1',
     path: '/',
     secure: true,
     httpOnly: true,
@@ -106,7 +106,7 @@ export const TEST_COOKIES = [
   {
     name: 'tracking',
     value: 'xyz789uvw012xyz',
-    domain: '.example.com',
+    domain: '.local.test',
     path: '/',
     secure: false,
     httpOnly: false,
@@ -116,7 +116,7 @@ export const TEST_COOKIES = [
   {
     name: 'preferences',
     value: 'lang=en&theme=dark&timezone=UTC',
-    domain: 'example.com',
+    domain: '127.0.0.1',
     path: '/user',
     secure: false,
     httpOnly: false,

@@ -13,13 +13,26 @@
  * - Developer creates a custom adapter implementing FetcherAdapter
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { HttpFetcherAdapter } from '../http-fetcher-adapter.js';
+import { startTestServer, stopTestServer, type TestServer } from '../../__tests__/integration/helpers/test-server.js';
 
 describe('FetcherAdapter Interface Compliance — Phase 1', () => {
   const implementations = [
     { name: 'HttpFetcherAdapter', create: () => new HttpFetcherAdapter() },
   ];
+
+  let testServer: TestServer;
+  let TEST_URL: string;
+
+  beforeAll(async () => {
+    testServer = await startTestServer();
+    TEST_URL = testServer.url;
+  }, 30000);
+
+  afterAll(async () => {
+    await stopTestServer(testServer);
+  });
 
   for (const { name, create } of implementations) {
     describe(`${name} — Interface Compliance`, () => {
@@ -31,9 +44,9 @@ describe('FetcherAdapter Interface Compliance — Phase 1', () => {
 
       it('fetch() should return FetchResult with required fields', async () => {
         const adapter = create();
-        const result = await adapter.fetch('https://example.com', {
+        const result = await adapter.fetch(TEST_URL, {
           timeout: 15000,
-          referer: 'https://example.com',
+          referer: TEST_URL,
         });
 
         expect(result).toHaveProperty('buffer');
@@ -50,7 +63,7 @@ describe('FetcherAdapter Interface Compliance — Phase 1', () => {
       it('should handle timeout option', async () => {
         const adapter = create();
         await expect(
-          adapter.fetch('https://example.com', { timeout: 5000 })
+          adapter.fetch(TEST_URL, { timeout: 5000 })
         ).resolves.toBeDefined();
       });
 
@@ -59,7 +72,7 @@ describe('FetcherAdapter Interface Compliance — Phase 1', () => {
         expect(adapter.canAccess).toBeDefined();
         expect(typeof adapter.canAccess).toBe('function');
 
-        const accessible = await adapter.canAccess('https://example.com');
+        const accessible = await adapter.canAccess(TEST_URL);
         expect(typeof accessible).toBe('boolean');
       });
 
@@ -83,8 +96,9 @@ describe('FetcherAdapter Interface Compliance — Phase 1', () => {
 
       it('fetch() should throw on unreachable URL (per FetcherAdapter interface contract)', async () => {
         const adapter = create();
+        // Port 1 has no listener, so the connection is refused immediately.
         await expect(
-          adapter.fetch('https://nonexistent-hopefully-12345.com', {
+          adapter.fetch('http://127.0.0.1:1/nonexistent', {
             timeout: 2000,
           })
         ).rejects.toThrow();

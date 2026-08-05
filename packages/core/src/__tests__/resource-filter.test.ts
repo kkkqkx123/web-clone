@@ -6,14 +6,14 @@ describe('ResourceFilter', () => {
   describe('shouldInclude', () => {
     it('should include normal resources', () => {
       const filter = new ResourceFilter();
-      const ref = { url: 'https://example.com/style.css', type: 'css' };
+      const ref = { url: 'http://127.0.0.1:9000/style.css', type: 'css' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(true);
     });
 
     it('should exclude resources by extension', () => {
       const filter = new ResourceFilter();
-      const ref = { url: 'https://example.com/archive.zip', type: 'other' };
+      const ref = { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(false);
       expect(result.reason).toContain('Extension filtered');
@@ -32,11 +32,11 @@ describe('ResourceFilter', () => {
         customFilter: (url) => !url.includes('ads'),
       });
 
-      const adUrl = { url: 'https://example.com/ads.js', type: 'js' };
+      const adUrl = { url: 'http://127.0.0.1:9000/ads.js', type: 'js' };
       const result1 = filter.shouldInclude(adUrl);
       expect(result1.included).toBe(false);
 
-      const normalUrl = { url: 'https://example.com/app.js', type: 'js' };
+      const normalUrl = { url: 'http://127.0.0.1:9000/app.js', type: 'js' };
       const result2 = filter.shouldInclude(normalUrl);
       expect(result2.included).toBe(true);
     });
@@ -53,25 +53,25 @@ describe('ResourceFilter', () => {
         skipExtensions: ['.mp4', '.mp3'],
       });
 
-      const videoUrl = { url: 'https://example.com/video.mp4', type: 'media' };
+      const videoUrl = { url: 'http://127.0.0.1:9000/video.mp4', type: 'media' };
       const result1 = filter.shouldInclude(videoUrl);
       expect(result1.included).toBe(false);
 
-      const zipUrl = { url: 'https://example.com/archive.zip', type: 'other' };
+      const zipUrl = { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' };
       const result2 = filter.shouldInclude(zipUrl);
       expect(result2.included).toBe(true);
     });
 
     it('should handle URLs with query strings', () => {
       const filter = new ResourceFilter();
-      const ref = { url: 'https://example.com/style.css?v=1.0', type: 'css' };
+      const ref = { url: 'http://127.0.0.1:9000/style.css?v=1.0', type: 'css' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(true);
     });
 
     it('should handle URLs with fragments', () => {
       const filter = new ResourceFilter();
-      const ref = { url: 'https://example.com/style.css#top', type: 'css' };
+      const ref = { url: 'http://127.0.0.1:9000/style.css#top', type: 'css' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(true);
     });
@@ -81,10 +81,10 @@ describe('ResourceFilter', () => {
     it('should filter multiple resources and track stats', () => {
       const filter = new ResourceFilter();
       const refs: AssetRef[] = [
-        { url: 'https://example.com/style.css', type: 'css', origin: 'html' },
-        { url: 'https://example.com/archive.zip', type: 'other', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/style.css', type: 'css', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/archive.zip', type: 'other', origin: 'html' },
         { url: 'https://google-analytics.com/ga.js', type: 'js', origin: 'html' },
-        { url: 'https://example.com/app.js', type: 'js', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/app.js', type: 'js', origin: 'html' },
       ];
 
       const filtered = filter.filter(refs);
@@ -99,9 +99,9 @@ describe('ResourceFilter', () => {
     it('should provide detailed filter reasons', () => {
       const filter = new ResourceFilter();
       const refs: AssetRef[] = [
-        { url: 'https://example.com/archive.zip', type: 'other', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/archive.zip', type: 'other', origin: 'html' },
         { url: 'https://google-analytics.com/ga.js', type: 'js', origin: 'html' },
-        { url: 'https://example.com/doc.pdf', type: 'other', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/doc.pdf', type: 'other', origin: 'html' },
       ];
 
       filter.filter(refs);
@@ -119,11 +119,11 @@ describe('ResourceFilter', () => {
         skipExtensions: ['.ZIP', '.PDF'],
       });
 
-      const ref1 = { url: 'https://example.com/archive.zip', type: 'other' };
+      const ref1 = { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' };
       const result1 = filter.shouldInclude(ref1);
       expect(result1.included).toBe(false);
 
-      const ref2 = { url: 'https://example.com/doc.PDF', type: 'other' };
+      const ref2 = { url: 'http://127.0.0.1:9000/doc.PDF', type: 'other' };
       const result2 = filter.shouldInclude(ref2);
       expect(result2.included).toBe(false);
     });
@@ -133,7 +133,7 @@ describe('ResourceFilter', () => {
         skipExtensions: ['zip', 'pdf'],
       });
 
-      const ref1 = { url: 'https://example.com/archive.zip', type: 'other' };
+      const ref1 = { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' };
       const result1 = filter.shouldInclude(ref1);
       expect(result1.included).toBe(false);
     });
@@ -143,7 +143,7 @@ describe('ResourceFilter', () => {
     it('should reset stats', () => {
       const filter = new ResourceFilter();
       const refs: AssetRef[] = [
-        { url: 'https://example.com/style.css', type: 'css', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/style.css', type: 'css', origin: 'html' },
       ];
 
       filter.filter(refs);
@@ -160,7 +160,7 @@ describe('ResourceFilter', () => {
     it('should not modify returned stats', () => {
       const filter = new ResourceFilter();
       const refs: AssetRef[] = [
-        { url: 'https://example.com/style.css', type: 'css', origin: 'html' },
+        { url: 'http://127.0.0.1:9000/style.css', type: 'css', origin: 'html' },
       ];
 
       filter.filter(refs);
@@ -195,7 +195,7 @@ describe('ResourceFilter', () => {
       const result1 = filter.shouldInclude(ref1);
       expect(result1.included).toBe(false);
 
-      const ref2 = { url: 'https://example.com/GOOGLE-ANALYTICS.COM/ga.js', type: 'js' };
+      const ref2 = { url: 'http://127.0.0.1:9000/GOOGLE-ANALYTICS.COM/ga.js', type: 'js' };
       const result2 = filter.shouldInclude(ref2);
       expect(result2.included).toBe(false);
     });
@@ -212,7 +212,7 @@ describe('ResourceFilter', () => {
 
     it('should handle URLs without extensions', () => {
       const filter = new ResourceFilter();
-      const ref = { url: 'https://example.com/api/data', type: 'other' };
+      const ref = { url: 'http://127.0.0.1:9000/api/data', type: 'other' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(true);
     });
@@ -221,7 +221,7 @@ describe('ResourceFilter', () => {
       const filter = new ResourceFilter({
         skipExtensions: [],
       });
-      const ref = { url: 'https://example.com/archive.zip', type: 'other' };
+      const ref = { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' };
       const result = filter.shouldInclude(ref);
       expect(result.included).toBe(true);
     });

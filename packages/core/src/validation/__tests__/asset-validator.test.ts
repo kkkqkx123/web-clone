@@ -141,8 +141,8 @@ describe('validateSnapshot', () => {
     addMockDir('/snap');
     addMockFile('/snap/index.html', `
       <html>
-        <script src="https://cdn.example.com/app.js"></script>
-        <link href="https://cdn.example.com/style.css" rel="stylesheet">
+        <script src="http://cdn.local.test/app.js"></script>
+        <link href="http://cdn.local.test/style.css" rel="stylesheet">
       </html>
     `);
 

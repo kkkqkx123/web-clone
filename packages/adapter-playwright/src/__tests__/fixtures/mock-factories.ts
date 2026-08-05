@@ -17,7 +17,7 @@ export function createMockPage(overrides?: Partial<Page>): Page {
     screenshot: vi.fn(),
     close: vi.fn(),
     isClosed: vi.fn(() => false),
-    url: vi.fn(() => 'https://example.com'),
+    url: vi.fn(() => 'http://127.0.0.1:9000'),
     evaluate: vi.fn(),
     ...overrides,
   } as unknown as Page;
@@ -37,7 +37,7 @@ export function createMockContext(
     storageState: vi.fn().mockResolvedValue({
       origins: [
         {
-          origin: 'https://example.com',
+          origin: 'http://127.0.0.1:9000',
           localStorage: [
             { name: 'auth_token', value: 'Bearer token123' },
             { name: 'user_id', value: '12345' },
@@ -70,7 +70,7 @@ export const MOCK_RESULTS = {
     ok: true,
     isHtmlLike: true,
     headers: { 'content-type': 'text/html; charset=utf-8' },
-    url: 'https://example.com',
+    url: 'http://127.0.0.1:9000',
     ...overrides,
   }),
 
@@ -84,7 +84,7 @@ export const MOCK_RESULTS = {
     ok: true,
     isHtmlLike: false,
     headers: { 'content-type': 'text/css' },
-    url: 'https://example.com/style.css',
+    url: 'http://127.0.0.1:9000/style.css',
     ...overrides,
   }),
 
@@ -98,7 +98,7 @@ export const MOCK_RESULTS = {
     ok: true,
     isHtmlLike: false,
     headers: { 'content-type': 'application/javascript' },
-    url: 'https://example.com/script.js',
+    url: 'http://127.0.0.1:9000/script.js',
     ...overrides,
   }),
 
@@ -112,7 +112,7 @@ export const MOCK_RESULTS = {
     ok: true,
     isHtmlLike: false,
     headers: { 'content-type': 'image/png' },
-    url: 'https://example.com/logo.png',
+    url: 'http://127.0.0.1:9000/logo.png',
     ...overrides,
   }),
 
@@ -126,7 +126,7 @@ export const MOCK_RESULTS = {
     ok: false,
     isHtmlLike: true,
     headers: { 'content-type': 'text/html' },
-    url: 'https://example.com/missing',
+    url: 'http://127.0.0.1:9000/missing',
     ...overrides,
   }),
 
@@ -140,7 +140,7 @@ export const MOCK_RESULTS = {
     ok: false,
     isHtmlLike: true,
     headers: { 'content-type': 'text/html' },
-    url: 'https://example.com/error',
+    url: 'http://127.0.0.1:9000/error',
     ...overrides,
   }),
 
@@ -159,7 +159,7 @@ export const MOCK_RESULTS = {
     ok: ((options.status as number) || 200) >= 200 && ((options.status as number) || 200) < 300,
     isHtmlLike: options.mime?.includes('html') || false,
     headers: options.headers || {},
-    url: options.url || 'https://example.com/custom',
+    url: options.url || 'http://127.0.0.1:9000/custom',
     ...options,
   }),
 };
@@ -176,7 +176,7 @@ export function createMockResponse(overrides?: Partial<Response>): Response {
     body: vi.fn(async () => Buffer.from('<html></html>')),
     text: vi.fn(async () => '<html></html>'),
     json: vi.fn(async () => ({})),
-    url: vi.fn(() => 'https://example.com'),
+    url: vi.fn(() => 'http://127.0.0.1:9000'),
     ...overrides,
   } as unknown as Response;
 }

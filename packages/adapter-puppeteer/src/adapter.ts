@@ -259,7 +259,7 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
       url: this.page.url() || '',
       browserFramework: {
         framework: spaResult.framework,
-        confidence: spaResult.confidence,
+        tier: spaResult.tier,
         appElement: spaResult.appElement || undefined,
         isHydrated: spaResult.isHydrated,
       },

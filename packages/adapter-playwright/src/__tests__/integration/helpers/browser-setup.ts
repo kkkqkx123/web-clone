@@ -136,7 +136,7 @@ export async function setCookies(
     domain?: string;
     path?: string;
   }>,
-  baseUrl: string = 'https://example.com'
+  baseUrl: string = 'http://127.0.0.1:9000'
 ): Promise<void> {
   const cookiesWithDefaults = cookies.map((cookie) => ({
     ...cookie,

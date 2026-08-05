@@ -15,7 +15,8 @@ import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './resource-filter.js';
 import { detectFramework } from './framework/detector.js';
 import { postSnapshotStrategies } from './framework/strategies/index.js';
-import type { FrameworkType, FrameworkDetection } from './framework/types.js';
+import type { FrameworkType, FrameworkDetection, SignalTier } from './framework/types.js';
+import { compareTier } from './framework/types.js';
 import { FRAMEWORK_TO_CODEGEN } from '@web-clone/codegen/framework-rules';
 import { extractJsUrls, extractJsonUrls, extractWebpackChunks } from './discovery/recursive-scanner.js';
 import type { FetcherAdapter, FetchResult } from './adapters/fetcher-adapter.js';
@@ -666,16 +667,17 @@ async function snapshotInternal(
   // Framework detection: prefer browser-collected info (from SPA hydration)
   // over static HTML/JS scanning, as the browser has direct access to runtime
   // framework internals (__NUXT__, __NEXT_DATA__, devtools hooks, etc.).
-  // When confidence is equal, browser detection wins — the browser accesses
+  // Uses ordinal signal tier comparison instead of arbitrary numeric confidence.
+  // When tiers are equal, browser detection wins — the browser accesses
   // runtime state (window.__NUXT__ etc.) which is objectively more reliable
-  // than static text scanning of the same confidence level.
+  // than static text scanning of the same tier.
   let detection = detectFramework(html, jsContents);
   if (browserFramework && browserFramework.framework !== 'unknown') {
-    const browserConfidence = browserFramework.confidence;
-    if (browserConfidence >= detection.confidence) {
+    const browserTier = browserFramework.tier as SignalTier;
+    if (compareTier(browserTier, detection.tier) >= 0) {
       detection = {
         framework: browserFramework.framework as FrameworkType,
-        confidence: browserFramework.confidence,
+        tier: browserFramework.tier as SignalTier,
         appElement: browserFramework.appElement || detection.appElement || null,
         markers: [
           `browser:${browserFramework.framework}`,
@@ -808,7 +810,7 @@ async function snapshotInternal(
   const browserFrameworkResult: FrameworkDetection | undefined = browserFramework && browserFramework.framework !== 'unknown'
     ? {
         framework: browserFramework.framework as FrameworkType,
-        confidence: browserFramework.confidence,
+        tier: browserFramework.tier as SignalTier,
         appElement: browserFramework.appElement || null,
         markers: [
           `browser:${browserFramework.framework}`,

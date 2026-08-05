@@ -14,7 +14,7 @@ export default defineConfig({
     globals: true,
     // E2E 测试需要真实浏览器和网络，给足时间
     testTimeout: 90000,
-    hookTimeout: 30000,
+    hookTimeout: 90000,
     // 串行执行以避免浏览器冲突
     threads: false,
     singleThread: true,
@@ -23,7 +23,8 @@ export default defineConfig({
     // 报告器
     reporters: ['default', 'json'],
     outputFile: {
-      json: './tests/e2e/outputs/test-results.json',
+      // 测试临时输出统一收敛到仓库根 __tests__/outputs/
+      json: './__tests__/outputs/test-results.json',
     },
   },
 });

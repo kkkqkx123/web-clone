@@ -28,77 +28,77 @@ import { resolveUrl, normalizeUrl, parseSrcset } from '../parser/url-resolver';
 describe('url-resolver', () => {
   describe('resolveUrl()', () => {
     it('should resolve relative URLs to absolute', () => {
-      const result = resolveUrl('./image.png', 'https://example.com/page.html');
-      expect(result).toBe('https://example.com/image.png');
+      const result = resolveUrl('./image.png', 'http://127.0.0.1:9000/page.html');
+      expect(result).toBe('http://127.0.0.1:9000/image.png');
     });
 
     it('should resolve protocol-relative URLs', () => {
-      const result = resolveUrl('//cdn.example.com/lib.js', 'https://example.com/page');
-      expect(result).toBe('https://cdn.example.com/lib.js');
+      const result = resolveUrl('//cdn.local.test/lib.js', 'http://127.0.0.1:9000/page');
+      expect(result).toBe('http://cdn.local.test/lib.js');
     });
 
     it('should preserve absolute URLs', () => {
-      const result = resolveUrl('https://cdn.example.com/image.png', 'https://example.com/page');
-      expect(result).toBe('https://cdn.example.com/image.png');
+      const result = resolveUrl('http://cdn.local.test/image.png', 'http://127.0.0.1:9000/page');
+      expect(result).toBe('http://cdn.local.test/image.png');
     });
 
     it('should filter data: URIs', () => {
-      const result = resolveUrl('data:image/png;base64,abc', 'https://example.com/page');
+      const result = resolveUrl('data:image/png;base64,abc', 'http://127.0.0.1:9000/page');
       expect(result).toBeNull();
     });
 
     it('should filter javascript: URIs', () => {
-      const result = resolveUrl('javascript:alert(1)', 'https://example.com/page');
+      const result = resolveUrl('javascript:alert(1)', 'http://127.0.0.1:9000/page');
       expect(result).toBeNull();
     });
 
     it('should filter blob: URIs', () => {
-      const result = resolveUrl('blob:https://example.com/xyz', 'https://example.com/page');
+      const result = resolveUrl('blob:http://127.0.0.1:9000/xyz', 'http://127.0.0.1:9000/page');
       expect(result).toBeNull();
     });
 
     it('should filter mailto: URIs', () => {
-      const result = resolveUrl('mailto:test@example.com', 'https://example.com/page');
+      const result = resolveUrl('mailto:test@example.com', 'http://127.0.0.1:9000/page');
       expect(result).toBeNull();
     });
 
     it('should filter non-HTTP(S) protocols', () => {
-      const result = resolveUrl('ftp://example.com/file', 'https://example.com/page');
+      const result = resolveUrl('ftp://127.0.0.1/file', 'http://127.0.0.1:9000/page');
       expect(result).toBeNull();
     });
 
     it('should handle empty/whitespace input', () => {
-      expect(resolveUrl('', 'https://example.com/page')).toBeNull();
-      expect(resolveUrl('  ', 'https://example.com/page')).toBeNull();
+      expect(resolveUrl('', 'http://127.0.0.1:9000/page')).toBeNull();
+      expect(resolveUrl('  ', 'http://127.0.0.1:9000/page')).toBeNull();
     });
 
     it('should handle arbitrary strings as relative URLs', () => {
       // URL standard is permissive: any string can be a relative URL
-      const result = resolveUrl('not a valid url at all!!!', 'https://example.com/');
+      const result = resolveUrl('not a valid url at all!!!', 'http://127.0.0.1:9000/');
       // These get percent-encoded and resolved relative to baseUrl
-      expect(result).toMatch(/^https:\/\/example\.com\/not%20a%20valid/);
+      expect(result).toMatch(/^http:\/\/127\.0\.0\.1:9000\/not%20a%20valid/);
     });
 
     it('should handle URL with query parameters', () => {
-      const result = resolveUrl('./image.png?v=1', 'https://example.com/page');
-      expect(result).toBe('https://example.com/image.png?v=1');
+      const result = resolveUrl('./image.png?v=1', 'http://127.0.0.1:9000/page');
+      expect(result).toBe('http://127.0.0.1:9000/image.png?v=1');
     });
 
     it('should handle URL with fragments', () => {
-      const result = resolveUrl('./style.css#section', 'https://example.com/page');
-      expect(result).toBe('https://example.com/style.css#section');
+      const result = resolveUrl('./style.css#section', 'http://127.0.0.1:9000/page');
+      expect(result).toBe('http://127.0.0.1:9000/style.css#section');
     });
   });
 
   describe('normalizeUrl()', () => {
     it('should remove hash from URL', () => {
-      const result = normalizeUrl('https://example.com/page#section');
-      expect(result).toBe('https://example.com/page');
+      const result = normalizeUrl('http://127.0.0.1:9000/page#section');
+      expect(result).toBe('http://127.0.0.1:9000/page');
     });
 
     it('should preserve query parameters', () => {
-      const result = normalizeUrl('https://example.com/page?v=1#section');
-      expect(result).toBe('https://example.com/page?v=1');
+      const result = normalizeUrl('http://127.0.0.1:9000/page?v=1#section');
+      expect(result).toBe('http://127.0.0.1:9000/page?v=1');
     });
 
     it('should handle invalid URLs gracefully', () => {
@@ -110,46 +110,46 @@ describe('url-resolver', () => {
   describe('parseSrcset()', () => {
     it('should parse single image srcset', () => {
       const srcset = 'image.png 1x';
-      const result = parseSrcset(srcset, 'https://example.com/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
-      expect(result[0]).toBe('https://example.com/image.png');
+      expect(result[0]).toBe('http://127.0.0.1:9000/image.png');
     });
 
     it('should parse multiple resolution descriptors (1x, 2x)', () => {
       const srcset = 'small.png 1x, large.png 2x';
-      const result = parseSrcset(srcset, 'https://example.com/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(2);
-      expect(result[0]).toBe('https://example.com/small.png');
-      expect(result[1]).toBe('https://example.com/large.png');
+      expect(result[0]).toBe('http://127.0.0.1:9000/small.png');
+      expect(result[1]).toBe('http://127.0.0.1:9000/large.png');
     });
 
     it('should parse width descriptors (320w, 640w)', () => {
       const srcset = 'small.jpg 320w, medium.jpg 640w, large.jpg 1280w';
-      const result = parseSrcset(srcset, 'https://example.com/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(3);
-      expect(result[0]).toBe('https://example.com/small.jpg');
-      expect(result[1]).toBe('https://example.com/medium.jpg');
-      expect(result[2]).toBe('https://example.com/large.jpg');
+      expect(result[0]).toBe('http://127.0.0.1:9000/small.jpg');
+      expect(result[1]).toBe('http://127.0.0.1:9000/medium.jpg');
+      expect(result[2]).toBe('http://127.0.0.1:9000/large.jpg');
     });
 
     it('should handle relative URLs in srcset', () => {
       const srcset = './images/small.jpg 320w, ./images/large.jpg 640w';
-      const result = parseSrcset(srcset, 'https://example.com/page/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/page/');
       expect(result).toHaveLength(2);
-      expect(result[0]).toBe('https://example.com/page/images/small.jpg');
-      expect(result[1]).toBe('https://example.com/page/images/large.jpg');
+      expect(result[0]).toBe('http://127.0.0.1:9000/page/images/small.jpg');
+      expect(result[1]).toBe('http://127.0.0.1:9000/page/images/large.jpg');
     });
 
     it('should skip invalid URLs in srcset', () => {
       const srcset = 'valid.jpg 1x, javascript:alert(1) 2x';
-      const result = parseSrcset(srcset, 'https://example.com/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
-      expect(result[0]).toBe('https://example.com/valid.jpg');
+      expect(result[0]).toBe('http://127.0.0.1:9000/valid.jpg');
     });
 
     it('should handle whitespace in srcset', () => {
       const srcset = '  image.png   1x  ,  large.png   2x  ';
-      const result = parseSrcset(srcset, 'https://example.com/');
+      const result = parseSrcset(srcset, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(2);
     });
   });
@@ -162,34 +162,34 @@ describe('css-parser', () => {
   describe('extractCssAssets()', () => {
     it('should extract url() from CSS', () => {
       const css = 'body { background: url("image.png"); }';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        url: 'https://example.com/image.png',
+        url: 'http://127.0.0.1:9000/image.png',
         type: 'img'
       });
     });
 
     it('should extract font URLs', () => {
       const css = '@font-face { src: url("font.woff2"); }';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('font');
     });
 
     it('should extract @import URLs', () => {
       const css = '@import url("style.css");';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        url: 'https://example.com/style.css',
+        url: 'http://127.0.0.1:9000/style.css',
         type: 'css'
       });
     });
 
     it('should handle @import with String syntax', () => {
       const css = `@import "style.css";`;
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('css');
     });
@@ -201,7 +201,7 @@ describe('css-parser', () => {
         body { background: url("bg.jpg"); }
         h1 { font-family: 'custom'; src: url("font.ttf"); }
       `;
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result.length).toBeGreaterThanOrEqual(4);
       expect(result.some(r => r.type === 'css')).toBe(true);
       expect(result.some(r => r.type === 'img')).toBe(true);
@@ -210,39 +210,39 @@ describe('css-parser', () => {
 
     it('should handle CSS with query parameters', () => {
       const css = 'body { background: url("image.png?v=1"); }';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result[0].url).toContain('?v=1');
     });
 
     it('should classify SVG files as images', () => {
       const css = 'body { background: url("icon.svg"); }';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result[0].type).toBe('img');
     });
 
     it('should handle malformed CSS without throwing', () => {
       const css = 'body { background: url("image.png"); BROKEN CSS SYNTAX !!!}';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       // Should gracefully handle parse error
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('should handle empty CSS', () => {
       const css = '';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toEqual([]);
     });
 
     it('should skip data: URLs in CSS', () => {
       const css = 'body { background: url(data:image/png;base64,abc); }';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toEqual([]);
     });
 
     // DESIGN ISSUE TEST: classifyCssUrl heuristic
     it('should classify Google Fonts correctly (DESIGN ISSUE: currently returns "other")', () => {
       const css = '@import url("https://fonts.googleapis.com/css2?family=Roboto");';
-      const result = extractCssAssets(css, 'https://example.com/');
+      const result = extractCssAssets(css, 'http://127.0.0.1:9000/');
       expect(result).toHaveLength(1);
       // CURRENT BEHAVIOR: type = 'other' (incorrect, should recognize CDN CSS)
       // EXPECTED: type = 'css'
@@ -253,27 +253,27 @@ describe('css-parser', () => {
   describe('rewriteCssUrls()', () => {
     it('should rewrite single URL', () => {
       // In real usage, CSS is already fetched from a URL, so URLs in CSS are absolute
-      const css = 'body { background: url("https://example.com/old.png"); }';
+      const css = 'body { background: url("http://127.0.0.1:9000/old.png"); }';
       const urlMap = new Map([
-        ['https://example.com/old.png', '/assets/img/old.png']
+        ['http://127.0.0.1:9000/old.png', '/assets/img/old.png']
       ]);
       const result = rewriteCssUrls(css, urlMap);
       expect(result).toContain('/assets/img/old.png');
-      expect(result).not.toContain('https://example.com/old.png');
+      expect(result).not.toContain('http://127.0.0.1:9000/old.png');
     });
 
     it('should rewrite multiple occurrences of same URL', () => {
       const css = `
-        .a { background: url("https://example.com/old.png"); }
-        .b { background: url("https://example.com/old.png"); }
+        .a { background: url("http://127.0.0.1:9000/old.png"); }
+        .b { background: url("http://127.0.0.1:9000/old.png"); }
       `;
       const urlMap = new Map([
-        ['https://example.com/old.png', 'data:image/png;base64,abc']
+        ['http://127.0.0.1:9000/old.png', 'data:image/png;base64,abc']
       ]);
       const result = rewriteCssUrls(css, urlMap);
       const matches = result.match(/data:image\/png;base64,abc/g) || [];
       expect(matches.length).toBe(2);
-      expect(result).not.toContain('https://example.com/old.png');
+      expect(result).not.toContain('http://127.0.0.1:9000/old.png');
     });
 
     // DESIGN ISSUE TEST: regex-based rewriting
@@ -283,7 +283,7 @@ describe('css-parser', () => {
         body { background: url("old.png"); }
       `;
       const urlMap = new Map([
-        ['https://example.com/old.png', 'new.png']
+        ['http://127.0.0.1:9000/old.png', 'new.png']
       ]);
       const result = rewriteCssUrls(css, urlMap);
       // CURRENT BEHAVIOR: rewrites URL in comment too (incorrect)
@@ -293,7 +293,7 @@ describe('css-parser', () => {
     });
 
     it('should handle special regex characters in URLs', () => {
-      const url = 'https://example.com/image[1].png?v=1&x=2';
+      const url = 'http://127.0.0.1:9000/image[1].png?v=1&x=2';
       const css = `body { background: url("${url}"); }`;
       const urlMap = new Map([[url, 'replaced.png']]);
       const result = rewriteCssUrls(css, urlMap);
@@ -319,7 +319,7 @@ describe('html-parser', () => {
           <link rel="stylesheet" href="style.css" />
         </head>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const cssAssets = result.assets.filter(a => a.type === 'css');
       expect(cssAssets.length).toBeGreaterThan(0);
       expect(cssAssets[0].url).toContain('style.css');
@@ -331,7 +331,7 @@ describe('html-parser', () => {
           <script src="app.js"></script>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const jsAssets = result.assets.filter(a => a.type === 'js');
       expect(jsAssets.length).toBeGreaterThan(0);
       expect(jsAssets[0].url).toContain('app.js');
@@ -343,7 +343,7 @@ describe('html-parser', () => {
           <img src="image.png" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgAssets = result.assets.filter(a => a.type === 'img');
       expect(imgAssets.length).toBeGreaterThan(0);
     });
@@ -355,7 +355,7 @@ describe('html-parser', () => {
           <link rel="apple-touch-icon" href="apple-icon.png" />
         </head>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const iconAssets = result.assets.filter(a => a.type === 'img');
       expect(iconAssets.length).toBeGreaterThanOrEqual(2);
     });
@@ -367,7 +367,7 @@ describe('html-parser', () => {
           <audio src="audio.mp3"></audio>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const mediaAssets = result.assets.filter(a => a.type === 'media');
       expect(mediaAssets.length).toBeGreaterThanOrEqual(2);
     });
@@ -378,7 +378,7 @@ describe('html-parser', () => {
           <style>body { background: url("bg.png"); }</style>
         </head>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       expect(result.inlineStyles.length).toBeGreaterThan(0);
       expect(result.inlineStyles[0].text).toContain('bg.png');
       // Also extract CSS assets from inline styles
@@ -394,7 +394,7 @@ describe('html-parser', () => {
           <img src="image.png" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgAssets = result.assets.filter(a => a.type === 'img');
       expect(imgAssets).toHaveLength(1);
     });
@@ -406,7 +406,7 @@ describe('html-parser', () => {
           <script src="app.js"></script>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgs = result.document.querySelectorAll('img');
       const scripts = result.document.querySelectorAll('script');
 
@@ -425,7 +425,7 @@ describe('html-parser', () => {
           <img src="image.png" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgs = result.document.querySelectorAll('img');
       for (const img of imgs) {
         expect(img.hasAttribute('data-origin-url')).toBe(true);
@@ -436,10 +436,10 @@ describe('html-parser', () => {
     it('should have STABLE snapshot IDs across multiple calls (DESIGN ISSUE: currently gets reset)', () => {
       const html = `<html><body><img src="image.png" /></body></html>`;
 
-      const result1 = parseHtml(html, 'https://example.com/page1');
+      const result1 = parseHtml(html, 'http://127.0.0.1:9000/page1');
       const id1 = result1.document.querySelector('img')?.getAttribute('data-snapshot-id');
 
-      const result2 = parseHtml(html, 'https://example.com/page2');
+      const result2 = parseHtml(html, 'http://127.0.0.1:9000/page2');
       const id2 = result2.document.querySelector('img')?.getAttribute('data-snapshot-id');
 
       // CURRENT BEHAVIOR: both are "snap-1" (counter resets)
@@ -457,20 +457,20 @@ describe('html-parser', () => {
           <img src="./images/pic.png" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/page/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/page/');
       const imgAssets = result.assets.filter(a => a.type === 'img');
-      expect(imgAssets[0].url).toBe('https://example.com/page/images/pic.png');
+      expect(imgAssets[0].url).toBe('http://127.0.0.1:9000/page/images/pic.png');
     });
 
     it('should handle protocol-relative URLs', () => {
       const html = `<html>
         <body>
-          <script src="//cdn.example.com/lib.js"></script>
+          <script src="//cdn.local.test/lib.js"></script>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/page');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/page');
       const jsAssets = result.assets.filter(a => a.type === 'js');
-      expect(jsAssets[0].url).toBe('https://cdn.example.com/lib.js');
+      expect(jsAssets[0].url).toBe('http://cdn.local.test/lib.js');
     });
 
     it('should skip data: and javascript: URLs', () => {
@@ -480,7 +480,7 @@ describe('html-parser', () => {
           <a href="javascript:alert(1)">Click</a>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       expect(result.assets.length).toBe(0);
     });
 
@@ -490,7 +490,7 @@ describe('html-parser', () => {
           <img srcset="data:image/png;base64,small 1x, image.png 2x" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgAssets = result.assets.filter(a => a.type === 'img');
       // Should only include image.png, not the data: URL
       expect(imgAssets.every(a => !a.url.startsWith('data:'))).toBe(true);
@@ -503,7 +503,7 @@ describe('html-parser', () => {
           <img srcset="small.jpg 320w, medium.jpg 640w" src="large.jpg" />
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const imgAssets = result.assets.filter(a => a.type === 'img');
       expect(imgAssets.length).toBe(3);
 
@@ -523,21 +523,21 @@ describe('html-parser', () => {
           </video>
         </body>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       const mediaAssets = result.assets.filter(a => a.type === 'media');
       expect(mediaAssets.length).toBe(2);
     });
 
     it('should handle empty HTML', () => {
       const html = '<html><body></body></html>';
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       expect(result.assets).toEqual([]);
       expect(result.inlineStyles).toEqual([]);
     });
 
     it('should handle malformed HTML gracefully', () => {
       const html = '<html><body><img src=image.png><script>broken</body>';
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       expect(result.document).toBeDefined();
       expect(Array.isArray(result.assets)).toBe(true);
     });
@@ -548,7 +548,7 @@ describe('html-parser', () => {
           <link rel="preload" href="font.woff2" as="font" />
         </head>
       </html>`;
-      const result = parseHtml(html, 'https://example.com/');
+      const result = parseHtml(html, 'http://127.0.0.1:9000/');
       expect(result.assets.some(a => a.url.includes('font.woff2'))).toBe(true);
     });
   });
@@ -584,7 +584,7 @@ describe('Parser Integration', () => {
       </body>
       </html>
     `;
-    const result = parseHtml(html, 'https://example.com/page/');
+    const result = parseHtml(html, 'http://127.0.0.1:9000/page/');
     expect(result.document).toBeDefined();
     expect(result.assets.length).toBeGreaterThan(0);
     expect(result.inlineStyles.length).toBeGreaterThan(0);

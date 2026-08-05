@@ -21,7 +21,7 @@ import {
 import { QueryError } from '../../query/expr.js';
 
 function makeDoc(html: string): Document {
-  const dom = new JSDOM(html, { url: 'https://example.com' });
+  const dom = new JSDOM(html, { url: 'http://127.0.0.1:9000' });
   return dom.window.document;
 }
 
@@ -84,9 +84,9 @@ describe('toMarkdown', () => {
   });
 
   it('converts links', () => {
-    const doc = makeDoc('<body><p>See <a href="https://example.com">here</a></p></body>');
+    const doc = makeDoc('<body><p>See <a href="http://127.0.0.1:9000">here</a></p></body>');
     const md = toMarkdown(doc.documentElement);
-    expect(md).toContain('[here](https://example.com)');
+    expect(md).toContain('[here](http://127.0.0.1:9000)');
   });
 
   it('converts lists', () => {
@@ -135,7 +135,7 @@ describe('locateElement', () => {
   });
 
   it('finds text in attributes', () => {
-    const doc = makeDoc('<body><a href="https://example.com/search?q=hello">link</a></body>');
+    const doc = makeDoc('<body><a href="http://127.0.0.1:9000/search?q=hello">link</a></body>');
     const hits = locateElement(doc, 'hello');
     expect(hits.length).toBeGreaterThan(0);
   });

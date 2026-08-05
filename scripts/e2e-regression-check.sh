@@ -9,12 +9,12 @@
 # 依赖：jq（JSON 处理工具）
 #
 # 基线文件：tests/e2e/baseline/results.json（首次全量通过后生成）
-# 当前文件：tests/e2e/outputs/results.json（每次 E2E 测试自动生成）
+# 当前文件：__tests__/outputs/results.json（每次 E2E 测试自动生成）
 
 set -euo pipefail
 
 BASELINE="tests/e2e/baseline/results.json"
-CURRENT="tests/e2e/outputs/results.json"
+CURRENT="__tests__/outputs/results.json"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -53,6 +53,18 @@ if ! jq empty "$CURRENT" 2>/dev/null; then
   exit 2
 fi
 
+# Signal tier ordinal ranking
+# definitive(4) > strong(3) > moderate(2) > weak(1) > none(0)
+tier_rank() {
+  case "$1" in
+    definitive) echo 4 ;;
+    strong)     echo 3 ;;
+    moderate)   echo 2 ;;
+    weak)       echo 1 ;;
+    none|*)     echo 0 ;;
+  esac
+}
+
 # ============================================
 # 检查 1: 所有框架抓取是否成功
 # ============================================
@@ -88,22 +100,30 @@ else
 fi
 
 # ============================================
-# 检查 3: 置信度是否显著下降
+# 检查 3: 信号层级回归
 # ============================================
 echo ""
-echo "--- 检查 3: 置信度回归 ---"
+echo "--- 检查 3: 信号层级回归 ---"
 
 for framework in vue3-spa react18-spa angular-spa sveltekit-ssr nextjs-ssr nuxt3-ssr; do
-  CURRENT_CONF=$(jq ".[] | select(.framework == \"$framework\") | .frameworkMatch.confidence // 0" "$CURRENT")
-  BASELINE_CONF=$(jq ".[] | select(.framework == \"$framework\") | .frameworkMatch.confidence // 0" "$BASELINE")
+  CURRENT_TIER=$(jq -r ".[] | select(.framework == \"$framework\") | .frameworkMatch.tier // \"none\"" "$CURRENT")
+  BASELINE_TIER=$(jq -r ".[] | select(.framework == \"$framework\") | .frameworkMatch.tier // \"none\"" "$BASELINE")
 
-  if [ -z "$CURRENT_CONF" ] || [ "$CURRENT_CONF" = "null" ]; then
+  if [ -z "$CURRENT_TIER" ] || [ "$CURRENT_TIER" = "null" ]; then
     echo -e "${RED}FAIL: $framework 无检测结果${NC}"
     exit_code=1
-  elif awk "BEGIN {exit !($CURRENT_CONF < $BASELINE_CONF - 0.15)}"; then
-    echo -e "${YELLOW}WARN: $framework 置信度显著下降: $BASELINE_CONF → $CURRENT_CONF${NC}"
   else
-    echo -e "${GREEN}PASS: $framework 置信度正常 ($CURRENT_CONF)${NC}"
+    CURRENT_RANK=$(tier_rank "$CURRENT_TIER")
+    BASELINE_RANK=$(tier_rank "$BASELINE_TIER")
+
+    if [ "$CURRENT_RANK" -lt "$BASELINE_RANK" ]; then
+      echo -e "${RED}FAIL: $framework 信号层级降级: $BASELINE_TIER → $CURRENT_TIER${NC}"
+      exit_code=1
+    elif [ "$CURRENT_RANK" -gt "$BASELINE_RANK" ]; then
+      echo -e "${GREEN}PASS: $framework 信号层级提升: $BASELINE_TIER → $CURRENT_TIER${NC}"
+    else
+      echo -e "${GREEN}PASS: $framework 信号层级正常 ($CURRENT_TIER)${NC}"
+    fi
   fi
 done
 

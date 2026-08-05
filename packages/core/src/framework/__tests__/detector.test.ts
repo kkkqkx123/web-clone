@@ -13,12 +13,12 @@
 import { describe, it, expect } from 'vitest';
 import { detectFramework } from '../detector.js';
 
-describe('detectFramework — Dimension 1: Global Variables', () => {
+describe('detectFramework — Dimension 1: Global Variables (definitive tier)', () => {
   it('should detect Nuxt 3 from window.__NUXT__', () => {
     const html = '<html><body><script>window.__NUXT__ = {}</script></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('nuxt3');
-    expect(result.confidence).toBe(0.95);
+    expect(result.tier).toBe('definitive');
     expect(result.appElement).toBe('#__nuxt');
     expect(result.markers).toContain('__NUXT__');
   });
@@ -27,7 +27,7 @@ describe('detectFramework — Dimension 1: Global Variables', () => {
     const html = '<html><body><script>window.__NEXT_DATA__ = {}</script></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('nextjs');
-    expect(result.confidence).toBe(0.95);
+    expect(result.tier).toBe('definitive');
     expect(result.appElement).toBe('#__next');
     expect(result.markers).toContain('__NEXT_DATA__');
   });
@@ -36,18 +36,18 @@ describe('detectFramework — Dimension 1: Global Variables', () => {
     const html = '<html><body><script>window.__sveltekit__ = {}</script></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('sveltekit');
-    expect(result.confidence).toBe(0.95);
+    expect(result.tier).toBe('definitive');
     expect(result.appElement).toBe('#svelte');
     expect(result.markers).toContain('__sveltekit__');
   });
 });
 
-describe('detectFramework — Dimension 3: Meta Generator Tags', () => {
+describe('detectFramework — Dimension 3: Meta Generator Tags (strong tier)', () => {
   it('should detect VitePress from <meta generator="VitePress">', () => {
     const html = '<html><head><meta name="generator" content="VitePress"></head><body></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('vitepress');
-    expect(result.confidence).toBe(0.9);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#app');
   });
 
@@ -55,7 +55,7 @@ describe('detectFramework — Dimension 3: Meta Generator Tags', () => {
     const html = '<html><head><meta name="generator" content="VuePress"></head><body></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('vue3');
-    expect(result.confidence).toBe(0.85);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#app');
   });
 
@@ -63,7 +63,7 @@ describe('detectFramework — Dimension 3: Meta Generator Tags', () => {
     const html = '<html><head><meta name="generator" content="Astro"></head><body></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('astro');
-    expect(result.confidence).toBe(0.9);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBeNull();
   });
 
@@ -71,7 +71,7 @@ describe('detectFramework — Dimension 3: Meta Generator Tags', () => {
     const html = '<html><head><meta name="generator" content="SvelteKit"></head><body></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('sveltekit');
-    expect(result.confidence).toBe(0.9);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#svelte');
   });
 
@@ -82,12 +82,12 @@ describe('detectFramework — Dimension 3: Meta Generator Tags', () => {
   });
 });
 
-describe('detectFramework — Dimension 4: JS Content Scanning', () => {
+describe('detectFramework — Dimension 4: JS Content Scanning (strong tier)', () => {
   it('should detect Vue 3 from JS containing createSSRApp', () => {
     const html = '<html><body><div id="app"></div></body></html>';
     const result = detectFramework(html, ['function createSSRApp() {}']);
     expect(result.framework).toBe('vue3');
-    expect(result.confidence).toBe(0.8);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#app');
     expect(result.markers).toContain('__VUE__');
   });
@@ -96,14 +96,14 @@ describe('detectFramework — Dimension 4: JS Content Scanning', () => {
     const html = '<html><body></body></html>';
     const result = detectFramework(html, ['window.__VUE__ = true']);
     expect(result.framework).toBe('vue3');
-    expect(result.confidence).toBe(0.8);
+    expect(result.tier).toBe('strong');
   });
 
   it('should detect React 18 from JS containing hydrateRoot', () => {
     const html = '<html><body></body></html>';
     const result = detectFramework(html, ['hydrateRoot(document.getElementById("root"))']);
     expect(result.framework).toBe('react18');
-    expect(result.confidence).toBe(0.7);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#root');
     expect(result.markers).toContain('__REACT_DEVTOOLS');
   });
@@ -118,7 +118,7 @@ describe('detectFramework — Dimension 4: JS Content Scanning', () => {
     const html = '<html><body></body></html>';
     const result = detectFramework(html, ['ng.probe($0)']);
     expect(result.framework).toBe('angular');
-    expect(result.confidence).toBe(0.7);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBeNull();
     expect(result.markers).toContain('angular');
   });
@@ -133,7 +133,7 @@ describe('detectFramework — Dimension 4: JS Content Scanning', () => {
     const html = '<html><body></body></html>';
     const result = detectFramework(html, ['import { mount } from "@sveltejs/kit"']);
     expect(result.framework).toBe('sveltekit');
-    expect(result.confidence).toBe(0.7);
+    expect(result.tier).toBe('strong');
     expect(result.appElement).toBe('#svelte');
     expect(result.markers).toContain('__sveltekit');
   });
@@ -146,11 +146,11 @@ describe('detectFramework — Dimension 4: JS Content Scanning', () => {
 });
 
 describe('detectFramework — Dimension 5: Generic Mount Points', () => {
-  it('should detect VitePress from #VPContent mount point (low confidence)', () => {
+  it('should detect VitePress from #VPContent mount point (moderate tier)', () => {
     const html = '<html><body><div id="VPContent"></div></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('vitepress');
-    expect(result.confidence).toBe(0.6);
+    expect(result.tier).toBe('moderate');
     expect(result.appElement).toBe('#app');
   });
 
@@ -158,23 +158,23 @@ describe('detectFramework — Dimension 5: Generic Mount Points', () => {
     const html = '<html><body><div id="__nuxt">App</div></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('nuxt2');
-    expect(result.confidence).toBe(0.5);
+    expect(result.tier).toBe('moderate');
     expect(result.appElement).toBe('#__nuxt');
   });
 
-  it('should detect Next.js from #__next mount point (low confidence)', () => {
+  it('should detect Next.js from #__next mount point (moderate tier)', () => {
     const html = '<html><body><div id="__next"></div></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('nextjs');
-    expect(result.confidence).toBe(0.5);
+    expect(result.tier).toBe('moderate');
     expect(result.appElement).toBe('#__next');
   });
 
-  it('should detect SvelteKit from #svelte mount point (low confidence)', () => {
+  it('should detect SvelteKit from #svelte mount point (weak tier)', () => {
     const html = '<html><body><div id="svelte"></div></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('sveltekit');
-    expect(result.confidence).toBe(0.4);
+    expect(result.tier).toBe('weak');
     expect(result.appElement).toBe('#svelte');
   });
 });
@@ -184,21 +184,21 @@ describe('detectFramework — Multi-Framework Priority', () => {
     const html = '<html><body><script>window.__NUXT__ = {}</script></body></html>';
     const result = detectFramework(html, ['createSSRApp()']);
     expect(result.framework).toBe('nuxt3');
-    expect(result.confidence).toBe(0.95);
+    expect(result.tier).toBe('definitive');
   });
 
   it('should prefer Next.js (Dimension 1) over #__next mount point (Dimension 5)', () => {
     const html = '<html><body><script>window.__NEXT_DATA__ = {}</script></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('nextjs');
-    expect(result.confidence).toBe(0.95);
+    expect(result.tier).toBe('definitive');
   });
 
   it('should prefer meta generator over generic mount point', () => {
     const html = '<html><head><meta name="generator" content="VitePress"></head><body><div id="__nuxt"></div></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('vitepress');
-    expect(result.confidence).toBe(0.9);
+    expect(result.tier).toBe('strong');
   });
 });
 
@@ -206,7 +206,7 @@ describe('detectFramework — No Match / Unknown', () => {
   it('should return unknown for empty HTML', () => {
     const result = detectFramework('');
     expect(result.framework).toBe('unknown');
-    expect(result.confidence).toBe(0);
+    expect(result.tier).toBe('none');
     expect(result.appElement).toBeNull();
     expect(result.markers).toEqual([]);
   });
@@ -215,7 +215,7 @@ describe('detectFramework — No Match / Unknown', () => {
     const html = '<!DOCTYPE html><html><head></head><body><p>Hello World</p></body></html>';
     const result = detectFramework(html);
     expect(result.framework).toBe('unknown');
-    expect(result.confidence).toBe(0);
+    expect(result.tier).toBe('none');
   });
 
   it('should return unknown when JS contents have no framework markers', () => {

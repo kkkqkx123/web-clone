@@ -5,7 +5,7 @@
  * - window.__sveltekit__ global variable or window.__SVELTEKIT__ marker
  * - <meta generator="SvelteKit"> tag present
  * - JS content contains @sveltejs/kit or __sveltekit
- * - HTML contains id="svelte" (low confidence fallback)
+ * - HTML contains id="svelte" (weak tier fallback)
  *
  * Probe method:
  * SvelteKit uses Svelte's automatic hydration. This script is a diagnostic

@@ -30,6 +30,14 @@ examples/output/
 __tests__/outputs/
 coverage/
 
+# Snapshot run artifacts (generated at repo root by integration tests)
+SNAPSHOT_ISSUES.*
+SNAPSHOT_LOG.*
+
+# 子包内的测试输出目录禁止使用（统一收敛到根 __tests__/outputs/）
+packages/*/__tests__/outputs/
+apps/*/__tests__/outputs/
+
 # Editor
 .idea/
 .vscode/

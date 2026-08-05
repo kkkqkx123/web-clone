@@ -33,10 +33,10 @@ function createMockPage(): Page {
     screenshot: vi.fn(),
     close: vi.fn(),
     isClosed: vi.fn(() => false),
-    url: vi.fn(() => 'https://example.com'),
+    url: vi.fn(() => 'http://127.0.0.1:9000'),
     cookies: vi.fn().mockResolvedValue([
-      { name: 'session', value: 'abc123', domain: '.example.com', path: '/' },
-      { name: 'tracking', value: 'xyz789', domain: '.example.com', path: '/' },
+      { name: 'session', value: 'abc123', domain: '.local.test', path: '/' },
+      { name: 'tracking', value: 'xyz789', domain: '.local.test', path: '/' },
     ]),
     evaluate: vi.fn(),
     waitForFunction: vi.fn(),
@@ -70,7 +70,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({ 'content-type': 'text/html; charset=utf-8' }),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -85,7 +85,7 @@ describe('PuppeteerFetcherAdapter', () => {
 
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce(htmlContent);
 
-      const result = await adapter.fetch('https://example.com', {
+      const result = await adapter.fetch('http://127.0.0.1:9000', {
         isMainDocument: true,
         timeout: 5000,
       });
@@ -96,7 +96,7 @@ describe('PuppeteerFetcherAdapter', () => {
       expect(result.isHtmlLike).toBe(true);
       expect(result.buffer.toString('utf-8')).toBe(htmlContent);
 
-      expect(mockPage.goto).toHaveBeenCalledWith('https://example.com', {
+      expect(mockPage.goto).toHaveBeenCalledWith('http://127.0.0.1:9000', {
         timeout: 5000,
         waitUntil: 'networkidle2',
       });
@@ -107,7 +107,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -121,7 +121,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', { isMainDocument: true });
+      await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       // Verify that page.goto() was called with networkidle2 (mapped from 'networkidle')
       expect(mockPage.goto).toHaveBeenCalledWith(
@@ -139,7 +139,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -153,7 +153,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -166,7 +166,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -180,7 +180,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter.fetch('https://example.com', { isMainDocument: true, timeout: 60000 });
+      await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true, timeout: 60000 });
 
       expect(mockPage.goto).toHaveBeenCalledWith(
         expect.any(String),
@@ -197,7 +197,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -211,7 +211,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(mockPage.screenshot).toHaveBeenCalledWith({
         path: '/tmp/debug.png',
@@ -221,18 +221,18 @@ describe('PuppeteerFetcherAdapter', () => {
     it('should throw error when page.goto fails', async () => {
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce(null);
 
-      await expect(adapter.fetch('https://example.com', { isMainDocument: true })).rejects.toThrow(
+      await expect(adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true })).rejects.toThrow(
         'Failed to navigate'
       );
     });
 
     it('should return correct URL from page.url()', async () => {
-      vi.spyOn(mockPage, 'url').mockReturnValue('https://example.com/final');
+      vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/final');
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com/final',
+        url: () => 'http://127.0.0.1:9000/final',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -246,9 +246,9 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      const result = await adapter.fetch('https://example.com', { isMainDocument: true });
+      const result = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
-      expect(result.url).toBe('https://example.com/final');
+      expect(result.url).toBe('http://127.0.0.1:9000/final');
     });
   });
 
@@ -265,11 +265,11 @@ describe('PuppeteerFetcherAdapter', () => {
           return new Map(Object.entries({ 'content-type': 'text/css' }));
         },
         arrayBuffer: () => Promise.resolve(stringToArrayBuffer(cssContent)),
-        url: 'https://cdn.example.com/style.css',
+        url: 'http://cdn.local.test/style.css',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter.fetch('https://cdn.example.com/style.css', {});
+      const result = await adapter.fetch('http://cdn.local.test/style.css', {});
 
       expect(result.status).toBe(200);
       expect(result.mime).toContain('text/css');
@@ -278,7 +278,7 @@ describe('PuppeteerFetcherAdapter', () => {
 
       // Verify cookies were forwarded
       const callArgs = mockFetch.mock.calls[0];
-      expect(callArgs[0]).toBe('https://cdn.example.com/style.css');
+      expect(callArgs[0]).toBe('http://cdn.local.test/style.css');
       expect(callArgs[1].headers.Cookie).toContain('session=abc123');
     });
 
@@ -292,11 +292,11 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: true,
         headers: new Map(),
         arrayBuffer: () => Promise.resolve(stringToArrayBuffer('')),
-        url: 'https://api.example.com/data',
+        url: 'http://127.0.0.1:9000/data',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      await adapter2.fetch('https://api.example.com/data', {});
+      await adapter2.fetch('http://127.0.0.1:9000/data', {});
 
       const callArgs = mockFetch.mock.calls[0];
       expect(callArgs[1].headers).toMatchObject({
@@ -315,11 +315,11 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: true,
         headers: new Map(Object.entries({ 'content-type': 'text/html' })),
         arrayBuffer: () => Promise.resolve(stringToArrayBuffer(htmlContent)),
-        url: 'https://example.com',
+        url: 'http://127.0.0.1:9000',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter2.fetch('https://example.com', { isMainDocument: true });
+      const result = await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(result.status).toBe(200);
       expect(result.mime).toBe('text/html');
@@ -336,11 +336,11 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: true,
         headers: new Map(Object.entries({ 'content-type': 'image/png' })),
         arrayBuffer: () => Promise.resolve(rawBytes.buffer),
-        url: 'https://example.com/image.png',
+        url: 'http://127.0.0.1:9000/image.png',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter.fetch('https://example.com/image.png', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/image.png', {});
 
       expect(result.mime).toBe('image/png');
       expect(result.buffer).toEqual(Buffer.from(rawBytes));
@@ -353,15 +353,15 @@ describe('PuppeteerFetcherAdapter', () => {
         new Error('Network timeout')
       );
 
-      await expect(adapter.fetch('https://example.com', { isMainDocument: true })).rejects.toThrow(
-        'Puppeteer fetch failed for https://example.com'
+      await expect(adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true })).rejects.toThrow(
+        'Puppeteer fetch failed for http://127.0.0.1:9000'
       );
     });
 
     it('should handle non-error objects thrown', async () => {
       vi.spyOn(mockPage, 'goto').mockRejectedValueOnce('String error');
 
-      await expect(adapter.fetch('https://example.com', { isMainDocument: true })).rejects.toThrow(
+      await expect(adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true })).rejects.toThrow(
         'Puppeteer fetch failed'
       );
     });
@@ -375,11 +375,11 @@ describe('PuppeteerFetcherAdapter', () => {
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const accessible = await adapter.canAccess('https://example.com/api');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/api');
 
       expect(accessible).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://example.com/api',
+        'http://127.0.0.1:9000/api',
         expect.objectContaining({ method: 'HEAD' })
       );
 
@@ -393,7 +393,7 @@ describe('PuppeteerFetcherAdapter', () => {
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const accessible = await adapter.canAccess('https://example.com/missing');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/missing');
 
       expect(accessible).toBe(false);
 
@@ -404,7 +404,7 @@ describe('PuppeteerFetcherAdapter', () => {
       const mockFetch = vi.fn().mockRejectedValueOnce(new Error('Network error'));
       vi.stubGlobal('fetch', mockFetch);
 
-      const accessible = await adapter.canAccess('https://example.com');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000');
 
       expect(accessible).toBe(false);
 
@@ -418,7 +418,7 @@ describe('PuppeteerFetcherAdapter', () => {
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const accessible = await adapter.canAccess('https://example.com/500');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/500');
 
       expect(accessible).toBe(false);
 
@@ -539,7 +539,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -553,7 +553,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html><body>Logged In</body></html>');
 
-      const pageResult = await adapter.fetch('https://example.com', { isMainDocument: true });
+      const pageResult = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
       expect(pageResult.ok).toBe(true);
 
       // Step 2: Get sub-resource (CSS)
@@ -562,18 +562,18 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: true,
         headers: new Map(Object.entries({ 'content-type': 'text/css' })),
         arrayBuffer: () => Buffer.from('body {}').buffer,
-        url: 'https://example.com/style.css',
+        url: 'http://127.0.0.1:9000/style.css',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const cssResult = await adapter.fetch('https://example.com/style.css', {});
+      const cssResult = await adapter.fetch('http://127.0.0.1:9000/style.css', {});
       expect(cssResult.ok).toBe(true);
 
       // Step 3: Check resource access
       const mockHeadFetch = vi.fn().mockResolvedValueOnce({ ok: true });
       vi.stubGlobal('fetch', mockHeadFetch);
 
-      const accessible = await adapter.canAccess('https://example.com/api');
+      const accessible = await adapter.canAccess('http://127.0.0.1:9000/api');
       expect(accessible).toBe(true);
 
       // Step 4: Get auth context
@@ -606,7 +606,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -620,7 +620,7 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
-      await adapter2.fetch('https://example.com', { isMainDocument: true });
+      await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       // Verify options are used correctly
       expect(mockPage.goto).toHaveBeenCalledWith(
@@ -641,11 +641,11 @@ describe('PuppeteerFetcherAdapter', () => {
         headers: new Map(),
         get headers() { return new Map(); },
         arrayBuffer: () => Buffer.from('data').buffer,
-        url: 'https://example.com/unknown',
+        url: 'http://127.0.0.1:9000/unknown',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter.fetch('https://example.com/unknown', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/unknown', {});
 
       expect(result.mime).toBe('application/octet-stream');
       expect(result.isHtmlLike).toBe(false);
@@ -661,7 +661,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -679,7 +679,7 @@ describe('PuppeteerFetcherAdapter', () => {
         status: () => 200,
         ok: () => true,
         headers: () => ({}),
-        url: () => 'https://example.com',
+        url: () => 'http://127.0.0.1:9000',
         remoteAddress: () => ({ ip: '127.0.0.1', port: 443 }),
         request: () => ({}),
         securityDetails: () => null,
@@ -693,8 +693,8 @@ describe('PuppeteerFetcherAdapter', () => {
       } as any);
       vi.spyOn(mockPage2, 'content').mockResolvedValueOnce('<html>2</html>');
 
-      const result1 = await adapter.fetch('https://example.com', { isMainDocument: true });
-      const result2 = await adapter2.fetch('https://example.com', { isMainDocument: true });
+      const result1 = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
+      const result2 = await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
 
       expect(result1.buffer.toString()).toBe('<html>1</html>');
       expect(result2.buffer.toString()).toBe('<html>2</html>');
@@ -711,7 +711,7 @@ describe('PuppeteerFetcherAdapter', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       await expect(
-        adapter.fetch('https://example.com/slow', { timeout: 10 })
+        adapter.fetch('http://127.0.0.1:9000/slow', { timeout: 10 })
       ).rejects.toThrow('Puppeteer fetch failed');
 
       vi.unstubAllGlobals();
@@ -723,13 +723,13 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: true,
         headers: new Map(Object.entries({ 'content-type': 'text/css' })),
         arrayBuffer: () => Buffer.from('body { color: red; }').buffer,
-        url: 'https://cdn.example.com/style.final.css',
+        url: 'http://cdn.local.test/style.final.css',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter.fetch('https://example.com/style.css', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/style.css', {});
 
-      expect(result.url).toBe('https://cdn.example.com/style.final.css');
+      expect(result.url).toBe('http://cdn.local.test/style.final.css');
       expect(result.ok).toBe(true);
 
       vi.unstubAllGlobals();
@@ -741,11 +741,11 @@ describe('PuppeteerFetcherAdapter', () => {
         ok: false,
         headers: new Map(Object.entries({ 'content-type': 'text/plain' })),
         arrayBuffer: () => Buffer.from('Not Found').buffer,
-        url: 'https://example.com/missing.css',
+        url: 'http://127.0.0.1:9000/missing.css',
       });
       vi.stubGlobal('fetch', mockFetch);
 
-      const result = await adapter.fetch('https://example.com/missing.css', {});
+      const result = await adapter.fetch('http://127.0.0.1:9000/missing.css', {});
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(404);

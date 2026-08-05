@@ -3,7 +3,7 @@
  *
  * Match conditions:
  * - window.__NEXT_DATA__ global variable exists (detector returns nextjs)
- * - or HTML contains id="__next" (low confidence fallback)
+ * - or HTML contains id="__next" (moderate tier fallback)
  *
  * Probe method:
  * Next.js uses React 18's hydrateRoot() automatically. This script is a

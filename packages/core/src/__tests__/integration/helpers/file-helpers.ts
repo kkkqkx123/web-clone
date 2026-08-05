@@ -5,11 +5,20 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 所有测试临时输出统一收敛到仓库根目录的 __tests__/outputs/
+// （packages/core/src/__tests__/integration/helpers/ → 上 6 层为仓库根）
+const TEST_OUTPUT_ROOT = path.resolve(__dirname, '../../../../../../__tests__/outputs');
 
 /**
  * 创建临时测试目录
+ * 默认输出到仓库根目录的 __tests__/outputs/，避免依赖 CWD
  */
-export async function createTestDir(basePath: string = './__tests__/outputs'): Promise<string> {
+export async function createTestDir(basePath: string = TEST_OUTPUT_ROOT): Promise<string> {
   const timestamp = Date.now();
   const testDir = path.join(basePath, `test-${timestamp}`);
 

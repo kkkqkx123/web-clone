@@ -111,8 +111,8 @@ export interface FetchResult {
   browserFramework?: {
     /** Detected framework: 'nuxt3' | 'nextjs' | 'vue3' | 'react18' | 'angular' | 'sveltekit' | 'astro' | 'static' | 'unknown' */
     framework: string;
-    /** Confidence level (0-1) */
-    confidence: number;
+    /** Signal quality tier: 'definitive' | 'strong' | 'moderate' | 'weak' | 'none' */
+    tier: string;
     /** Mount point element selector */
     appElement?: string;
     /** Whether hydration was confirmed in the browser context */

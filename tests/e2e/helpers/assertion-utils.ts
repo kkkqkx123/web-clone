@@ -10,6 +10,15 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { CrawlResult } from './spider-runner.js';
 
+/** Ordinal rank for SignalTier comparison. */
+const TIER_RANK: Record<string, number> = {
+  definitive: 4,
+  strong: 3,
+  moderate: 2,
+  weak: 1,
+  none: 0,
+};
+
 /**
  * 验证 bundle 模式的输出目录结构：
  * - 必须存在 index.html
@@ -98,12 +107,12 @@ export function assertContentCaptured(htmlPath: string): void {
 /**
  * 验证框架检测结果：
  * - 检测到的框架与期望一致
- * - 置信度 >= minConfidence
+ * - 信号层级 >= minTier
  */
 export function assertFrameworkDetection(
   result: CrawlResult,
   expectedFramework: string,
-  minConfidence = 0
+  minTier = 'weak'
 ): void {
   expect(
     result.frameworkMatch,
@@ -119,14 +128,21 @@ export function assertFrameworkDetection(
     match.match,
     `${result.framework}: 框架应匹配 ${expectedFramework}`
   ).toBe(true);
+
+  const actualRank = TIER_RANK[match.tier] ?? 0;
+  const minRank = TIER_RANK[minTier] ?? 0;
   expect(
-    match.confidence,
-    `${result.framework}: 置信度 ${match.confidence} 应 >= ${minConfidence}`
-  ).toBeGreaterThanOrEqual(minConfidence);
+    actualRank,
+    `${result.framework}: 信号层级 ${match.tier} 应 >= ${minTier}`
+  ).toBeGreaterThanOrEqual(minRank);
 }
 
 /**
  * 验证 SPA 检测结果存在且包含了水合标记。
+ * 要求：
+ * - 至少 1 个检测标记
+ * - 信号层级 > none
+ * - 水合状态已确认（isHydrated === true）
  */
 export function assertSpaHydrationDetected(result: CrawlResult): void {
   expect(
@@ -140,9 +156,14 @@ export function assertSpaHydrationDetected(result: CrawlResult): void {
     `${result.framework}: 至少应有 1 个检测标记`
   ).not.toHaveLength(0);
   expect(
-    spa.confidence,
-    `${result.framework}: 置信度应 > 0`
+    TIER_RANK[spa.tier] ?? 0,
+    `${result.framework}: 信号层级应 > none，实际: ${spa.tier}`
   ).toBeGreaterThan(0);
+  expect(
+    spa.isHydrated,
+    `${result.framework}: 页面应完成水合（isHydrated 应为 true），` +
+    `检测标记: ${JSON.stringify(spa.markers)}`
+  ).toBe(true);
 }
 
 /**
@@ -187,11 +208,11 @@ export function generateResultsSummary(results: CrawlResult[]): string {
     const match = r.frameworkMatch;
     const detected = match ? match.detected : 'N/A';
     const expected = match?.expected || 'N/A';
-    const confidence = match ? `${(match.confidence * 100).toFixed(1)}%` : 'N/A';
+    const tier = match?.tier || 'none';
     const duration = `${(r.duration / 1000).toFixed(1)}s`;
 
     lines.push(`\n[${status}] ${r.framework}`);
-    lines.push(`  框架检测: ${detected} (期望: ${expected}, 置信度: ${confidence})`);
+    lines.push(`  框架检测: ${detected} (期望: ${expected}, 信号层级: ${tier})`);
     if (r.spaDetection?.isHydrated) {
       lines.push(`  水合状态: 已确认`);
     }

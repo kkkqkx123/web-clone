@@ -19,9 +19,9 @@ describe('Phase 1: ResourceFilter Integration', () => {
   it('should filter resources with default blacklist and extensions', () => {
     const filter = new ResourceFilter();
     const refs = [
-      { url: 'https://example.com/style.css', type: 'css' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/style.css', type: 'css' as const, origin: 'html' },
       { url: 'https://google-analytics.com/ga.js', type: 'js' as const, origin: 'html' },
-      { url: 'https://example.com/archive.zip', type: 'other' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' as const, origin: 'html' },
     ];
 
     const filtered = filter.filter(refs);
@@ -37,7 +37,7 @@ describe('Phase 1: ResourceFilter Integration', () => {
     const filter = new ResourceFilter();
     const refs = [
       { url: 'https://google-analytics.com/ga.js', type: 'js' as const, origin: 'html' },
-      { url: 'https://example.com/archive.zip', type: 'other' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' as const, origin: 'html' },
     ];
 
     filter.filter(refs);
@@ -53,8 +53,8 @@ describe('Phase 1: ResourceFilter Integration', () => {
     });
 
     const refs = [
-      { url: 'https://example.com/allowed.js', type: 'js' as const, origin: 'html' },
-      { url: 'https://example.com/blocked.js', type: 'js' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/allowed.js', type: 'js' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/blocked.js', type: 'js' as const, origin: 'html' },
     ];
 
     const filtered = filter.filter(refs);
@@ -78,8 +78,8 @@ describe('Phase 1: ResourceFilter Integration', () => {
     });
 
     const refs = [
-      { url: 'https://example.com/app.wasm', type: 'other' as const, origin: 'html' },
-      { url: 'https://example.com/archive.zip', type: 'other' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/app.wasm', type: 'other' as const, origin: 'html' },
+      { url: 'http://127.0.0.1:9000/archive.zip', type: 'other' as const, origin: 'html' },
     ];
 
     const filtered = filter.filter(refs);

@@ -3,7 +3,7 @@
  *
  * Match conditions:
  * - JS content contains hydrateRoot or __REACT_DEVTOOLS markers
- * - Low confidence detection without specific framework markers
+ * - Low-tier detection without specific framework markers
  *
  * Probe method:
  * React 18's hydrateRoot() is called automatically by the application code.

@@ -38,7 +38,7 @@ function createTestDocument(html: string): Document {
 
 function createTestOptions(overrides: Partial<SnapshotOptions> = {}): SnapshotOptions {
   return {
-    url: 'https://example.com',
+    url: 'http://127.0.0.1:9000',
     output: resolve('/tmp/test-snapshot'),
     mode: 'bundle',
     maxAssets: 100,
@@ -68,9 +68,9 @@ describe('assembleBundle - Bundle Mode Tests', () => {
       <html>
         <head><title>Test</title></head>
         <body>
-          <link rel="stylesheet" href="style.css" data-origin-url="https://example.com/assets/style.css">
-          <script src="app.js" data-origin-url="https://example.com/assets/app.js"></script>
-          <img src="logo.png" data-origin-url="https://example.com/assets/logo.png">
+          <link rel="stylesheet" href="style.css" data-origin-url="http://127.0.0.1:9000/assets/style.css">
+          <script src="app.js" data-origin-url="http://127.0.0.1:9000/assets/app.js"></script>
+          <img src="logo.png" data-origin-url="http://127.0.0.1:9000/assets/logo.png">
         </body>
       </html>
     `);
@@ -88,9 +88,9 @@ describe('assembleBundle - Bundle Mode Tests', () => {
 
   it('Scene 1: Should generate standard bundle directory structure', () => {
     const assets = [
-      createTestAsset('https://example.com/assets/style.css', 'css'),
-      createTestAsset('https://example.com/assets/app.js', 'js'),
-      createTestAsset('https://example.com/assets/logo.png', 'img'),
+      createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css'),
+      createTestAsset('http://127.0.0.1:9000/assets/app.js', 'js'),
+      createTestAsset('http://127.0.0.1:9000/assets/logo.png', 'img'),
     ];
 
     assembleBundle(document, assets, options);
@@ -106,7 +106,7 @@ describe('assembleBundle - Bundle Mode Tests', () => {
   });
 
   it('Scene 2: Should correctly rewrite asset paths', () => {
-    const assets = [createTestAsset('https://example.com/assets/style.css', 'css')];
+    const assets = [createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css')];
     assembleBundle(document, assets, options);
 
     const html = readFileSync(join(testDir, 'index.html'), 'utf-8');
@@ -116,17 +116,17 @@ describe('assembleBundle - Bundle Mode Tests', () => {
 
   it('Scene 3: Should handle failed assets and clean href/src attributes', () => {
     const assets = [
-      createTestAsset('https://example.com/assets/style.css', 'css', 'failed'),
+      createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css', 'failed'),
     ];
     assembleBundle(document, assets, options);
 
     const html = readFileSync(join(testDir, 'index.html'), 'utf-8');
     // Failed assets should have href/src removed
-    expect(html).not.toContain('href="https://example.com/assets/style.css"');
+    expect(html).not.toContain('href="http://127.0.0.1:9000/assets/style.css"');
   });
 
   it('Scene 4: Should correctly handle route paths (URLs without extensions)', () => {
-    const assets = [createTestAsset('https://example.com/about', 'other')];
+    const assets = [createTestAsset('http://127.0.0.1:9000/about', 'other')];
     assembleBundle(document, assets, options);
 
     const manifest = JSON.parse(
@@ -134,14 +134,14 @@ describe('assembleBundle - Bundle Mode Tests', () => {
     );
     // Route path should be mapped to index.html
     const routeAsset = manifest.assets.find(
-      (a: Asset) => a.originUrl === 'https://example.com/about'
+      (a: Asset) => a.originUrl === 'http://127.0.0.1:9000/about'
     );
     expect(routeAsset?.localPath).toContain('index.html');
   });
 
   it('Scene 5: Should clean up snapshot helper attributes', () => {
     document.querySelector('img')?.setAttribute('data-snapshot-id', '123');
-    const assets = [createTestAsset('https://example.com/assets/logo.png', 'img')];
+    const assets = [createTestAsset('http://127.0.0.1:9000/assets/logo.png', 'img')];
 
     assembleBundle(document, assets, options);
 
@@ -152,8 +152,8 @@ describe('assembleBundle - Bundle Mode Tests', () => {
 
   it('Scene 6: Should generate correct snapshot.json metadata', () => {
     const assets = [
-      createTestAsset('https://example.com/assets/style.css', 'css'),
-      createTestAsset('https://example.com/assets/app.js', 'js', 'failed'),
+      createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css'),
+      createTestAsset('http://127.0.0.1:9000/assets/app.js', 'js', 'failed'),
     ];
 
     assembleBundle(document, assets, options);
@@ -169,7 +169,7 @@ describe('assembleBundle - Bundle Mode Tests', () => {
     // Note: URLs are automatically normalized by URL parser
     // Path traversal protection happens in safeJoin for filesystem paths
     const assets = [
-      createTestAsset('https://example.com/sensitive.txt', 'other'),
+      createTestAsset('http://127.0.0.1:9000/sensitive.txt', 'other'),
     ];
 
     assembleBundle(document, assets, options);
@@ -192,7 +192,7 @@ describe('assembleBundle - Bundle Mode Tests', () => {
   });
 
   it('Defect test: Should handle large filenames', () => {
-    const longUrl = 'https://example.com/' + 'a'.repeat(500) + '.css';
+    const longUrl = 'http://127.0.0.1:9000/' + 'a'.repeat(500) + '.css';
     const assets = [createTestAsset(longUrl, 'css')];
 
     assembleBundle(document, assets, options);
@@ -225,11 +225,11 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
     document = createTestDocument(`
       <html>
         <head>
-          <link rel="stylesheet" href="style.css" data-origin-url="https://example.com/style.css">
+          <link rel="stylesheet" href="style.css" data-origin-url="http://127.0.0.1:9000/style.css">
         </head>
         <body>
-          <img src="logo.png" data-origin-url="https://example.com/logo.png">
-          <script src="app.js" data-origin-url="https://example.com/app.js"></script>
+          <img src="logo.png" data-origin-url="http://127.0.0.1:9000/logo.png">
+          <script src="app.js" data-origin-url="http://127.0.0.1:9000/app.js"></script>
         </body>
       </html>
     `);
@@ -241,11 +241,11 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
     // Set src to absolute URL for matching, and data-origin-url for source tracking
     const img = document.querySelector('img');
-    img?.setAttribute('src', 'https://example.com/logo.png');
-    img?.setAttribute('data-origin-url', 'https://example.com/logo.png');
+    img?.setAttribute('src', 'http://127.0.0.1:9000/logo.png');
+    img?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/logo.png');
 
     const assets = [
-      createTestAsset('https://example.com/logo.png', 'img', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/logo.png', 'img', 'fetched', {
         dataUri,
       }),
     ];
@@ -262,10 +262,10 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
     // Set data-origin-url on link element
     const link = document.querySelector('link[rel="stylesheet"]');
-    link?.setAttribute('data-origin-url', 'https://example.com/style.css');
+    link?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/style.css');
 
     const assets = [
-      createTestAsset('https://example.com/style.css', 'css', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/style.css', 'css', 'fetched', {
         textContent: cssContent,
       }),
     ];
@@ -281,10 +281,10 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
     // Set data-origin-url on script element
     const script = document.querySelector('script');
-    script?.setAttribute('data-origin-url', 'https://example.com/app.js');
+    script?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/app.js');
 
     const assets = [
-      createTestAsset('https://example.com/app.js', 'js', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/app.js', 'js', 'fetched', {
         textContent: jsContent,
       }),
     ];
@@ -295,18 +295,18 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
   });
 
   it('Scene 4: Should rewrite URLs in inlined CSS', () => {
-    const cssContent = 'body { background: url("https://example.com/bg.png"); }';
+    const cssContent = 'body { background: url("http://127.0.0.1:9000/bg.png"); }';
     const dataUri = 'data:image/png;base64,xxx';
 
     // Set data-origin-url on link
     const link = document.querySelector('link[rel="stylesheet"]');
-    link?.setAttribute('data-origin-url', 'https://example.com/style.css');
+    link?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/style.css');
 
     const assets = [
-      createTestAsset('https://example.com/style.css', 'css', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/style.css', 'css', 'fetched', {
         textContent: cssContent,
       }),
-      createTestAsset('https://example.com/bg.png', 'img', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/bg.png', 'img', 'fetched', {
         dataUri,
       }),
     ];
@@ -319,14 +319,14 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
   it('Scene 5: Should handle responsive images (srcset)', () => {
     const img = document.querySelector('img');
-    img?.setAttribute('srcset', 'https://example.com/logo-1x.png 1x, https://example.com/logo-2x.png 2x');
-    img?.setAttribute('data-origin-url', 'https://example.com/logo.png');
+    img?.setAttribute('srcset', 'http://127.0.0.1:9000/logo-1x.png 1x, http://127.0.0.1:9000/logo-2x.png 2x');
+    img?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/logo.png');
 
     const assets = [
-      createTestAsset('https://example.com/logo-1x.png', 'img', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/logo-1x.png', 'img', 'fetched', {
         dataUri: 'data:image/png;base64,1x',
       }),
-      createTestAsset('https://example.com/logo-2x.png', 'img', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/logo-2x.png', 'img', 'fetched', {
         dataUri: 'data:image/png;base64,2x',
       }),
     ];
@@ -339,7 +339,7 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
   it('Defect test: Should handle missing data URI (unfetched resources)', () => {
     const assets = [
-      createTestAsset('https://example.com/logo.png', 'img', 'failed'),
+      createTestAsset('http://127.0.0.1:9000/logo.png', 'img', 'failed'),
     ];
 
     const result = assembleSingleFile(document, assets, options);
@@ -374,15 +374,15 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
 
     // Set data-origin-url
     const link = document.querySelector('link[rel="stylesheet"]');
-    link?.setAttribute('data-origin-url', 'https://example.com/style.css');
+    link?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/style.css');
     const script = document.querySelector('script');
-    script?.setAttribute('data-origin-url', 'https://example.com/app.js');
+    script?.setAttribute('data-origin-url', 'http://127.0.0.1:9000/app.js');
 
     const assets = [
-      createTestAsset('https://example.com/app.js', 'js', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/app.js', 'js', 'fetched', {
         textContent: jsContent,
       }),
-      createTestAsset('https://example.com/style.css', 'css', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/style.css', 'css', 'fetched', {
         textContent: cssContent,
       }),
     ];
@@ -398,7 +398,7 @@ describe('assembleSingleFile - Single File Mode Tests', () => {
     // This test verifies a defect: no validation of total data URI size
     const largeDataUri = 'data:image/png;base64,' + 'A'.repeat(50 * 1024 * 1024); // 50MB
     const assets = [
-      createTestAsset('https://example.com/logo.png', 'img', 'fetched', {
+      createTestAsset('http://127.0.0.1:9000/logo.png', 'img', 'fetched', {
         dataUri: largeDataUri,
         size: 50 * 1024 * 1024,
       }),
@@ -564,23 +564,23 @@ describe('Output Module - Integration Tests', () => {
     const document = createTestDocument(`
       <html>
         <head>
-          <link rel="stylesheet" href="style.css" data-origin-url="https://example.com/style.css">
-          <link rel="stylesheet" href="dark.css" data-origin-url="https://example.com/dark.css">
+          <link rel="stylesheet" href="style.css" data-origin-url="http://127.0.0.1:9000/style.css">
+          <link rel="stylesheet" href="dark.css" data-origin-url="http://127.0.0.1:9000/dark.css">
         </head>
         <body>
-          <img src="logo.png" data-origin-url="https://example.com/logo.png">
-          <img src="banner.jpg" data-origin-url="https://example.com/banner.jpg">
-          <font src="roboto.woff2" data-origin-url="https://example.com/fonts/roboto.woff2">
+          <img src="logo.png" data-origin-url="http://127.0.0.1:9000/logo.png">
+          <img src="banner.jpg" data-origin-url="http://127.0.0.1:9000/banner.jpg">
+          <font src="roboto.woff2" data-origin-url="http://127.0.0.1:9000/fonts/roboto.woff2">
         </body>
       </html>
     `);
 
     const assets = [
-      createTestAsset('https://example.com/style.css', 'css'),
-      createTestAsset('https://example.com/dark.css', 'css', 'failed'),
-      createTestAsset('https://example.com/logo.png', 'img'),
-      createTestAsset('https://example.com/banner.jpg', 'img'),
-      createTestAsset('https://example.com/fonts/roboto.woff2', 'font'),
+      createTestAsset('http://127.0.0.1:9000/style.css', 'css'),
+      createTestAsset('http://127.0.0.1:9000/dark.css', 'css', 'failed'),
+      createTestAsset('http://127.0.0.1:9000/logo.png', 'img'),
+      createTestAsset('http://127.0.0.1:9000/banner.jpg', 'img'),
+      createTestAsset('http://127.0.0.1:9000/fonts/roboto.woff2', 'font'),
     ];
 
     assembleBundle(document, assets, options);
@@ -623,7 +623,7 @@ function createTestComponentManifest(
 
 function createTestConvertResult(): ConvertResult {
   return {
-    sourceUrl: 'https://example.com',
+    sourceUrl: 'http://127.0.0.1:9000',
     timestamp: new Date().toISOString(),
     html: '<html><body></body></html>',
     assets: [],

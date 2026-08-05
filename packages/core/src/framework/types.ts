@@ -15,13 +15,43 @@ export type FrameworkType =
   | 'static' | 'unknown';
 
 /**
+ * Signal quality tier for framework detection.
+ *
+ * Ordered tiers from most to least reliable:
+ *   definitive > strong > moderate > weak > none
+ *
+ * - definitive: framework-specific global variable (__NUXT__, __NEXT_DATA__, __sveltekit__)
+ * - strong:      meta generator tags, framework-specific JS patterns (createSSRApp, hydrateRoot, ɵɵdefineComponent)
+ * - moderate:    HTML-specific id tags (#__nuxt, #__next), inline __NUXT__ script patterns
+ * - weak:        generic mount points (#svelte, ng-version/ng-app without other signals)
+ * - none:        no framework detected
+ */
+export type SignalTier = 'definitive' | 'strong' | 'moderate' | 'weak' | 'none';
+
+/** Ordinal rank for SignalTier comparison. */
+const TIER_RANK: Record<SignalTier, number> = {
+  definitive: 4,
+  strong: 3,
+  moderate: 2,
+  weak: 1,
+  none: 0,
+};
+
+/**
+ * Compare two signal tiers. Returns positive if a > b, negative if b > a, zero if equal.
+ */
+export function compareTier(a: SignalTier, b: SignalTier): number {
+  return TIER_RANK[a] - TIER_RANK[b];
+}
+
+/**
  * Framing test results
  */
 export interface FrameworkDetection {
   /** Types of frames identified */
   framework: FrameworkType;
-  /** Detection confidence level (0-1) for logging and debugging */
-  confidence: number;
+  /** Signal quality tier reflecting the detection method used */
+  tier: SignalTier;
   /** Apply mount point selectors such as '#app', '#__nuxt', '#__next' */
   appElement: string | null;
   /** List of detected flags for debugging and logging purposes */

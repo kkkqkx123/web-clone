@@ -17,6 +17,7 @@ import { mkdtempSync, existsSync, readFileSync, mkdirSync, rmSync, readdirSync, 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setupBrowser, createBrowserContext, createPage, teardownBrowser } from './helpers/browser-setup.js';
+import { startTestServer, stopTestServer, type TestServer } from './helpers/test-server.js';
 
 // ─── Inline helpers (replaces missing snapshot-helpers / file-helpers) ───
 
@@ -135,13 +136,17 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   let context: any;
   let page: any;
   let testOutputDir: string;
+  let testServer: TestServer;
+  let TEST_URL: string;
 
   beforeAll(async () => {
     browser = await setupBrowser({
       headless: true,
       timeout: 30000,
     });
-  });
+    testServer = await startTestServer();
+    TEST_URL = testServer.url;
+  }, 60000);
 
   beforeEach(async () => {
     context = await createBrowserContext(browser);
@@ -170,6 +175,9 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
   afterAll(async () => {
     // 关闭浏览器（仅一次）
     await teardownBrowser(browser);
+    if (testServer) {
+      await stopTestServer(testServer);
+    }
   });
 
   describe('Bundle Mode', () => {
@@ -182,7 +190,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -198,7 +206,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
       expect(validation.errors).toHaveLength(0);
 
       // 验证统计信息 — validate result structure, not asset counts
-      // (example.com may have no sub-resources)
+      // (the local test page has a few sub-resources)
       expect(result).toHaveProperty('sourceUrl');
       expect(result).toHaveProperty('html');
       expect(result.stats).toHaveProperty('total');
@@ -210,7 +218,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -231,7 +239,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -255,7 +263,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -282,7 +290,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'single',
         },
@@ -301,7 +309,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'single',
         },
@@ -321,7 +329,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'single',
         },
@@ -342,7 +350,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'single',
         },
@@ -365,7 +373,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
         {
           name: 'test_cookie',
           value: 'test_value_123',
-          url: 'https://example.com',
+          url: TEST_URL,
         },
       ]);
 
@@ -398,7 +406,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
           extractComponents: true,
@@ -425,7 +433,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
       // 这不应该抛出错误
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -444,7 +452,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
       // 即使某些资源加载失败，快照应该完成
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
         },
@@ -465,7 +473,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
           maxAssets: 50, // 限制资源数量以加快测试
@@ -487,7 +495,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
           concurrency: 2, // 低并发
@@ -504,7 +512,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'single',
           timeout: 10000, // 10 秒超时
@@ -521,7 +529,7 @@ describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
 
       const result = await snapshot(
         {
-          url: 'https://example.com',
+          url: TEST_URL,
           output: outputPath,
           mode: 'bundle',
           maxAssets: 10, // 只下载 10 个资源

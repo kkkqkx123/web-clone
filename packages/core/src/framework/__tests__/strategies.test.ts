@@ -26,7 +26,7 @@ import type { FrameworkDetection } from '../types.js';
 function makeDetection(overrides: Partial<FrameworkDetection>): FrameworkDetection {
   return {
     framework: 'unknown',
-    confidence: 0,
+    tier: 'none',
     appElement: null,
     markers: [],
     ...overrides,

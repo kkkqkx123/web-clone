@@ -20,6 +20,7 @@ import { join, dirname } from 'node:path';
 import type { Page, BrowserContext, Browser } from 'playwright';
 import { snapshot } from '@web-clone/core';
 import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import type { SignalTier } from '@web-clone/adapter-common';
 
 /**
  * 单次爬取的输入参数
@@ -53,14 +54,14 @@ export interface CrawlResult {
     appElement: string | null;
     isHydrated: boolean;
     markers: string[];
-    confidence: number;
+    tier: SignalTier;
   } | null;
   /** 框架检测匹配信息 */
   frameworkMatch: {
     detected: string;
     expected: string | null;
     match: boolean;
-    confidence: number;
+    tier: SignalTier;
   } | null;
   /** 输出目录 */
   outputDir: string;
@@ -84,7 +85,6 @@ export interface CrawlResult {
  * 优先使用 browserFramework（来自运行时检测），回退到 frameworkDetection。
  */
 function extractBrowserFramework(result: any): CrawlResult['spaDetection'] | null {
-  // 优先使用 browserFramework（浏览器级别的 SPA 水合检测结果）
   const source = result.browserFramework || result.frameworkDetection;
   if (source) {
     return {
@@ -92,7 +92,7 @@ function extractBrowserFramework(result: any): CrawlResult['spaDetection'] | nul
       appElement: source.appElement || null,
       isHydrated: source.markers?.includes('hydration-confirmed') || false,
       markers: source.markers || [source.framework],
-      confidence: source.confidence || 0,
+      tier: source.tier || 'none',
     };
   }
   return null;
@@ -113,7 +113,7 @@ function extractFrameworkMatch(
       detected,
       expected: expected || null,
       match: expected ? detected === expected : false,
-      confidence: detection.confidence || spaDetection?.confidence || 0,
+      tier: detection.tier || spaDetection?.tier || 'none',
     };
   }
 
@@ -123,7 +123,7 @@ function extractFrameworkMatch(
       detected: spaDetection.framework,
       expected: expected || null,
       match: expected ? spaDetection.framework === expected : false,
-      confidence: spaDetection.confidence,
+      tier: spaDetection.tier,
     };
   }
 
