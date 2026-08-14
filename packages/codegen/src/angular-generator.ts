@@ -124,7 +124,7 @@ export class ${componentName}Component {
 
   // ─── App template, main entry ────────────────────────────────────────────
 
-  generateAppTemplate(components: GeneratedComponent[]): string {
+  generateAppTemplate(components: GeneratedComponent[], _options: FrameworkCodeGenOptions): string {
     const imports = components
       .map((c) => `import { ${c.name}Component } from './components/${c.name}/${c.name}.component';`)
       .join('\n');
@@ -177,9 +177,8 @@ export class AppComponent {
       filename: 'main.ts',
       code: `import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
-import { appConfig } from './app.config';
 
-bootstrapApplication(AppComponent, appConfig).catch(err =>
+bootstrapApplication(AppComponent).catch(err =>
   console.error(err),
 );
 `,

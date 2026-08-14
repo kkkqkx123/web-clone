@@ -177,6 +177,17 @@ export async function runCrawl(
       }
     }
 
+    // 先导航到目标 URL 并检查 HTTP 状态码
+    const response = await page.goto(url, {
+      waitUntil: 'load',
+      timeout,
+    });
+
+    if (!response || !response.ok()) {
+      const statusCode = response ? response.status() : 0;
+      throw new Error(`HTTP ${statusCode}: ${url} returned status ${statusCode}`);
+    }
+
     // 创建适配器并执行快照
     const adapter = new PlaywrightFetcherAdapter(page, context, {
       waitForLoadState: 'networkidle',

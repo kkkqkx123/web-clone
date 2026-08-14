@@ -152,7 +152,7 @@ export function assembleConvert(result: ConvertResult, options: SnapshotOptions)
       if (options.frameworkCodegen?.framework) {
         const generated = codeGenerator.generateComponent(comp, options.frameworkCodegen);
         if (generated) {
-          const filename = `${generated.name}${generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.tsx' : '.jsx'}`;
+          const filename = `${generated.name}${generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.ts' : '.js'}`;
           writeFileSync(join(compDir, filename), generated.code);
         }
       }
@@ -362,7 +362,7 @@ function writeApplicationDrafts(result: ConvertResult, outputDir: string, framew
   if (framework === 'vue') {
     writeFileSync(join(frameworkDir, 'src', 'App.vue'), appTemplate);
   } else {
-    const ext = (frameworkOptions.typescript as boolean) ? '.tsx' : '.jsx';
+    const ext = (frameworkOptions.typescript as boolean) ? '.ts' : '.js';
     writeFileSync(join(frameworkDir, 'src', `App${ext}`), appTemplate);
   }
 
@@ -413,7 +413,7 @@ The app will open at \`http://localhost:5173\`.
 
 \`\`\`
 src/
-├── App.${framework === 'vue' ? 'vue' : frameworkOptions.typescript ? 'tsx' : 'jsx'}    # Root application component
+├── App.${framework === 'vue' ? 'vue' : frameworkOptions.typescript ? 'ts' : 'js'}    # Root application component
 ├── main.${frameworkOptions.typescript ? 'ts' : 'js'}           # Application entry point
 ├── components/         # Generated components (copy from snapshot)
 └── shared/             # Shared utilities, API clients, and constants
@@ -558,7 +558,6 @@ function writeSharedLogicFiles(
   const sharedDir = join(frameworkDir, 'src', 'shared');
   const specs = Array.from(components.values());
   const ext = frameworkOptions.typescript ? 'ts' : 'js';
-
   // Use SharedLogicExtractor to generate actual code from components
   const apiContent = SharedLogicExtractor.extractApiLogic(specs);
   const utilsContent = SharedLogicExtractor.extractUtilities(specs);

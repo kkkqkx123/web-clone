@@ -15,8 +15,8 @@ import { runPool } from './worker/pool.js';
 import { ResourceFilter } from './resource-filter.js';
 import { detectFramework } from './framework/detector.js';
 import { postSnapshotStrategies } from './framework/strategies/index.js';
-import type { FrameworkType, FrameworkDetection, SignalTier } from './framework/types.js';
-import { compareTier } from './framework/types.js';
+import type { FrameworkDetection, SignalTier } from './framework/types.js';
+import { compareTier, type FrameworkType } from './framework/types.js';
 import { FRAMEWORK_TO_CODEGEN } from '@web-clone/codegen/framework-rules';
 import { extractJsUrls, extractJsonUrls, extractWebpackChunks } from './discovery/recursive-scanner.js';
 import type { FetcherAdapter, FetchResult } from './adapters/fetcher-adapter.js';
@@ -149,6 +149,33 @@ const FRAMEWORK_PATTERNS = [
 
 function isFrameworkCode(originUrl: string): boolean {
   return FRAMEWORK_PATTERNS.some(pattern => pattern.test(originUrl));
+}
+
+/**
+ * Check if the statically detected framework is more specific than
+ * the browser-detected generic framework. When this returns true,
+ * the static detection should take precedence.
+ *
+ * Examples:
+ * - vitepress (static) is more specific than vue3/vue2 (browser)
+ * - astro (static) is more specific than react (browser)
+ * - nextjs (static) is more specific than react (browser)
+ * - nuxt3/nuxt2 (static) is more specific than vue3/vue2 (browser)
+ * - sveltekit (static) is more specific than svelte (browser)
+ */
+export function isMoreSpecific(staticFramework: FrameworkType, browserFramework: FrameworkType): boolean {
+  // Specific frameworks that should override generic parent frameworks
+  const specificToGeneric: Record<string, string[]> = {
+    'vitepress': ['vue2', 'vue3'],
+    'nuxt3': ['vue3'],
+    'nuxt2': ['vue2'],
+    'nextjs': ['react18', 'react'],
+    'astro': ['react18', 'react', 'vue3', 'vue2'],
+    'sveltekit': ['svelte'],
+  };
+
+  const genericOverrides = specificToGeneric[staticFramework];
+  return !!genericOverrides && genericOverrides.includes(browserFramework);
 }
 
 function extractJsFromAssets(assets: Asset[]): string {
@@ -671,13 +698,24 @@ async function snapshotInternal(
   // When tiers are equal, browser detection wins — the browser accesses
   // runtime state (window.__NUXT__ etc.) which is objectively more reliable
   // than static text scanning of the same tier.
+  //
+  // Exception: when the static detection identifies a specific framework
+  // (e.g., vitepress, astro) and the browser detects a generic parent
+  // framework (e.g., vue3, react), the static detection takes priority
+  // because it is more specific.
   let detection = detectFramework(html, jsContents);
   if (browserFramework && browserFramework.framework !== 'unknown') {
+    const browserFw = browserFramework.framework as FrameworkType;
     const browserTier = browserFramework.tier as SignalTier;
-    if (compareTier(browserTier, detection.tier) >= 0) {
+
+    // If the static detection is more specific than the browser detection,
+    // prefer the static result regardless of tier comparison.
+    const staticIsMoreSpecific = isMoreSpecific(detection.framework, browserFw);
+
+    if (!staticIsMoreSpecific && compareTier(browserTier, detection.tier) >= 0) {
       detection = {
-        framework: browserFramework.framework as FrameworkType,
-        tier: browserFramework.tier as SignalTier,
+        framework: browserFw,
+        tier: browserTier,
         appElement: browserFramework.appElement || detection.appElement || null,
         markers: [
           `browser:${browserFramework.framework}`,

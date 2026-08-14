@@ -459,11 +459,13 @@ ${styles}`;
 
   // ─── App template, main entry ────────────────────────────────────────────
 
-  generateAppTemplate(components: GeneratedComponent[]): string {
+  generateAppTemplate(components: GeneratedComponent[], options: FrameworkCodeGenOptions): string {
     const imports = components
       .map((c) => `import ${c.name} from './components/${c.name}/${c.name}.vue'`)
       .join('\n');
     const templateLines = components.map((c) => `    <${c.name} />`).join('\n');
+    const useTs = options.typescript !== false;
+    const langAttr = useTs ? ' lang="ts"' : '';
 
     return `<template>
   <div id="app">
@@ -473,7 +475,7 @@ ${templateLines}
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup${langAttr}>
 import { onMounted } from 'vue'
 ${imports}
 
@@ -497,9 +499,10 @@ main {
 `;
   }
 
-  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+  generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    const filename = options.typescript !== false ? 'main.ts' : 'main.js';
     return {
-      filename: 'main.ts',
+      filename,
       code: `import { createApp } from 'vue'
 import App from './App.vue'
 

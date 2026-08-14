@@ -95,6 +95,24 @@ const FIXTURES = [
     minTier: 'definitive',
     description: 'Nuxt 3 SSR',
   },
+  {
+    name: 'vitepress-ssr',
+    expectedFramework: 'vitepress',
+    minTier: 'strong',
+    description: 'VitePress SSR',
+  },
+  {
+    name: 'vue2-spa',
+    expectedFramework: 'vue2',
+    minTier: 'moderate',
+    description: 'Vue 2 SPA',
+  },
+  {
+    name: 'astro-ssr',
+    expectedFramework: 'astro',
+    minTier: 'moderate',
+    description: 'Astro SSR',
+  },
 ];
 
 // ============================================================
@@ -408,10 +426,97 @@ describe('SPA 抓取 E2E', () => {
     });
   });
 
+  // ---- VitePress SSR ----
+  describe('VitePress SSR', () => {
+    let result: CrawlResult;
+
+    beforeAll(async () => {
+      result = await crawlFixture('vitepress-ssr', 'vitepress');
+      allResults.push(result);
+    }, 90000);
+
+    it('应正确检测框架为 vitepress (tier >= strong)', () => {
+      assertFrameworkDetection(result, 'vitepress', 'strong');
+    });
+
+    it('应捕获完整的 hydrated DOM 内容', () => {
+      const htmlPath = join(result.outputDir, 'index.html');
+      assertValidHtml(htmlPath);
+      assertContentCaptured(htmlPath);
+    });
+
+    it('应有 SPA 水合检测结果', () => {
+      assertSpaHydrationDetected(result);
+    });
+
+    it('应输出有效的 bundle 结构', () => {
+      assertBundleStructure(result.outputDir);
+      assertSubResourcesDownloaded(result.outputDir);
+    });
+  });
+
+  // ---- Vue 2 SPA ----
+  describe('Vue 2 SPA', () => {
+    let result: CrawlResult;
+
+    beforeAll(async () => {
+      result = await crawlFixture('vue2-spa', 'vue2');
+      allResults.push(result);
+    }, 90000);
+
+    it('应正确检测框架为 vue2 (tier >= moderate)', () => {
+      assertFrameworkDetection(result, 'vue2', 'moderate');
+    });
+
+    it('应捕获完整的 hydrated DOM 内容', () => {
+      const htmlPath = join(result.outputDir, 'index.html');
+      assertValidHtml(htmlPath);
+      assertContentCaptured(htmlPath);
+    });
+
+    it('应有 SPA 水合检测结果', () => {
+      assertSpaHydrationDetected(result);
+    });
+
+    it('应输出有效的 bundle 结构', () => {
+      assertBundleStructure(result.outputDir);
+      assertSubResourcesDownloaded(result.outputDir);
+    });
+  });
+
+  // ---- Astro SSR ----
+  describe('Astro SSR', () => {
+    let result: CrawlResult;
+
+    beforeAll(async () => {
+      result = await crawlFixture('astro-ssr', 'astro');
+      allResults.push(result);
+    }, 90000);
+
+    it('应正确检测框架为 astro (tier >= moderate)', () => {
+      assertFrameworkDetection(result, 'astro', 'moderate');
+    });
+
+    it('应捕获完整的 hydrated DOM 内容', () => {
+      const htmlPath = join(result.outputDir, 'index.html');
+      assertValidHtml(htmlPath);
+      assertContentCaptured(htmlPath);
+    });
+
+    it('应有 SPA 水合检测结果', () => {
+      assertSpaHydrationDetected(result);
+    });
+
+    it('应输出有效的 bundle 结构', () => {
+      assertBundleStructure(result.outputDir);
+      assertSubResourcesDownloaded(result.outputDir);
+    });
+  });
+
   // ---- 汇总报告 ----
   describe('汇总报告', () => {
     it('所有框架抓取应成功', () => {
-      expect(allResults.length, '应有全部 6 个框架的测试结果').toBe(6);
+      expect(allResults.length, '应有全部 9 个框架的测试结果').toBe(9);
       assertAllCrawlsSuccessful(allResults);
     });
 
@@ -436,6 +541,9 @@ describe('Single-file 模式 E2E', () => {
     'sveltekit-ssr',
     'nextjs-ssr',
     'nuxt3-ssr',
+    'vitepress-ssr',
+    'vue2-spa',
+    'astro-ssr',
   ];
 
   for (const fixtureName of SINGLE_FIXTURES) {
@@ -466,4 +574,213 @@ describe('Single-file 模式 E2E', () => {
       });
     });
   }
+});
+
+// ============================================================
+// 测试组：错误处理
+// ============================================================
+
+describe('错误处理 E2E', () => {
+  it('访问不存在的 URL（404）应返回 success=false', async () => {
+    const invalidUrl = `http://127.0.0.1:${server.port}/nonexistent-fixture/`;
+    const outputDir = join(OUTPUTS_DIR, 'error-404');
+
+    let context: BrowserContext | null = null;
+    let page: Page | null = null;
+
+    try {
+      context = await browser.newContext({
+        viewport: { width: 1280, height: 720 },
+      });
+      page = await context.newPage();
+
+      const result = await runCrawl(page, context, {
+        url: invalidUrl,
+        outputDir,
+        expectedFramework: null,
+        timeout: 30000,
+        mode: 'bundle',
+      });
+
+      expect(result.success, '404 页面应返回失败').toBe(false);
+      expect(result.error, '错误信息应包含 HTTP 状态码').toMatch(/HTTP\s+404/i);
+    } finally {
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
+    }
+  }, 60000);
+
+  it('访问空 URL 应返回 success=false', async () => {
+    const outputDir = join(OUTPUTS_DIR, 'error-empty');
+
+    let context: BrowserContext | null = null;
+    let page: Page | null = null;
+
+    try {
+      context = await browser.newContext({
+        viewport: { width: 1280, height: 720 },
+      });
+      page = await context.newPage();
+
+      const result = await runCrawl(page, context, {
+        url: `http://127.0.0.1:${server.port}/`,
+        outputDir,
+        expectedFramework: null,
+        timeout: 30000,
+        mode: 'bundle',
+      });
+
+      // 根路径返回 404（没有索引页）
+      expect(result.success, '根路径请求应返回失败').toBe(false);
+      expect(result.error, '错误信息应包含 HTTP 状态码').toMatch(/HTTP\s+404/i);
+    } finally {
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
+    }
+  }, 60000);
+});
+
+// ============================================================
+// 测试组：子资源下载验证
+// ============================================================
+
+describe('子资源下载验证', () => {
+  const RESOURCE_FIXTURES = [
+    { name: 'vue3-spa', expectedFramework: 'vue3' },
+    { name: 'react18-spa', expectedFramework: 'react18' },
+    { name: 'sveltekit-ssr', expectedFramework: 'sveltekit' },
+  ];
+
+  for (const { name, expectedFramework } of RESOURCE_FIXTURES) {
+    describe(`${name} 子资源`, () => {
+      let result: CrawlResult;
+
+      beforeAll(async () => {
+        const url = server.getFixtureUrl(name);
+        const outputDir = join(OUTPUTS_DIR, `subresources-${name}`);
+
+        let context: BrowserContext | null = null;
+        let page: Page | null = null;
+
+        try {
+          context = await browser.newContext({
+            viewport: { width: 1280, height: 720 },
+          });
+          page = await context.newPage();
+
+          result = await runCrawl(page, context, {
+            url,
+            outputDir,
+            expectedFramework,
+            timeout: 60000,
+            mode: 'bundle',
+          });
+        } finally {
+          if (page && !page.isClosed()) await page.close().catch(() => {});
+          if (context) await context.close().catch(() => {});
+        }
+      }, 90000);
+
+      it('应成功爬取', () => {
+        expect(result.success, `爬取应成功: ${result.error}`).toBe(true);
+      });
+
+      it('应有子资源下载统计', () => {
+        expect(result.stats, '爬取结果应包含 stats').not.toBeNull();
+        if (result.stats) {
+          expect(result.stats.fetchedAssets, '应至少下载 1 个资源').toBeGreaterThanOrEqual(1);
+          expect(result.stats.totalBytes, '总字节数应 > 0').toBeGreaterThan(0);
+        }
+      });
+
+      it('assets/ 目录应包含下载的子资源文件', () => {
+        assertSubResourcesDownloaded(result.outputDir);
+      });
+
+      it('HTML 文件中应包含捕获的文本内容', () => {
+        if (result.success) {
+          const htmlPath = join(result.outputDir, 'index.html');
+          assertValidHtml(htmlPath);
+          assertContentCaptured(htmlPath);
+        }
+      });
+    });
+  }
+});
+
+// ============================================================
+// 测试组：高级场景
+// ============================================================
+
+describe('高级场景 E2E', () => {
+  it('多框架批量爬取应全部成功', async () => {
+    // 使用所有已注册的框架进行批量爬取验证
+    const batchTasks = FIXTURES.map((f) => ({
+      name: f.name,
+      url: server.getFixtureUrl(f.name),
+      expectedFramework: f.expectedFramework,
+    }));
+
+    let context: BrowserContext | null = null;
+    let page: Page | null = null;
+
+    const batchResults: { name: string; success: boolean; tier: string; error: string | null }[] = [];
+
+    for (const task of batchTasks) {
+      try {
+        context = await browser.newContext({
+          viewport: { width: 1280, height: 720 },
+        });
+        page = await context.newPage();
+
+        const outputDir = join(OUTPUTS_DIR, `batch-${task.name}`);
+
+        const result = await runCrawl(page, context, {
+          url: task.url,
+          outputDir,
+          expectedFramework: task.expectedFramework,
+          timeout: 60000,
+          mode: 'bundle',
+        });
+
+        batchResults.push({
+          name: task.name,
+          success: result.success,
+          tier: result.spaDetection?.tier || 'none',
+          error: result.error,
+        });
+      } finally {
+        if (page && !page.isClosed()) await page.close().catch(() => {});
+        if (context) await context.close().catch(() => {});
+      }
+    }
+
+    const failures = batchResults.filter((r) => !r.success);
+    expect(failures, `批量爬取应全部成功，失败: ${failures.map((f) => `${f.name}: ${f.error}`).join(', ')}`).toHaveLength(0);
+  }, 300000);
+
+  it('各框架应检测到唯一的框架标识', async () => {
+    // 验证每个框架的检测结果互不相同，避免检测逻辑退化为单一默认值
+    const detectedFrameworks = new Set<string>();
+
+    for (const result of allResults) {
+      if (result.success && result.frameworkMatch) {
+        detectedFrameworks.add(result.frameworkMatch.detected);
+      }
+    }
+
+    // 预期至少检测到 3 种不同的框架标识（如 vue3, react18, angular 等）
+    expect(detectedFrameworks.size, `应检测到多种不同的框架标识，实际: ${Array.from(detectedFrameworks).join(', ')}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('各框架的 bundle 结构应包含完整的 HTML 骨架', async () => {
+    // 验证每个成功爬取的输出 bundle 都包含完整的 HTML 文档结构
+    for (const result of allResults) {
+      if (!result.success) continue;
+
+      const htmlPath = join(result.outputDir, 'index.html');
+      assertValidHtml(htmlPath);
+      assertBundleStructure(result.outputDir);
+    }
+  });
 });

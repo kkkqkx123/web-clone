@@ -36,6 +36,9 @@ const FIXTURES: FixtureConfig[] = [
   { name: 'sveltekit-ssr', outputSubdir: 'dist' },
   { name: 'nextjs-ssr', outputSubdir: 'dist' },
   { name: 'nuxt3-ssr', outputSubdir: '.output/public' },
+  { name: 'vitepress-ssr', outputSubdir: '.vitepress/dist' },
+  { name: 'vue2-spa', outputSubdir: 'dist' },
+  { name: 'astro-ssr', outputSubdir: 'dist' },
 ];
 
 function buildFixture(config: FixtureConfig): boolean {

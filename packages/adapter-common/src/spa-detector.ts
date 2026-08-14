@@ -99,7 +99,7 @@ export interface SpaDetectorOptions {
  */
 export interface SpaDetectionResult {
   /** Detected framework type (fine-grained, consistent with core's FrameworkType) */
-  framework: 'nuxt3' | 'nuxt2' | 'nextjs' | 'vue3' | 'vue2' | 'react18' | 'angular' | 'sveltekit' | 'unknown';
+  framework: 'nuxt3' | 'nuxt2' | 'nextjs' | 'vue3' | 'vue2' | 'react18' | 'angular' | 'sveltekit' | 'astro' | 'unknown';
   /** Mount point element selector (e.g. '#app', '#__nuxt', '#__next') */
   appElement: string | null;
   /** Whether hydration was confirmed (framework internal markers found) */
@@ -195,6 +195,29 @@ export async function waitForSpaHydration(
         hasReactRoot: !!document.querySelector('#root'),
         hasSvelteRoot: !!document.querySelector('#svelte'),
         hasAngularRoot: !!document.querySelector('[ng-app]') || !!document.querySelector('[ng-version]'),
+        hasAstro: !!document.querySelector('[data-astro-cid]'),
+        // Body content structure check
+        bodyContentCheck: (() => {
+          const totalElements = document.body.querySelectorAll('*').length;
+          const hasHeader = !!(
+            document.querySelector('header') ||
+            document.querySelector('.app-header') ||
+            document.querySelector('.header')
+          );
+          const hasFooter = !!(
+            document.querySelector('footer') ||
+            document.querySelector('.app-footer') ||
+            document.querySelector('.footer')
+          );
+          const hasMain = !!(
+            document.querySelector('main') ||
+            document.querySelector('.app-content') ||
+            document.querySelector('.content') ||
+            document.querySelector('.app-container')
+          );
+          const hasContent = totalElements > 5;
+          return { totalElements, hasHeader, hasFooter, hasMain, hasContent };
+        })(),
       };
     });
 
@@ -237,6 +260,12 @@ export async function waitForSpaHydration(
       appElement = '#svelte';
       markers.push('__sveltekit__');
       detectionTier = 'definitive';
+    } else if (isSSRApp.hasAstro) {
+      detectedFramework = 'astro';
+      appElement = '[data-astro-cid]';
+      markers.push('data-astro-cid');
+      detectionTier = 'strong';
+      isHydrated = true;
     } else if (isSSRApp.hasAngular || isSSRApp.hasAngularProd || isSSRApp.hasAngularRoot) {
       detectedFramework = 'angular';
       appElement = '[ng-app], [ng-version]';
@@ -348,6 +377,9 @@ export async function waitForSpaHydration(
         if (svelteRoot && svelteRoot.children.length > 0) return true;
         if (w.__svelte !== undefined) return true;
 
+        // Astro: data-astro-cid attribute on the root element
+        if (document.querySelector('[data-astro-cid]')) return true;
+
         // React: #root has meaningful structure (not just Loading text)
         const reactRoot = document.querySelector('#root');
         if (reactRoot && reactRoot.children.length > 0) {
@@ -433,7 +465,14 @@ export async function waitForSpaHydration(
       return {
         nuxtHydrated: !!(nuxtEl?.__vue__),
         nextHydrated: !!(nextEl?.__reactRoot$) || (document.querySelector('#__next')?.children.length ?? 0) > 0,
-        vueHydrated: !!(appEl?.__vue__) || (w.__VUE__ !== undefined),
+        vueHydrated: !!(appEl?.__vue__) || (w.__VUE__ !== undefined) ||
+          // Vue 2: #app element exists and has children
+          (!!appEl && appEl.children.length > 0) ||
+          // Vue 2: body has structure (totalElements > 5 AND has header/footer/main)
+          (document.body.querySelectorAll('*').length > 5 &&
+           (!!document.querySelector('header, .app-header, .header') ||
+            !!document.querySelector('footer, .app-footer, .footer') ||
+            !!document.querySelector('main, .app-content, .content, .app-container'))),
         reactHydrated: !!(rootEl?._reactRootContainer) ||
           !!(rootEl && Object.keys(rootEl).some(k => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'))) ||
           (w.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== undefined),
@@ -444,6 +483,7 @@ export async function waitForSpaHydration(
           // SvelteKit 5+: the Svelte runtime global indicates the client
           // runtime has loaded (hydration/activation complete)
           (w.__svelte !== undefined),
+        astroHydrated: !!document.querySelector('[data-astro-cid]'),
       };
     });
 
@@ -453,7 +493,8 @@ export async function waitForSpaHydration(
       hydrationCheck.vueHydrated ||
       hydrationCheck.reactHydrated ||
       hydrationCheck.angularHydrated ||
-      hydrationCheck.sveltekitHydrated;
+      hydrationCheck.sveltekitHydrated ||
+      hydrationCheck.astroHydrated;
 
     if (isHydrated) {
       markers.push('hydration-confirmed');

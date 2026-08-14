@@ -28,9 +28,7 @@ ${stateDeclarations}
 ${eventMethods}
 </script>
 
-<div>
-${template}
-</div>${styles}`;
+${template}${styles}`;
 
     const imports = this.collectImports(spec, options);
 
@@ -114,7 +112,7 @@ ${template}
 
   // ─── App template, main entry ────────────────────────────────────────────
 
-  generateAppTemplate(components: GeneratedComponent[]): string {
+  generateAppTemplate(components: GeneratedComponent[], _options: FrameworkCodeGenOptions): string {
     const imports = components
       .map((c) => `import ${c.name} from './components/${c.name}/${c.name}.svelte';`)
       .join('\n');
@@ -149,9 +147,10 @@ ${templateLines}
 `;
   }
 
-  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+  generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    const filename = options.typescript !== false ? 'main.ts' : 'main.js';
     return {
-      filename: 'main.ts',
+      filename,
       code: `import App from './App.svelte'
 
 const app = new App({

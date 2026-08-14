@@ -65,7 +65,7 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
   protected mapState(
     state: StateVariable[],
-    _options: FrameworkCodeGenOptions
+    options: FrameworkCodeGenOptions
   ): string {
     if (state.length === 0) {
       return '';
@@ -73,7 +73,14 @@ ${cssGuidance ? '\n' + cssGuidance : ''}`;
 
     return state
       .map(
-        (s) => '  ' + frameworkRules.jquery.stateDeclaration(s.name, s.type, s.initial)
+        (s) => {
+          const decl = frameworkRules.jquery.stateDeclaration(s.name, s.type, s.initial);
+          // When TypeScript is disabled, remove type annotations
+          if (options.typescript === false) {
+            return decl.replace(/: \w+ =/, ' =');
+          }
+          return '  ' + decl;
+        }
       )
       .join('\n');
   }
@@ -141,7 +148,7 @@ ${css}`;
 
   // ─── App template, main entry ────────────────────────────────────────────
 
-  generateAppTemplate(components: GeneratedComponent[]): string {
+  generateAppTemplate(components: GeneratedComponent[], _options: FrameworkCodeGenOptions): string {
     const imports = components
       .map((c) => `import { ${c.name} } from './components/${c.name}/${c.name}';`)
       .join('\n');
@@ -171,9 +178,10 @@ ${htmlLines}
 `;
   }
 
-  generateMainEntry(_options: FrameworkCodeGenOptions): { filename: string; code: string } {
+  generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    const filename = options.typescript ? 'main.ts' : 'main.js';
     return {
-      filename: 'main.ts',
+      filename,
       code: `import $ from 'jquery'
 import('./App').then(module => {
   $(document).ready(() => {

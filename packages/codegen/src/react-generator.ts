@@ -70,27 +70,16 @@ ${styles ? `\n${styles}` : ''}`;
 
     let importStr = '';
 
-    // Always import React for JSX
-    importStr += `import React from 'react'\n`;
-
     // React hooks imports
     if (hooksToImport.length > 0) {
       importStr += `import { ${hooksToImport.join(', ')} } from 'react'\n`;
     }
 
-    // Styles
-    if (imports.some((i) => i.includes('styles'))) {
-      importStr += `import styles from './styles.module.css'\n`;
-    }
-
     return importStr.trim();
   }
 
-  private generatePropsInterface(componentName: string): string {
-    return `interface ${componentName}Props {
-  // TODO: Define component props
-}
-`;
+  private generatePropsInterface(_componentName: string): string {
+    return '';
   }
 
   /**
@@ -202,7 +191,7 @@ ${styles ? `\n${styles}` : ''}`;
     spec: ComponentSpec,
     _options: FrameworkCodeGenOptions
   ): string[] {
-    const imports = new Set<string>(['React']);
+    const imports = new Set<string>();
 
     // Need useState for state
     if (spec.logic?.state && spec.logic.state.length > 0) {
@@ -229,28 +218,23 @@ ${styles ? `\n${styles}` : ''}`;
       imports.add('useMemo');
     }
 
-    // Style imports
-    if (spec.styles) {
-      imports.add('styles');
-    }
-
     return Array.from(imports);
   }
 
   // ─── App template, main entry ────────────────────────────────────────────
 
-  generateAppTemplate(components: GeneratedComponent[]): string {
+  generateAppTemplate(components: GeneratedComponent[], _options: FrameworkCodeGenOptions): string {
     const imports = components
       .map((c) => `import ${c.name} from './components/${c.name}/${c.name}'`)
       .join('\n');
     const templateLines = components.map((c) => `      <${c.name} />`).join('\n');
 
-    return `import React from 'react'
+    return `import { useEffect } from 'react'
 ${imports}
 import './App.css'
 
 export default function App() {
-  React.useEffect(() => {
+  useEffect(() => {
     console.log('App mounted')
   }, [])
 
@@ -268,15 +252,15 @@ ${templateLines}
   generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
     return {
       filename: options.typescript ? 'main.tsx' : 'main.jsx',
-      code: `import React from 'react'
+      code: `import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('app')!).render(
-  <React.StrictMode>
+  <StrictMode>
     <App />
-  </React.StrictMode>,
+  </StrictMode>,
 )
 `,
     };

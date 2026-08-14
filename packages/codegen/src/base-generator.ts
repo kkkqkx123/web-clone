@@ -42,9 +42,9 @@ export abstract class BaseFrameworkGenerator {
   // ─── App template, main entry ────────────────────────────────────────────
 
   /** Generate the root App component template (App.vue, App.tsx, etc.) */
-  abstract generateAppTemplate(components: GeneratedComponent[]): string;
+  abstract generateAppTemplate(components: GeneratedComponent[], options: FrameworkCodeGenOptions): string;
 
-  /** Generate the main entry point file (main.ts, main.tsx, etc.) */
+  /** Generate the main entry point file (main.ts, main.jsx, etc.) */
   abstract generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string };
 
   /**

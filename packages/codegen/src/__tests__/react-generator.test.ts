@@ -153,7 +153,6 @@ describe('ReactGenerator', () => {
       const result = generator.generate(mockComponent, { typescript: true });
 
       expect(result.imports.some(i => i.includes('useState'))).toBe(true);
-      expect(result.imports.some(i => i.includes('React'))).toBe(true);
     });
   });
 
@@ -224,7 +223,7 @@ describe('ReactGenerator', () => {
         cssModules: true,
       });
 
-      expect(result.code).toContain('styles.module.css');
+      expect(result.code).toContain('counter.module.css');
     });
   });
 

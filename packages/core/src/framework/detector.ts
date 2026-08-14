@@ -67,7 +67,13 @@ export function detectFramework(
   if (metaMatch) {
     markers.push(`generator:${metaMatch[1]}`);
     const gen = metaMatch[1].toLowerCase();
+    if (process.env.DEBUG_FRAMEWORK_DETECTOR) {
+      console.log(`[detector] Meta generator detected: "${metaMatch[1]}"`);
+    }
     if (gen.includes('vitepress')) {
+      if (process.env.DEBUG_FRAMEWORK_DETECTOR) {
+        console.log(`[detector] VitePress meta generator detected: "${metaMatch[1]}"`);
+      }
       return { framework: 'vitepress', tier: 'strong', appElement: '#app', markers };
     }
     if (gen.includes('vuepress')) {
@@ -78,6 +84,9 @@ export function detectFramework(
       return { framework: 'vue3', tier: 'strong', appElement: '#app', markers };
     }
     if (gen.includes('astro')) {
+      if (process.env.DEBUG_FRAMEWORK_DETECTOR) {
+        console.log(`[detector] Astro meta generator detected: "${metaMatch[1]}"`);
+      }
       return { framework: 'astro', tier: 'strong', appElement: null, markers };
     }
     if (gen.includes('sveltekit')) {

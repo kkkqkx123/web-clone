@@ -298,7 +298,7 @@ describe('FrameworkCodeGenerator', () => {
         cssModules: true,
       });
 
-      expect(result?.code).toContain('styles.module.css');
+      expect(result?.code).toContain('header.module.css');
     });
   });
 });

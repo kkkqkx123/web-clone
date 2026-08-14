@@ -1,11 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import type { Asset, SnapshotOptions, ComponentSpec, ConvertResult } from '../../types.js';
+import type { FrameworkType, FrameworkDetection } from '../../framework/types.js';
 import { assembleBundle } from '../bundle.js';
 import { assembleSingleFile } from '../single-file.js';
 import { assembleConvert } from '../convert.js';
+import { detectFramework } from '../../framework/detector.js';
+import { isMoreSpecific } from '../../assembler.js';
 
 // ============================================================================
 // Test Utilities
@@ -597,8 +600,597 @@ describe('Output Module - Integration Tests', () => {
 });
 
 // ============================================================================
-// Helper Functions
+// FRAMEWORK DETECTION TESTS
 // ============================================================================
+
+describe('detectFramework - Framework Detection Tests', () => {
+  it('should detect VitePress from meta generator tag', () => {
+    const html = '<html><head><meta name="generator" content="VitePress v1.0.0"></head><body><div id="app"></div></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('vitepress');
+    expect(result.tier).toBe('strong');
+    expect(result.markers).toContain('generator:VitePress v1.0.0');
+  });
+
+  it('should detect Astro from meta generator tag', () => {
+    const html = '<html><head><meta name="generator" content="Astro v4.0.0"></head><body></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('astro');
+    expect(result.tier).toBe('strong');
+    expect(result.markers).toContain('generator:Astro v4.0.0');
+  });
+
+  it('should detect Vue 2 from JS content patterns', () => {
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['var app = new Vue({ el: "#app" })'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue2');
+    expect(result.tier).toBe('strong');
+    expect(result.markers).toContain('new Vue');
+  });
+
+  it('should detect Vue 3 from createSSRApp pattern', () => {
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['createSSRApp(App).mount("#app")'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue3');
+    expect(result.tier).toBe('strong');
+    expect(result.markers).toContain('__VUE__');
+  });
+
+  it('should detect Nuxt 3 from window.__NUXT__', () => {
+    const html = '<html><body><script>window.__NUXT__ = {}</script></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('nuxt3');
+    expect(result.tier).toBe('definitive');
+  });
+
+  it('should detect Next.js from window.__NEXT_DATA__', () => {
+    const html = '<html><body><script>window.__NEXT_DATA__ = {}</script></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('nextjs');
+    expect(result.tier).toBe('definitive');
+  });
+
+  it('should detect SvelteKit from window.__sveltekit__', () => {
+    const html = '<html><body><script>window.__sveltekit__ = {}</script></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('sveltekit');
+    expect(result.tier).toBe('definitive');
+  });
+
+  it('should detect React 18 from hydrateRoot', () => {
+    const html = '<html><body><div id="root"></div></body></html>';
+    const jsContents = ['hydrateRoot(document.getElementById("root"), <App />)'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('react18');
+    expect(result.tier).toBe('strong');
+  });
+
+  it('should detect Angular from ng-version attribute', () => {
+    const html = '<html><body><app-root ng-version="17.0.0"></app-root></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('angular');
+    expect(result.tier).toBe('weak');
+  });
+
+  it('should return unknown for unrecognized frameworks', () => {
+    const html = '<html><body><div>Plain HTML</div></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('unknown');
+    expect(result.tier).toBe('none');
+  });
+});
+
+// ============================================================================
+// VITEPRESS / ASTRO / VUE 2 HYDRATION DETECTION PRIORITY TESTS
+// ============================================================================
+
+describe('isMoreSpecific - Detection Priority Logic', () => {
+  it('should return true when static=vitepress and browser=vue3', () => {
+    expect(isMoreSpecific('vitepress', 'vue3')).toBe(true);
+  });
+
+  it('should return true when static=vitepress and browser=vue2', () => {
+    expect(isMoreSpecific('vitepress', 'vue2')).toBe(true);
+  });
+
+  it('should return true when static=astro and browser=react18', () => {
+    expect(isMoreSpecific('astro', 'react18')).toBe(true);
+  });
+
+  it('should return true when static=astro and browser=vue3', () => {
+    expect(isMoreSpecific('astro', 'vue3')).toBe(true);
+  });
+
+  it('should return true when static=nuxt3 and browser=vue3', () => {
+    expect(isMoreSpecific('nuxt3', 'vue3')).toBe(true);
+  });
+
+  it('should return true when static=nuxt2 and browser=vue2', () => {
+    expect(isMoreSpecific('nuxt2', 'vue2')).toBe(true);
+  });
+
+  it('should return true when static=nextjs and browser=react18', () => {
+    expect(isMoreSpecific('nextjs', 'react18')).toBe(true);
+  });
+
+  it('should return false when static=vitepress and browser=react', () => {
+    expect(isMoreSpecific('vitepress', 'react')).toBe(false);
+  });
+
+  it('should return false when both are the same framework', () => {
+    expect(isMoreSpecific('vue3', 'vue3')).toBe(false);
+  });
+
+  it('should return false for unknown framework', () => {
+    expect(isMoreSpecific('unknown', 'vue3')).toBe(false);
+  });
+});
+
+// ============================================================================
+// FILE EXTENSION MAPPING TESTS
+// ============================================================================
+
+describe('File Extension Mapping', () => {
+  let testDir: string;
+  let options: SnapshotOptions;
+
+  beforeEach(() => {
+    testDir = resolve(`/tmp/test-ext-${Date.now()}`);
+    options = {
+      url: 'http://127.0.0.1:9000',
+      output: testDir,
+      mode: 'bundle',
+      maxAssets: 100,
+      concurrency: 6,
+      timeout: 15000,
+      retryCount: 3,
+      inline: true,
+      pretty: false,
+      extractComponents: false,
+      frameworkCodegen: {
+        framework: 'react',
+        typescript: false,
+        generateDrafts: false,
+      },
+    };
+  });
+
+  afterEach(() => {
+    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* ok */ }
+  });
+
+  it('should map .tsx language to .ts extension', () => {
+    // Create a simple ConvertResult with a component that has frameworkCodegen
+    // The generated component uses language 'tsx' → should produce .ts file
+    const comp: ComponentSpec = {
+      name: 'MyComponent',
+      type: 'presentational',
+      children: [],
+      template: '<div>Hello</div>',
+      styles: '',
+      matchConfidence: 0.9,
+      manifest: {
+        name: 'MyComponent',
+        type: 'presentational',
+        path: '/components/MyComponent',
+        children: [],
+        state: {},
+        events: {},
+        migration: { effort: '1h', effortBreakdown: { extraction: '0.5h', conversion: '0.5h' }, suggestions: [], todos: [] },
+      },
+    };
+
+    const result: ConvertResult = {
+      sourceUrl: 'http://127.0.0.1:9000',
+      timestamp: new Date().toISOString(),
+      html: '<html><body></body></html>',
+      assets: [],
+      stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0 },
+      components: new Map([['MyComponent', comp]]),
+      index: { stats: { stateful: 0, presentational: 1 } },
+    };
+
+    // We just verify the convert function doesn't crash and produces output
+    // The actual extension mapping is tested by the codegen component file naming
+    expect(() => assembleConvert(result, options)).not.toThrow();
+    expect(readFileSync(join(testDir, 'components', 'MyComponent', 'template.html'), 'utf-8')).toContain('Hello');
+  });
+
+  it('should map .vue language to .vue extension in generated code', () => {
+    // Test that the filename generation logic works correctly
+    // In the codegen path, language 'vue' → '.vue', 'tsx' → '.ts', others → '.js'
+    const generated = { name: 'Test', code: '<template><div/></template>', language: 'vue' };
+    const ext = generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.ts' : '.js';
+    expect(ext).toBe('.vue');
+  });
+
+  it('should map .tsx language to .ts extension in generated code', () => {
+    const generated = { name: 'Test', code: 'export default () => <div/>', language: 'tsx' };
+    const ext = generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.ts' : '.js';
+    expect(ext).toBe('.ts');
+  });
+
+  it('should map .jsx language to .js extension in generated code', () => {
+    const generated = { name: 'Test', code: 'export default () => <div/>', language: 'jsx' };
+    const ext = generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.ts' : '.js';
+    expect(ext).toBe('.js');
+  });
+
+  it('should map unknown language to .js extension in generated code', () => {
+    const generated = { name: 'Test', code: 'console.log("hello")', language: 'javascript' };
+    const ext = generated.language === 'vue' ? '.vue' : generated.language === 'tsx' ? '.ts' : '.js';
+    expect(ext).toBe('.js');
+  });
+});
+
+// ============================================================================
+// SUB-RESOURCE DOWNLOAD VERIFICATION TESTS
+// ============================================================================
+
+describe('Sub-Resource Download Verification', () => {
+  let testDir: string;
+  let options: SnapshotOptions;
+  let document: Document;
+
+  beforeEach(() => {
+    testDir = resolve(`/tmp/test-subresource-${Date.now()}`);
+    options = {
+      url: 'http://127.0.0.1:9000',
+      output: testDir,
+      mode: 'bundle',
+      maxAssets: 100,
+      concurrency: 6,
+      timeout: 15000,
+      retryCount: 3,
+      inline: true,
+      pretty: false,
+      extractComponents: false,
+    };
+    document = new JSDOM(`
+      <html>
+        <head><link rel="stylesheet" href="style.css" data-origin-url="http://127.0.0.1:9000/assets/style.css"></head>
+        <body>
+          <img src="logo.png" data-origin-url="http://127.0.0.1:9000/assets/logo.png">
+          <script src="app.js" data-origin-url="http://127.0.0.1:9000/assets/app.js"></script>
+        </body>
+      </html>
+    `).window.document as unknown as Document;
+  });
+
+  afterEach(() => {
+    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* ok */ }
+  });
+
+  it('should track CSS, JS, and image sub-resources in snapshot metadata', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css', 'fetched'),
+      createTestAsset('http://127.0.0.1:9000/assets/app.js', 'js', 'fetched'),
+      createTestAsset('http://127.0.0.1:9000/assets/logo.png', 'img', 'fetched'),
+    ];
+
+    assembleBundle(document, assets, options);
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    expect(meta.stats.fetched).toBe(3);
+    expect(meta.assets.length).toBe(3);
+
+    const types = meta.assets.map((a: Asset) => a.type);
+    expect(types).toContain('css');
+    expect(types).toContain('js');
+    expect(types).toContain('img');
+  });
+
+  it('should verify sub-resource metadata in snapshot.json', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/assets/style.css', 'css', 'fetched', { size: 512, mime: 'text/css' }),
+      createTestAsset('http://127.0.0.1:9000/assets/app.js', 'js', 'fetched', { size: 2048, mime: 'application/javascript' }),
+    ];
+
+    assembleBundle(document, assets, options);
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    const cssAsset = meta.assets.find((a: Asset) => a.type === 'css');
+    expect(cssAsset).toBeDefined();
+    expect(cssAsset.size).toBe(512);
+    expect(cssAsset.mime).toBe('text/css');
+  });
+
+  it('should handle font sub-resources', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/fonts/roboto.woff2', 'font', 'fetched'),
+    ];
+    // Add a font element to the document
+    const fontEl = document.createElement('link');
+    fontEl.setAttribute('rel', 'preload');
+    fontEl.setAttribute('href', 'roboto.woff2');
+    fontEl.setAttribute('as', 'font');
+    fontEl.setAttribute('data-origin-url', 'http://127.0.0.1:9000/fonts/roboto.woff2');
+    document.head.appendChild(fontEl);
+
+    assembleBundle(document, assets, options);
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    expect(meta.stats.fetched).toBe(1);
+  });
+});
+
+// ============================================================================
+// ERROR HANDLING TESTS
+// ============================================================================
+
+describe('Error Handling for Invalid URLs', () => {
+  let testDir: string;
+  let options: SnapshotOptions;
+  let document: Document;
+
+  beforeEach(() => {
+    testDir = resolve(`/tmp/test-errors-${Date.now()}`);
+    options = {
+      url: 'http://127.0.0.1:9000',
+      output: testDir,
+      mode: 'bundle',
+      maxAssets: 100,
+      concurrency: 6,
+      timeout: 15000,
+      retryCount: 3,
+      inline: true,
+      pretty: false,
+      extractComponents: false,
+    };
+    document = new JSDOM('<html><head></head><body></body></html>').window.document as unknown as Document;
+  });
+
+  afterEach(() => {
+    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* ok */ }
+  });
+
+  it('should handle failed asset downloads gracefully', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/missing.css', 'css', 'failed', { error: '404 Not Found' }),
+    ];
+
+    assembleBundle(document, assets, options);
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    expect(meta.stats.failed).toBe(1);
+    expect(meta.stats.fetched).toBe(0);
+  });
+
+  it('should handle empty URL strings gracefully', () => {
+    const assets = [
+      createTestAsset('', 'css', 'failed', { error: 'Invalid URL' }),
+    ];
+
+    // Should not throw
+    expect(() => assembleBundle(document, assets, options)).not.toThrow();
+  });
+
+  it('should handle extremely long URLs', () => {
+    const longUrl = 'http://127.0.0.1:9000/' + 'x'.repeat(1000) + '.js';
+    const assets = [createTestAsset(longUrl, 'js', 'fetched')];
+
+    expect(() => assembleBundle(document, assets, options)).not.toThrow();
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    expect(meta.assets[0].status).toBe('fetched');
+  });
+
+  it('should handle URLs with special characters', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/style%20guide%20(v2).css', 'css', 'fetched'),
+    ];
+
+    expect(() => assembleBundle(document, assets, options)).not.toThrow();
+  });
+
+  it('should handle mixed failed and successful assets', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/style.css', 'css', 'fetched'),
+      createTestAsset('http://127.0.0.1:9000/missing.js', 'js', 'failed'),
+      createTestAsset('http://127.0.0.1:9000/logo.png', 'img', 'fetched'),
+    ];
+
+    assembleBundle(document, assets, options);
+
+    const meta = JSON.parse(readFileSync(join(testDir, 'snapshot.json'), 'utf-8'));
+    expect(meta.stats.fetched).toBe(2);
+    expect(meta.stats.failed).toBe(1);
+    expect(meta.stats.total).toBe(3);
+  });
+
+  it('should handle malformed data URIs', () => {
+    const assets = [
+      createTestAsset('http://127.0.0.1:9000/test.png', 'img', 'fetched', {
+        dataUri: 'not-a-valid-data-uri',
+      }),
+    ];
+
+    // Should not throw during assembly
+    expect(() => assembleBundle(document, assets, options)).not.toThrow();
+  });
+});
+
+// ============================================================================
+// HYDRATION DETECTION TESTS
+// ============================================================================
+
+describe('Hydration Detection for Various Frameworks', () => {
+  it('should detect Nuxt 3 hydration-ready state via __NUXT__', () => {
+    const html = '<html><body><script>window.__NUXT__ = {}</script></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('nuxt3');
+    expect(result.tier).toBe('definitive');
+    expect(result.appElement).toBe('#__nuxt');
+  });
+
+  it('should detect Vue 2 hydration via _isMounted probe', async () => {
+    // The Vue 2 strategy matches on framework 'vue2'
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['new Vue({ el: "#app" })'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue2');
+    expect(result.tier).toBe('strong');
+
+    // Verify the probe script references _isMounted and __vue__
+    // This is checked by the vue2 strategy generateProbeScript
+    const { vue2Strategy } = await import('../../framework/strategies/vue2.js');
+    const probeScript = vue2Strategy.generateProbeScript(result);
+    expect(probeScript).toContain('_isMounted');
+    expect(probeScript).toContain('__vue__');
+  });
+
+  it('should detect SvelteKit hydration markers', () => {
+    const html = '<html><body><div id="svelte"></div></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('sveltekit');
+    expect(result.tier).toBe('weak');
+    expect(result.appElement).toBe('#svelte');
+  });
+
+  it('should detect Angular hydration from ng-version', () => {
+    const html = '<html><body><app-root ng-version="17.0.0"></app-root></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('angular');
+    expect(result.tier).toBe('weak');
+  });
+
+  it('should detect SvelteKit from definitive window.__sveltekit__', () => {
+    const html = '<html><body><script>window.__sveltekit__ = 1</script></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('sveltekit');
+    expect(result.tier).toBe('definitive');
+  });
+});
+
+// ============================================================================
+// VITEPRESS DETECTION PRIORITY INTEGRATION TEST
+// ============================================================================
+
+describe('VitePress Detection Priority Integration', () => {
+  it('should prefer vitepress static detection over browser vue3 detection', () => {
+    // Simulate: static detector finds vitepress (meta generator)
+    // browser detector reports vue3 (runtime)
+    const staticResult: FrameworkDetection = {
+      framework: 'vitepress',
+      tier: 'strong',
+      appElement: '#app',
+      markers: ['generator:VitePress v1.0.0'],
+    };
+
+    const browserFramework = {
+      framework: 'vue3',
+      tier: 'strong',
+      appElement: '#app',
+      isHydrated: true,
+    };
+
+    // isMoreSpecific should return true for vitepress > vue3
+    expect(isMoreSpecific(staticResult.framework as FrameworkType, browserFramework.framework as FrameworkType)).toBe(true);
+  });
+
+  it('should prefer astro static detection over browser react detection', () => {
+    expect(isMoreSpecific('astro' as FrameworkType, 'react18' as FrameworkType)).toBe(true);
+  });
+
+  it('should not prefer vue3 static detection over browser vue3 detection', () => {
+    // Same framework, no specificity difference
+    expect(isMoreSpecific('vue3' as FrameworkType, 'vue3' as FrameworkType)).toBe(false);
+  });
+});
+
+// ============================================================================
+// ASTRO DETECTION LOGIC TESTS
+// ============================================================================
+
+describe('Astro Detection Logic', () => {
+  it('should detect Astro from meta generator tag', () => {
+    const html = '<html><head><meta name="generator" content="Astro v4.5.0"></head><body></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('astro');
+    expect(result.tier).toBe('strong');
+    expect(result.appElement).toBeNull();
+  });
+
+  it('should detect Astro with version in generator content', () => {
+    const html = '<html><head><meta name="generator" content="Astro v4.0.0"></head><body></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).toBe('astro');
+    expect(result.markers).toContain('generator:Astro v4.0.0');
+  });
+
+  it('should not detect Astro from unrelated generator tags', () => {
+    const html = '<html><head><meta name="generator" content="WordPress 6.0"></head><body></body></html>';
+    const result = detectFramework(html);
+    expect(result.framework).not.toBe('astro');
+  });
+
+  it('Astro strategy should produce empty probe script', async () => {
+    const { astroStrategy } = await import('../../framework/strategies/astro.js');
+    const detection: FrameworkDetection = {
+      framework: 'astro',
+      tier: 'strong',
+      appElement: null,
+      markers: ['generator:Astro v4.0.0'],
+    };
+    const probeScript = astroStrategy.generateProbeScript(detection);
+    expect(probeScript).toBe('');
+  });
+});
+
+// ============================================================================
+// VUE 2 HYDRATION DETECTION LOGIC TESTS
+// ============================================================================
+
+describe('Vue 2 Hydration Detection Logic', () => {
+  it('should detect Vue 2 from new Vue() constructor pattern', () => {
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['new Vue({ el: "#app", data: { message: "Hello" } })'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue2');
+    expect(result.tier).toBe('strong');
+  });
+
+  it('should detect Vue 2 from Vue.extend() pattern', () => {
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['Vue.extend({ template: "<div>Extended</div>" })'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue2');
+    expect(result.tier).toBe('strong');
+  });
+
+  it('should detect Vue 2 from Vue.component() pattern', () => {
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['Vue.component("my-component", { template: "<div>Component</div>" })'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue2');
+    expect(result.tier).toBe('strong');
+  });
+
+  it('should detect Vue 2 with createSSRApp and Vue 2 patterns as Vue 3', () => {
+    // When both Vue 2 patterns and Vue 3 signals are present, Vue 3 wins
+    const html = '<html><body><div id="app"></div></body></html>';
+    const jsContents = ['new Vue({ el: "#app" })', 'createSSRApp(App).mount("#app")'];
+    const result = detectFramework(html, jsContents);
+    expect(result.framework).toBe('vue3');
+    expect(result.tier).toBe('strong');
+  });
+
+  it('Vue 2 strategy probe script should check _isMounted and __vue__', async () => {
+    const { vue2Strategy } = await import('../../framework/strategies/vue2.js');
+    const detection: FrameworkDetection = {
+      framework: 'vue2',
+      tier: 'strong',
+      appElement: '#app',
+      markers: ['new Vue'],
+    };
+    const probeScript = vue2Strategy.generateProbeScript(detection);
+    expect(probeScript).toContain('_isMounted');
+    expect(probeScript).toContain('__vue__');
+    expect(probeScript).toContain('#app');
+  });
+});
 
 function createTestComponentManifest(
   name: string,

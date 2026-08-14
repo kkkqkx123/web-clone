@@ -120,7 +120,7 @@ export class FrameworkCodeGenerator {
       return '';
     }
     const generator = this.getGenerator(options.framework);
-    return generator?.generateAppTemplate(componentSpecs) ?? '';
+    return generator?.generateAppTemplate(componentSpecs, options) ?? '';
   }
 
   /**
