@@ -70,7 +70,7 @@ export async function query(url: string, selector: string, options: QueryOptions
     try {
       elements = [...doc.querySelectorAll(selector)];
     } catch (e) {
-      throw new Error(`Bad selector: ${selector} (${(e as Error).message})`);
+      throw new Error(`Bad selector: ${selector} (${(e as Error).message})`, { cause: e });
     }
 
     if (elements.length === 0) {
@@ -177,8 +177,9 @@ export async function query(url: string, selector: string, options: QueryOptions
 
     // --attr <name>: extract single attribute
     if (options.attr) {
+      const attrName = options.attr;
       const vals = elements
-        .map((el) => el.getAttribute(options.attr!))
+        .map((el) => el.getAttribute(attrName))
         .filter((v): v is string => v !== null);
       const result = emitLines(vals, opts);
       if (result.notes.length > 0) {

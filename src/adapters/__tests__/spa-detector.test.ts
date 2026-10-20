@@ -26,7 +26,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { waitForSpaHydration, type SpaPageLike, type SpaDetectorOptions, type SignalTier, compareTier } from '../index.js';
+import { waitForSpaHydration, type SpaPageLike, type SpaDetectorOptions, compareTier } from '../spa-detector.js';
 
 /**
  * Returns the SSR detection object expected by Phase 1.
@@ -105,6 +105,7 @@ const noHydration = {
   reactHydrated: false,
   angularHydrated: false,
   sveltekitHydrated: false,
+  astroHydrated: false,
 };
 
 /** Post-wait hydration check: Nuxt hydrated */
@@ -549,7 +550,7 @@ describe('waitForSpaHydration', () => {
     it('should use the provided logPrefix in console output', async () => {
       const page = createMockPage(noFrameworkState());
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { /* silence console output */ });
 
       await waitForSpaHydration(page, { timeout: 30000, logPrefix: '[CustomAdapter]' });
 
@@ -564,7 +565,7 @@ describe('waitForSpaHydration', () => {
     it('should use default log prefix when not provided', async () => {
       const page = createMockPage(noFrameworkState());
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { /* silence console output */ });
 
       await waitForSpaHydration(page, { timeout: 30000 });
 

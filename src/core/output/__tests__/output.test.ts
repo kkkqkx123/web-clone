@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
-import type { Asset, SnapshotOptions, ComponentSpec, ConvertResult } from '../../types.js';
+import type { Asset, SnapshotOptions, ComponentSpec, ComponentManifest, ConvertResult } from '../../types.js';
 import type { FrameworkType, FrameworkDetection } from '../../framework/types.js';
 import { assembleBundle } from '../bundle.js';
 import { assembleSingleFile } from '../single-file.js';
@@ -716,7 +716,7 @@ describe('isMoreSpecific - Detection Priority Logic', () => {
   });
 
   it('should return false when static=vitepress and browser=react', () => {
-    expect(isMoreSpecific('vitepress', 'react')).toBe(false);
+    expect(isMoreSpecific('vitepress', 'react' as FrameworkType)).toBe(false);
   });
 
   it('should return false when both are the same framework', () => {
@@ -787,7 +787,7 @@ describe('File Extension Mapping', () => {
       timestamp: new Date().toISOString(),
       html: '<html><body></body></html>',
       assets: [],
-      stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0 },
+      stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0, htmlBytes: 0 },
       components: new Map([['MyComponent', comp]]),
       index: { stats: { stateful: 0, presentational: 1 } },
     };
@@ -1195,7 +1195,7 @@ describe('Vue 2 Hydration Detection Logic', () => {
 function createTestComponentManifest(
   name: string,
   confidence = 0.8
-): Record<string, unknown> {
+): ComponentManifest {
   return {
     name,
     type: 'presentational',
@@ -1210,7 +1210,7 @@ function createTestComponentManifest(
       suggestions: [],
       todos: [],
     },
-  } as Record<string, unknown>;
+  } as unknown as ComponentManifest;
 }
 
 function createTestConvertResult(): ConvertResult {
@@ -1226,6 +1226,7 @@ function createTestConvertResult(): ConvertResult {
       skipped: 0,
       validationWarnings: 0,
       totalBytes: 0,
+      htmlBytes: 0,
     },
     components: new Map([
       [
@@ -1237,7 +1238,7 @@ function createTestConvertResult(): ConvertResult {
           template: '<header>Header Component</header>',
           styles: 'header { padding: 1rem; }',
           matchConfidence: 0.85,
-          manifest: createTestComponentManifest('Header', 0.85) as Record<string, unknown>,
+          manifest: createTestComponentManifest('Header', 0.85),
         },
       ],
     ]),

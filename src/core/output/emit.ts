@@ -28,10 +28,13 @@ export interface EmitResult {
 }
 
 // Whole sequences first (OSC then CSI then two-byte escapes), then stray control bytes.
+// These patterns intentionally match control characters to strip them.
+/* eslint-disable no-control-regex */
 const OSC_SEQ = new RegExp('\\x1b\\][^\\x07\\x1b]*(?:\\x07|\\x1b\\\\)?', 'g');
 const CSI_SEQ = new RegExp('\\x1b\\[[0-9;:?]*[ -/]*[@-~]?', 'g');
 const ESC_SEQ = new RegExp('\\x1b.?', 'g');
 const CONTROL_CHARS = new RegExp('[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F\\u0080-\\u009F]', 'g');
+/* eslint-enable no-control-regex */
 
 /**
  * Sanitize a string by stripping ANSI/OSC/CSI escapes and control characters.
@@ -58,7 +61,7 @@ function cap<T>(items: T[], opts: EmitOptions, sizeOf: (item: T) => number) {
     let used = 0;
     let i = 0;
     for (; i < shown.length; i++) {
-      used += sizeOf(shown[i]!);
+      used += sizeOf(shown[i]);
       if (used > maxChars && i > 0) break;
     }
     shown = shown.slice(0, i);

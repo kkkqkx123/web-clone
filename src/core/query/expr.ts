@@ -34,7 +34,7 @@ function lex(src: string): Tok[] {
   let i = 0;
   const ops = ['&&', '||', '==', '!=', '~', '!~', '>=', '<=', '>', '<', '!'];
   while (i < src.length) {
-    const c = src[i]!;
+    const c = src[i];
     if (/\s/.test(c)) { i++; continue; }
     if (c === '(') { toks.push({ t: 'lp' }); i++; continue; }
     if (c === ')') { toks.push({ t: 'rp' }); i++; continue; }

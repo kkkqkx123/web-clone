@@ -38,7 +38,7 @@ export const nuxt3Strategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: (document: Document) => {
     const scripts = Array.from(document.querySelectorAll('script'));

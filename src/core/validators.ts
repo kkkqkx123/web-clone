@@ -60,7 +60,7 @@ function looksLikeValidJavaScript(buffer: Buffer): boolean {
   }
 
   // Accept if mostly looks like code (contains typical JS characters)
-  if (/[{}()\[\];:,.]/.test(trimmed) && !/^</.test(trimmed)) {
+  if (/[{}()[\];:,.]/.test(trimmed) && !/^</.test(trimmed)) {
     return true;
   }
 

@@ -8,12 +8,12 @@
  * - Non-Nuxt document → no changes
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { nuxt3Strategy } from '../strategies/nuxt3.js';
 
 function createDocument(scriptContent: string): Document {
-  const html = `<!DOCTYPE html><html><head></head><body><script>${scriptContent}<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html><head></head><body><script>${scriptContent}</script></body></html>`;
   const dom = new JSDOM(html);
   return dom.window.document;
 }
@@ -57,9 +57,9 @@ describe('nuxt3Strategy.rewritePaths', () => {
   it('should handle multiple scripts, only rewriting the one with __NUXT__', () => {
     const html = `<!DOCTYPE html>
 <html><head></head><body>
-<script>console.log("first");<\/script>
-<script>window.__NUXT__ = { assetsPath: "/_nuxt/" };<\/script>
-<script>window.__NEXT_DATA__ = {};<\/script>
+<script>console.log("first");</script>
+<script>window.__NUXT__ = { assetsPath: "/_nuxt/" };</script>
+<script>window.__NEXT_DATA__ = {};</script>
 </body></html>`;
     const dom = new JSDOM(html);
     const doc = dom.window.document;

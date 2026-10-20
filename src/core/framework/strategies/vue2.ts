@@ -40,7 +40,7 @@ export const vue2Strategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // Vue 2 apps do not have framework-internal path configs; no rewriting needed.

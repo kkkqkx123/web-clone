@@ -42,7 +42,7 @@ export const react18Strategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // React 18 does not use framework-internal path configs.

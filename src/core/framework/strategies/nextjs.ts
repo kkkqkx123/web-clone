@@ -23,7 +23,7 @@ export const nextjsStrategy: PostSnapshotStrategy = {
   matches: (d) =>
     d.framework === 'nextjs' ||
     d.markers.includes('__NEXT_DATA__'),
-  generateProbeScript: (d) => `
+  generateProbeScript: (_d) => `
 <script type="text/javascript">
 (function() {
   var appEl = document.querySelector('#__next');
@@ -45,7 +45,7 @@ export const nextjsStrategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`,
+</script>`,
   rewritePaths: () => {
     // Next.js chunks are loaded via DOM <script src="...">, handled by assembleBundle.
     // __NEXT_DATA__ script contains route/component data, not asset paths.

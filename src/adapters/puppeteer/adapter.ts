@@ -94,9 +94,12 @@ interface PuppeteerPage {
   isClosed(): boolean;
   url(): string;
   cookies(url?: string): Promise<PuppeteerCookie[]>;
-  evaluate<T>(pageFunction: ((...args: any[]) => T) | string, ...args: any[]): Promise<T>;
+  evaluate<T, A extends unknown[] = unknown[]>(
+    pageFunction: ((...args: A) => T) | string,
+    ...args: A
+  ): Promise<T>;
   waitForFunction(
-    pageFunction: ((...args: any[]) => boolean) | string,
+    pageFunction: ((...args: unknown[]) => boolean) | string,
     options?: { timeout?: number; polling?: number | 'raf' | 'mutation' },
     ...args: unknown[]
   ): Promise<unknown>;

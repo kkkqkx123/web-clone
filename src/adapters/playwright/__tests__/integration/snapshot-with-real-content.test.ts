@@ -12,7 +12,7 @@
  * 环境：需要真实 Playwright 浏览器
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { existsSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { startTestServer, stopTestServer, type TestServer } from './helpers/test-server.js';
@@ -48,7 +48,7 @@ describe('Playwright E2E: Real Content Snapshot', () => {
     });
 
     it('should rewrite CSS/JS/IMG paths to local asset references', async () => {
-      const context = await browser.newContext();
+      const context = await browser!.newContext();
       const page = await context.newPage();
       const adapter = new PlaywrightFetcherAdapter(page, context, { waitForLoadState: 'load' });
 
@@ -83,7 +83,7 @@ describe('Playwright E2E: Real Content Snapshot', () => {
     }, E2E_TIMEOUT);
 
     it('should output valid HTML structure in single file mode', async () => {
-      const context = await browser.newContext();
+      const context = await browser!.newContext();
       const page = await context.newPage();
       const adapter = new PlaywrightFetcherAdapter(page, context, { waitForLoadState: 'load' });
 
@@ -124,7 +124,7 @@ describe('Playwright E2E: Real Content Snapshot', () => {
     });
 
     it('should work through PlaywrightFetcherAdapter + snapshot()', async () => {
-      const context = await browser.newContext();
+      const context = await browser!.newContext();
       const page = await context.newPage();
 
       // Use the documented public API: PlaywrightFetcherAdapter + snapshot()
@@ -165,7 +165,7 @@ describe('Playwright E2E: Real Content Snapshot', () => {
     });
 
     it('should detect Vue markers and handle SSR page', async () => {
-      const context = await browser.newContext();
+      const context = await browser!.newContext();
       const page = await context.newPage();
       const adapter = new PlaywrightFetcherAdapter(page, context);
 

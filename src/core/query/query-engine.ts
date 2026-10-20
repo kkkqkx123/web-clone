@@ -90,7 +90,7 @@ function pick(result: unknown, spec: string): unknown {
   };
   const project = (row: unknown) => {
     if (typeOf(row) !== 'object') return row;
-    if (fields.length === 1) return dig(row, fields[0]!);
+    if (fields.length === 1) return dig(row, fields[0]);
     return Object.fromEntries(fields.map((f) => [f, dig(row, f)]));
   };
   return Array.isArray(result) ? result.map(project) : project(result);
@@ -152,9 +152,10 @@ export function emitQueryResult(
 
   // --where filtering
   if (typeof flags.where === 'string') {
+    const where = flags.where;
     if (!Array.isArray(result)) throw new QueryError('--where needs an array result (iterate with [] first)');
     const rows = result as unknown[];
-    const filtered = rows.filter(compileWhere(flags.where!));
+    const filtered = rows.filter(compileWhere(where));
     if (rows.length > 0 && filtered.length === 0) {
       notes.push('0 of ' + rows.length + ' rows matched --where (if comparing to a string, quote it: --where "plan == \'pro\'")');
     }

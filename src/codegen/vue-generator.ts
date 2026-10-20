@@ -295,7 +295,7 @@ ${styles}`;
 
   private mapOptionsState(
     state: StateVariable[],
-    options: FrameworkCodeGenOptions
+    _options: FrameworkCodeGenOptions
   ): string {
     if (state.length === 0) return '';
     return state

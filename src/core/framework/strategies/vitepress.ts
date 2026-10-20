@@ -38,7 +38,7 @@ export const vitepressStrategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // VitePress uses ESM module imports via Vite, paths are relative; no rewriting needed.

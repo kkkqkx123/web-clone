@@ -27,7 +27,7 @@ const mockComponent: ComponentSpec = {
     migration: {
       effort: '1h',
       effortBreakdown: { extraction: '10m', conversion: '30m' },
-      suggestions: [],
+      todos: [],      suggestions: [],
       
     },
   },
@@ -172,7 +172,7 @@ describe('JQueryGenerator', () => {
       const noEvents: ComponentSpec = {
         ...mockComponent,
         logic: {
-          ...mockComponent.logic,
+          ...mockComponent.logic!,
           events: [],
         },
       };

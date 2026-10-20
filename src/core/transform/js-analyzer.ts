@@ -641,8 +641,8 @@ function extractFrameworkState(
       apiName = callee.name as string;
     }
 
-    if (apiName && frameworkAPIs.has(apiName)) {
-      const framework = frameworkAPIs.get(apiName)!;
+    const framework = apiName === undefined ? undefined : frameworkAPIs.get(apiName);
+    if (apiName !== undefined && framework !== undefined) {
       const name = extractVariableName(id);
       if (!name) return null;
 
@@ -671,8 +671,6 @@ function extractFrameworkState(
 
     const apiName = callee.name as string;
     if (!frameworkAPIs.has(apiName)) return null;
-
-    const framework = frameworkAPIs.get(apiName)!;
 
     if ((id as Record<string, unknown>).type === 'ArrayPattern') {
       const elements = (id as Record<string, unknown>).elements as Array<Record<string, unknown>> | undefined;

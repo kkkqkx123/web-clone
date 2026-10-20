@@ -12,7 +12,12 @@
     "declarationMap": true,
     "sourceMap": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@kkkqkx123/web-clone": ["./src/index.ts"],
+      "@kkkqkx123/web-clone/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

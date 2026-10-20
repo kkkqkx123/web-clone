@@ -16,7 +16,7 @@
  * so they are deterministic and work offline.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { existsSync, rmSync } from 'node:fs';
 import { startTestServer, stopTestServer, type TestServer } from './integration/helpers/test-server.js';
 

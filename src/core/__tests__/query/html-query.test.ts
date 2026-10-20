@@ -25,6 +25,12 @@ function makeDoc(html: string): Document {
   return dom.window.document;
 }
 
+/** Unwrap a querySelector result so tests assert on a concrete element. */
+function must<T>(el: T | null): T {
+  if (el === null) throw new Error('expected element not found in document');
+  return el;
+}
+
 describe('collapse', () => {
   it('trims and collapses whitespace', () => {
     expect(collapse('  hello   world  ')).toBe('hello world');
@@ -54,13 +60,13 @@ describe('parseRowSpec', () => {
 describe('signature', () => {
   it('generates tag.class signature', () => {
     const doc = makeDoc('<div class="foo bar"><p>text</p></div>');
-    const div = doc.querySelector('div')!;
+    const div = must(doc.querySelector('div'));
     expect(signature(div)).toBe('div.foo.bar');
   });
 
   it('generates bare tag with no classes', () => {
     const doc = makeDoc('<p>text</p>');
-    const p = doc.querySelector('p')!;
+    const p = must(doc.querySelector('p'));
     expect(signature(p)).toBe('p');
   });
 });
@@ -68,7 +74,7 @@ describe('signature', () => {
 describe('selectorPath', () => {
   it('generates a path from element to body', () => {
     const doc = makeDoc('<div class="card"><span id="x"><a>link</a></span></div>');
-    const a = doc.querySelector('a')!;
+    const a = must(doc.querySelector('a'));
     const path = selectorPath(a);
     expect(path).toContain('span#x');
     expect(path).toContain('div.card');
@@ -164,7 +170,7 @@ describe('tableToRows', () => {
         <tr><td>Bob</td><td>25</td></tr>
       </table>
     `);
-    const table = doc.querySelector('table')!;
+    const table = must(doc.querySelector('table'));
     const result = tableToRows(table);
     expect(result.headers).toEqual(['Name', 'Age']);
     expect(result.rows).toHaveLength(2);
@@ -179,7 +185,7 @@ describe('tableToRows', () => {
         <tr><td>Alice</td><td>Age: 30</td><td>City: NY</td></tr>
       </table>
     `);
-    const table = doc.querySelector('table')!;
+    const table = must(doc.querySelector('table'));
     const result = tableToRows(table);
     expect(result.headers).toContain('Name');
     expect(result.rows).toHaveLength(1);
@@ -193,7 +199,7 @@ describe('tableToRows', () => {
         <tr><td>31</td></tr>
       </table>
     `);
-    const table = doc.querySelector('table')!;
+    const table = must(doc.querySelector('table'));
     const result = tableToRows(table);
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0].Name).toBe('Alice');
@@ -202,7 +208,7 @@ describe('tableToRows', () => {
 
   it('handles empty tables', () => {
     const doc = makeDoc('<table></table>');
-    const table = doc.querySelector('table')!;
+    const table = must(doc.querySelector('table'));
     const result = tableToRows(table);
     expect(result.headers).toEqual([]);
     expect(result.rows).toEqual([]);
@@ -210,7 +216,7 @@ describe('tableToRows', () => {
 
   it('throws for non-table elements', () => {
     const doc = makeDoc('<div></div>');
-    const div = doc.querySelector('div')!;
+    const div = must(doc.querySelector('div'));
     expect(() => tableToRows(div)).toThrow(QueryError);
   });
 });

@@ -11,9 +11,10 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { snapshot } from '@kkkqkx123/web-clone';
 import { PlaywrightFetcherAdapter } from '../../adapter.js';
-import { mkdtempSync, existsSync, readFileSync, mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, existsSync, readFileSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setupBrowser, createBrowserContext, createPage, teardownBrowser } from './helpers/browser-setup.js';
@@ -132,9 +133,9 @@ async function extractSnapshotStats(filePath: string): Promise<SnapshotStats> {
 }
 
 describe('Integration: snapshot() with PlaywrightFetcherAdapter', () => {
-  let browser: any;
-  let context: any;
-  let page: any;
+  let browser: Browser;
+  let context: BrowserContext;
+  let page: Page;
   let testOutputDir: string;
   let testServer: TestServer;
   let TEST_URL: string;

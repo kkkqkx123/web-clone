@@ -28,7 +28,6 @@ export interface DiscoveredUrl {
  */
 export function extractJsUrls(jsText: string, baseUrl: string): DiscoveredUrl[] {
   const found = new Map<string, DiscoveredUrl>();
-  const absoluteUrlRe = /https?:\/\/[^\s"'`)\]}>]+\.\w{2,}(?:\/[^\s"'`)\]}>]*)?/gi;
 
   /**
    * Reject captured URLs that contain template expressions (${...}).

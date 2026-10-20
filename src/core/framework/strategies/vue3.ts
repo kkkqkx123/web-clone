@@ -36,7 +36,7 @@ export const vue3Strategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // Vue 3 apps do not have framework-internal path configs; no rewriting needed.

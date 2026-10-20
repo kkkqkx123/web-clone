@@ -516,7 +516,7 @@ export async function fetchWithCappedBody(
     while (true) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
-        await reader.cancel().catch(() => {});
+        await reader.cancel().catch(() => { /* best-effort cancel, ignore */ });
         throw new Error('body read timed out');
       }
 
@@ -541,7 +541,7 @@ export async function fetchWithCappedBody(
         chunks.push(value.subarray(0, room));
         total = maxBytes;
         capped = true;
-        await reader.cancel().catch(() => {});
+        await reader.cancel().catch(() => { /* best-effort cancel, ignore */ });
         break;
       }
       chunks.push(value);

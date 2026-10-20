@@ -153,11 +153,11 @@ export const MOCK_RESULTS = {
    * 自定义响应
    */
   custom: (options: Record<string, unknown> = {}) => ({
-    buffer: Buffer.from(options.content || ''),
+    buffer: Buffer.from(String(options.content ?? '')),
     mime: options.mime || 'application/octet-stream',
     status: (options.status as number) || 200,
     ok: ((options.status as number) || 200) >= 200 && ((options.status as number) || 200) < 300,
-    isHtmlLike: options.mime?.includes('html') || false,
+    isHtmlLike: String(options.mime ?? '').includes('html') || false,
     headers: options.headers || {},
     url: options.url || 'http://127.0.0.1:9000/custom',
     ...options,

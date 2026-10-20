@@ -37,7 +37,7 @@ export const nuxt2Strategy: PostSnapshotStrategy = {
     document.addEventListener('DOMContentLoaded', tryHydrate);
   } else { setTimeout(tryHydrate, 100); }
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // Nuxt 2 does not use ESM-based chunk paths, no path rewriting needed.

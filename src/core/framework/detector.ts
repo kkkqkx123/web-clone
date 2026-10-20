@@ -10,7 +10,7 @@
  * 6. Generic mount points — weak tier
  */
 
-import type { FrameworkDetection, SignalTier } from './types.js';
+import type { FrameworkDetection } from './types.js';
 
 /**
  * Detects the type of frame used by the page.

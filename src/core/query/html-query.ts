@@ -243,12 +243,12 @@ export function tableToRows(table: Element): TableResult {
   allRows.forEach((tr, r) => {
     let c = 0;
     for (const cell of cellsOf(tr)) {
-      while (grid[r]![c] !== undefined) c++;
+      while (grid[r][c] !== undefined) c++;
       const text = collapse(cell.textContent ?? '');
       const cs = Math.max(1, Number(cell.getAttribute('colspan')) || 1);
       const rs = Math.max(1, Number(cell.getAttribute('rowspan')) || 1);
       for (let dr = 0; dr < rs && r + dr < allRows.length; dr++) {
-        for (let dc = 0; dc < cs; dc++) grid[r + dr]![c + dc] = text;
+        for (let dc = 0; dc < cs; dc++) grid[r + dr][c + dc] = text;
       }
       c += cs;
     }
@@ -257,15 +257,15 @@ export function tableToRows(table: Element): TableResult {
   let headerRowCount = 0;
   while (
     headerRowCount < allRows.length &&
-    cellsOf(allRows[headerRowCount]!).every((c) => c.localName === 'th') &&
-    cellsOf(allRows[headerRowCount]!).length > 0
+    cellsOf(allRows[headerRowCount]).every((c) => c.localName === 'th') &&
+    cellsOf(allRows[headerRowCount]).length > 0
   ) {
     headerRowCount++;
   }
 
   const width = Math.max(...grid.map((row) => row.length));
   const named = Array.from({ length: width }, (_, i) =>
-    headerRowCount > 0 ? grid[0]![i] || `col${i}` : `col${i}`,
+    headerRowCount > 0 ? grid[0][i] || `col${i}` : `col${i}`,
   );
   const seen = new Map<string, number>();
   const headers = named.map((h) => {
@@ -296,7 +296,7 @@ export function rowStats(
       : '0 rows extracted — check the selector and field spec';
   }
   const nulls: string[] = [];
-  for (const key of Object.keys(rows[0]!)) {
+  for (const key of Object.keys(rows[0])) {
     const n = rows.filter((r) => r[key] === null || r[key] === '').length;
     if (n > 0) nulls.push(`${key}: ${n} empty`);
   }

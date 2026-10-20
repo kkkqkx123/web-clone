@@ -533,7 +533,6 @@ class StreamingHtmlAnalyzer {
       for (const key of Object.keys(attrs)) {
         // Two-way binding: [(ngModel)]="value"
         if (key.startsWith('[(') && key.endsWith(')]')) {
-          const bindingName = key.slice(2, -2);
           this.bindings.push({
             selector: this.buildSelector(tag),
             attribute: key,
@@ -542,7 +541,6 @@ class StreamingHtmlAnalyzer {
         }
         // Property binding: [property]="value" (skip ng-version, ng-app)
         else if (key.startsWith('[') && key.endsWith(']') && !key.startsWith('[ng')) {
-          const bindingName = key.slice(1, -1);
           this.bindings.push({
             selector: this.buildSelector(tag),
             attribute: key,
@@ -566,7 +564,6 @@ class StreamingHtmlAnalyzer {
       for (const key of Object.keys(attrs)) {
         // Two-way bind: bind:value={variable}
         if (key.startsWith('bind:')) {
-          const propName = key.slice(5);
           this.bindings.push({
             selector: this.buildSelector(tag),
             attribute: key,

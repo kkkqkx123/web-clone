@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +23,7 @@ const __dirname = dirname(__filename);
 
 function getPackageJson() {
   return JSON.parse(
-    readFileSync(resolve(__dirname, '../../package.json'), 'utf-8')
+    readFileSync(resolve(__dirname, '../../../package.json'), 'utf-8')
   );
 }
 
@@ -34,20 +34,24 @@ describe('package.json exports configuration — Phase 1', () => {
     expect(pkg.exports).toBeDefined();
   });
 
-  it('should export "." pointing to dist/index.js', () => {
-    expect(pkg.exports['.']).toBe('./dist/index.js');
-  });
-
-  it('should export "./adapters" pointing to dist/adapters/index.js', () => {
-    expect(pkg.exports['./adapters']).toBe('./dist/adapters/index.js');
+  it('should export "." with types and default conditions pointing to dist/index', () => {
+    expect(pkg.exports['.'].types).toBe('./dist/index.d.ts');
+    expect(pkg.exports['.'].default).toBe('./dist/index.js');
   });
 
   it('should export "./types" pointing to dist/types.js', () => {
-    expect(pkg.exports['./types']).toBe('./dist/types.js');
+    expect(pkg.exports['./types'].types).toBe('./dist/types.d.ts');
+    expect(pkg.exports['./types'].default).toBe('./dist/types.js');
   });
 
-  it('should export "./server" pointing to dist/server/index.js', () => {
-    expect(pkg.exports['./server']).toBe('./dist/server/index.js');
+  it('should export "./codegen" pointing to dist/codegen/index.js', () => {
+    expect(pkg.exports['./codegen'].default).toBe('./dist/codegen/index.js');
+  });
+
+  it('should export the automation adapter subpaths', () => {
+    expect(pkg.exports['./adapters/playwright'].default).toBe('./dist/adapters/playwright/index.js');
+    expect(pkg.exports['./adapters/puppeteer'].default).toBe('./dist/adapters/puppeteer/index.js');
+    expect(pkg.exports['./adapters/common'].default).toBe('./dist/adapters/common.js');
   });
 
   it('should have main pointing to dist/index.js', () => {

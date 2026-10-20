@@ -12,7 +12,7 @@ function normalizePath(p: string): string {
 
 vi.mock('node:fs', () => ({
   existsSync: (path: string) => mockFiles.has(normalizePath(path)),
-  readFileSync: (path: string, encoding?: string) => {
+  readFileSync: (path: string, _encoding?: string) => {
     const content = mockFiles.get(normalizePath(path));
     if (content === undefined) throw new Error(`ENOENT: ${path}`);
     return content;

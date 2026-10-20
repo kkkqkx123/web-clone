@@ -85,7 +85,7 @@
     "test:e2e:regression": "bash scripts/e2e-regression-check.sh",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
     "browsers:check": "node scripts/check-browsers.mjs",
     "browsers:check:playwright": "node scripts/check-playwright.mjs",

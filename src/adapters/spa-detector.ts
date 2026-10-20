@@ -73,13 +73,42 @@ export function tierAtLeast(a: SignalTier, min: SignalTier): boolean {
 }
 
 /**
+ * Framework globals that may be attached to `window` inside the browser context.
+ * All members optional and unknown-typed: only presence is probed at runtime.
+ */
+type SpaWindow = Window & {
+  Vue?: { version?: string; $mount?: unknown; createApp?: unknown };
+  __VUE__?: unknown;
+  __NUXT__?: unknown;
+  $nuxt?: { $root?: unknown; $mount?: unknown };
+  __NEXT_DATA__?: unknown;
+  __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown;
+  __sveltekit__?: unknown;
+  __SVELTEKIT__?: unknown;
+  __svelte?: unknown;
+  ng?: { probe?: unknown };
+  Zone?: unknown;
+};
+
+/**
+ * DOM element that may carry framework hydration markers (__vue__, React fiber
+ * container, Svelte state) attached by the framework runtime in the browser.
+ */
+type HydratedElement = Element & {
+  __vue__?: unknown;
+  __reactRoot$?: unknown;
+  _reactRootContainer?: unknown;
+  __svelte?: unknown;
+};
+
+/**
  * Minimal page-like interface required for SPA detection.
  * Compatible with both Playwright's Page and Puppeteer's Page.
  */
 export interface SpaPageLike {
-  evaluate<T>(pageFunction: ((...args: any[]) => T) | string, ...args: any[]): Promise<T>;
+  evaluate<T>(pageFunction: ((...args: unknown[]) => T) | string, ...args: unknown[]): Promise<T>;
   waitForFunction(
-    pageFunction: ((...args: any[]) => boolean) | string,
+    pageFunction: ((...args: unknown[]) => boolean) | string,
     options?: { timeout?: number; polling?: number | 'raf' | 'mutation' },
     ...args: unknown[]
   ): Promise<unknown>;
@@ -150,7 +179,7 @@ export async function waitForSpaHydration(
   try {
     // Phase 1: Detect SSR framework indicators in the page
     const isSSRApp = await page.evaluate(() => {
-      const w = window as any;
+      const w = window as SpaWindow;
       // Vue 2 vs Vue 3 differentiation:
       // Vue 2: window.Vue.version starts with '2', has $mount but no createApp
       // Vue 3: window.__VUE__ exists, or Vue.createApp exists
@@ -167,7 +196,7 @@ export async function waitForSpaHydration(
         hasVue2,
         hasVue3,
         appElement: !!document.querySelector('#__nuxt'),
-        vueInstance: !!(document.querySelector('#__nuxt') as any)?.__vue__,
+        vueInstance: !!(document.querySelector('#__nuxt') as HydratedElement | null)?.__vue__,
         // Additional framework markers
         hasNextData: w.__NEXT_DATA__ !== undefined,
         hasReactHook: w.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== undefined,
@@ -230,7 +259,7 @@ export async function waitForSpaHydration(
     if (isSSRApp.hasNuxt) {
       // Nuxt: distinguish v2 ($nuxt.$mount) from v3 (__NUXT__)
       const nuxtVersion = await page.evaluate(() => {
-        const w = window as any;
+        const w = window as SpaWindow;
         if (w.$nuxt && w.$nuxt.$root && typeof w.$nuxt.$mount === 'function') return 2;
         if (w.__NUXT__) return 3;
         return 0;
@@ -335,7 +364,7 @@ export async function waitForSpaHydration(
       try {
         await page.waitForFunction(() => {
           const el = document.querySelector('#__nuxt');
-          return !!(el as any)?.__vue__;
+          return !!(el as HydratedElement | null)?.__vue__;
         }, { timeout: Math.min(timeout / 3, 5000) });
         console.log(`${logPrefix} Vue hydration confirmed`);
       } catch {
@@ -346,10 +375,10 @@ export async function waitForSpaHydration(
     // Phase 3: Wait for recognized framework signal OR production-reliable DOM stability.
     await page.waitForFunction(
       () => {
-        const w = window as any;
+        const w = window as SpaWindow;
 
         // Devtools-based signals (reliable in dev builds)
-        if (w.__NUXT__ !== undefined && (document.querySelector('#__nuxt') as any)?.__vue__) return true;
+        if (w.__NUXT__ !== undefined && (document.querySelector('#__nuxt') as HydratedElement | null)?.__vue__) return true;
         if (w.__VUE__ !== undefined) return true;
         if (w.__REACT_DEVTOOLS_GLOBAL_HOOK__ !== undefined) return true;
         if (w.ng !== undefined && w.ng.probe !== undefined) return true;
@@ -365,7 +394,7 @@ export async function waitForSpaHydration(
         // (Angular view encapsulation markers, never stripped) and Zone.js global.
         if (document.querySelector('[ng-version]')) return true;
         if (document.querySelector('[class*="_nghost-"], [class*="_ngcontent-"], [_nghost-], [_ngcontent-]')) return true;
-        if ((window as any).Zone !== undefined) return true;
+        if (w.Zone !== undefined) return true;
 
         // Nuxt: #__nuxt with actual content
         const nuxtRoot = document.querySelector('#__nuxt');
@@ -425,7 +454,6 @@ export async function waitForSpaHydration(
     // to 'moderate' when production-specific framework signals are present.
     if (detectionTier === 'weak') {
       const prodSignalFound = await page.evaluate(() => {
-        const w = window as any;
         // React production: fiber nodes on #root element
         const reactRoot = document.querySelector('#root');
         if (reactRoot) {
@@ -455,12 +483,12 @@ export async function waitForSpaHydration(
 
     // Check post-wait hydration status for return value
     const hydrationCheck = await page.evaluate(() => {
-      const w = window as any;
-      const nuxtEl = document.querySelector('#__nuxt') as any;
-      const nextEl = document.querySelector('#__next') as any;
-      const appEl = document.querySelector('#app') as any;
-      const rootEl = document.querySelector('#root') as any;
-      const svelteEl = document.querySelector('#svelte') as any;
+      const w = window as SpaWindow;
+      const nuxtEl = document.querySelector('#__nuxt') as HydratedElement | null;
+      const nextEl = document.querySelector('#__next') as HydratedElement | null;
+      const appEl = document.querySelector('#app') as HydratedElement | null;
+      const rootEl = document.querySelector('#root') as HydratedElement | null;
+      const svelteEl = document.querySelector('#svelte') as HydratedElement | null;
 
       return {
         nuxtHydrated: !!(nuxtEl?.__vue__),

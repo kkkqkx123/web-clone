@@ -12,7 +12,7 @@
  * network-restricted environments without depending on npm registry
  * or external URLs.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

@@ -616,7 +616,7 @@ ${c.logic ? `  - \`logic.original.json\` — Original logic` : ''}
 - Conversion: ${c.manifest.migration.effortBreakdown.conversion}
 
 ${c.manifest.migration.suggestions.length > 0 ? `**Suggestions**:
-${c.manifest.migration.suggestions.map(s => `- ${s}`).join('\n')}` : ''}
+${c.manifest.migration.suggestions.map((s: string) => `- ${s}`).join('\n')}` : ''}
 `;
   }).join('\n')}
 `;

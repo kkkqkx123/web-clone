@@ -58,8 +58,9 @@ function generateMarkdown(
     const categoryMap = new Map<string, SnapshotIssue[]>();
     for (const issue of group) {
       const cat = issue.category;
-      if (!categoryMap.has(cat)) categoryMap.set(cat, []);
-      categoryMap.get(cat)!.push(issue);
+      const bucket = categoryMap.get(cat);
+      if (bucket) bucket.push(issue);
+      else categoryMap.set(cat, [issue]);
     }
 
     for (const [category, catIssues] of categoryMap) {

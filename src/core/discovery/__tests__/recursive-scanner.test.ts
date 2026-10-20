@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractJsUrls, extractJsonUrls, type DiscoveredUrl } from '../recursive-scanner.js';
+import { extractJsUrls, extractJsonUrls } from '../recursive-scanner.js';
 
 const BASE = 'http://127.0.0.1:9000/js/app.js';
 

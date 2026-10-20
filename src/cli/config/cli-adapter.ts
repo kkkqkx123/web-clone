@@ -1,6 +1,7 @@
 import { DEFAULTS, loadMergedConfig } from '@kkkqkx123/web-clone';
 import { safeInt, parseBool, parseCodegenFramework, parseFrameworkHint, parseResourcePreset, parseFileSize, validateOptions, resolveGroupOverrides } from '@kkkqkx123/web-clone';
-import type { SnapshotOptions, MergedConfig, MergedBrowserConfig } from '@kkkqkx123/web-clone';
+import type { SnapshotOptions, MergedConfig } from '@kkkqkx123/web-clone';
+import type { MergedBrowserConfig } from '../../core/config/load-config.js';
 
 /**
  * Fallback to environment variable if the CLI value is still the default.
@@ -81,6 +82,8 @@ export interface CommanderOpts {
   proxy?: boolean;
   /** Inject diagnostic probe scripts for framework hydration monitoring */
   debugHydration?: boolean;
+  /** Show fetch log summary after snapshot */
+  verbose?: boolean;
 }
 
 /**

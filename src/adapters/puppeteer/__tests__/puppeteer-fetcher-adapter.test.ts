@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Page } from 'puppeteer';
+import type { HTTPResponse, Page } from 'puppeteer';
 import { PuppeteerFetcherAdapter } from '../adapter.js';
 
 // Store original NODE_TLS_REJECT_UNAUTHORIZED
@@ -26,7 +26,7 @@ function stringToArrayBuffer(str: string): ArrayBuffer {
 /**
  * Create a simulated Puppeteer page object
  */
-function createMockPage(): Page {
+function createMockPage() {
   return {
     goto: vi.fn(),
     content: vi.fn(),
@@ -41,16 +41,16 @@ function createMockPage(): Page {
     evaluate: vi.fn(),
     waitForFunction: vi.fn(),
     waitForTimeout: vi.fn(),
-  } as unknown as Page;
+  };
 }
 
 describe('PuppeteerFetcherAdapter', () => {
-  let mockPage: Page;
+  let mockPage: ReturnType<typeof createMockPage>;
   let adapter: PuppeteerFetcherAdapter;
 
   beforeEach(() => {
     mockPage = createMockPage();
-    adapter = new PuppeteerFetcherAdapter(mockPage);
+    adapter = new PuppeteerFetcherAdapter(mockPage as unknown as Page);
     vi.clearAllMocks();
     // Ensure SSL validation is reset
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = origRejectUnauthorized;
@@ -81,7 +81,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
 
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce(htmlContent);
 
@@ -118,7 +118,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -131,7 +131,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should use custom waitForLoadState option', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         waitForLoadState: 'load',
       });
 
@@ -150,7 +150,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -177,7 +177,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true, timeout: 60000 });
@@ -189,7 +189,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should save debug screenshot if configured', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         debugScreenshot: '/tmp/debug.png',
       });
 
@@ -208,7 +208,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -243,7 +243,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       const result = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -261,9 +261,6 @@ describe('PuppeteerFetcherAdapter', () => {
         status: 200,
         ok: true,
         headers: new Map(Object.entries({ 'content-type': 'text/css' })),
-        get headers() {
-          return new Map(Object.entries({ 'content-type': 'text/css' }));
-        },
         arrayBuffer: () => Promise.resolve(stringToArrayBuffer(cssContent)),
         url: 'http://cdn.local.test/style.css',
       });
@@ -283,7 +280,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should inherit custom headers in sub-resource fetch', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         customHeaders: { 'Authorization': 'Bearer token123' },
       });
 
@@ -305,7 +302,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should use raw HTTP when executeJs is false for main document', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         executeJs: false,
       });
 
@@ -437,7 +434,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should return custom headers', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         customHeaders: { 'X-Custom': 'value' },
       });
 
@@ -550,7 +547,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html><body>Logged In</body></html>');
 
       const pageResult = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -594,7 +591,7 @@ describe('PuppeteerFetcherAdapter', () => {
     });
 
     it('should work with Puppeteer adapter options', async () => {
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage, {
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage as unknown as Page, {
         waitForLoadState: 'load',
         executeJs: true,
         customHeaders: { 'Authorization': 'Bearer token' },
@@ -617,7 +614,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html></html>');
 
       await adapter2.fetch('http://127.0.0.1:9000', { isMainDocument: true });
@@ -639,7 +636,6 @@ describe('PuppeteerFetcherAdapter', () => {
         status: 200,
         ok: true,
         headers: new Map(),
-        get headers() { return new Map(); },
         arrayBuffer: () => Buffer.from('data').buffer,
         url: 'http://127.0.0.1:9000/unknown',
       });
@@ -655,7 +651,7 @@ describe('PuppeteerFetcherAdapter', () => {
 
     it('should handle multiple adapter instances independently', async () => {
       const mockPage2 = createMockPage();
-      const adapter2 = new PuppeteerFetcherAdapter(mockPage2);
+      const adapter2 = new PuppeteerFetcherAdapter(mockPage2 as unknown as Page);
 
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,
@@ -672,7 +668,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage, 'content').mockResolvedValueOnce('<html>1</html>');
 
       vi.spyOn(mockPage2, 'goto').mockResolvedValueOnce({
@@ -690,7 +686,7 @@ describe('PuppeteerFetcherAdapter', () => {
         json: () => Promise.resolve(null),
         text: () => Promise.resolve(''),
         buffer: () => Promise.resolve(Buffer.alloc(0)),
-      } as any);
+      } as unknown as HTTPResponse);
       vi.spyOn(mockPage2, 'content').mockResolvedValueOnce('<html>2</html>');
 
       const result1 = await adapter.fetch('http://127.0.0.1:9000', { isMainDocument: true });

@@ -27,7 +27,7 @@ const mockComponent: ComponentSpec = {
     migration: {
       effort: '1h',
       effortBreakdown: { extraction: '10m', conversion: '30m' },
-      suggestions: [],
+      todos: [],      suggestions: [],
       
     },
   },
@@ -171,8 +171,8 @@ describe('AngularGenerator', () => {
       const noEvents: ComponentSpec = {
         ...mockComponent,
         logic: {
-          state: mockComponent.logic.state,
-          methods: mockComponent.logic.methods,
+          state: mockComponent.logic!.state,
+          methods: mockComponent.logic!.methods,
           events: [],
         },
       };

@@ -142,7 +142,8 @@ beforeAll(async () => {
 }, 90000);
 
 afterAll(async () => {
-  // 保存汇总报告
+  // 保存汇总报告(若 beforeAll 失败则目录可能不存在,先确保存在)
+  mkdirSync(OUTPUTS_DIR, { recursive: true });
   const resultsPath = join(OUTPUTS_DIR, 'results.json');
   writeFileSync(resultsPath, JSON.stringify(allResults, null, 2), 'utf-8');
   console.log(`Results written to ${resultsPath}`);

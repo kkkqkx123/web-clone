@@ -45,7 +45,7 @@ export const sveltekitStrategy: PostSnapshotStrategy = {
     }
   }, 500);
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // SvelteKit chunks are loaded via DOM <script src="...">, handled by assembleBundle.

@@ -33,7 +33,7 @@ vi.mock('node:fs', () => ({
     }
     return file.content;
   },
-  readdirSync: (path: string, options?: { withFileTypes?: boolean }) => {
+  readdirSync: (path: string, _options?: { withFileTypes?: boolean }) => {
     const entries: Array<{ name: string; isDirectory: () => boolean; isFile: () => boolean }> = [];
     const prefix = normalizePath(path).replace(/\/?$/, '/');
     for (const [filePath, meta] of mockFiles) {

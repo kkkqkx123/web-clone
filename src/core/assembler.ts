@@ -240,10 +240,14 @@ export async function snapshot(url: string, optionsWithoutUrl: Omit<SnapshotOpti
 // Overload 2: library-friendly signature — snapshot(options, adapter?)
 // The optional adapter allows passing a custom FetcherAdapter (e.g. PlaywrightFetcherAdapter)
 // for browser-context snapshotting. Defaults to HttpFetcherAdapter when omitted.
-export async function snapshot(options: SnapshotOptions, adapter?: FetcherAdapter): Promise<SnapshotResult>;
+// Partial options are accepted: snapshotInternal merges unset fields with DEFAULTS.
+export async function snapshot(
+  options: Partial<SnapshotOptions> & Pick<SnapshotOptions, 'url'>,
+  adapter?: FetcherAdapter
+): Promise<SnapshotResult>;
 // Implementation
 export async function snapshot(
-  urlOrOptions: string | SnapshotOptions,
+  urlOrOptions: string | Partial<SnapshotOptions>,
   optionsOrAdapter?: Omit<SnapshotOptions, 'url'> | FetcherAdapter
 ): Promise<SnapshotResult> {
   if (typeof urlOrOptions === 'string') {
@@ -253,7 +257,7 @@ export async function snapshot(
   }
   // Overload 2: Library style — snapshot(options, adapter?)
   const fetcher = (optionsOrAdapter as FetcherAdapter | undefined) || new HttpFetcherAdapter();
-  return snapshotInternal(urlOrOptions, fetcher);
+  return snapshotInternal(urlOrOptions as SnapshotOptions, fetcher);
 }
 
 /**
@@ -525,7 +529,7 @@ async function snapshotInternal(
     const scanJsonEnabled = options.scanJson === true;
 
     // Helper: scan a list of assets for embedded URLs, returning newly discovered refs
-    const scanAssets = (assetsToScan: Asset[], round: number): AssetRef[] => {
+    const scanAssets = (assetsToScan: Asset[], _round: number): AssetRef[] => {
       const discovered: AssetRef[] = [];
 
       if (scanJsEnabled) {

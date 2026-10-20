@@ -18,7 +18,7 @@ export const angularStrategy: PostSnapshotStrategy = {
   matches: (d) =>
     d.framework === 'angular' ||
     d.markers.includes('angular'),
-  generateProbeScript: (d) => {
+  generateProbeScript: (_d) => {
     // Find the Angular root element (has ng-version attribute after bootstrap)
     return `
 <script type="text/javascript">
@@ -52,7 +52,7 @@ export const angularStrategy: PostSnapshotStrategy = {
     document.addEventListener('DOMContentLoaded', findRoot);
   } else { setTimeout(findRoot, 100); }
 })();
-<\/script>`;
+</script>`;
   },
   rewritePaths: () => {
     // Angular chunks are loaded via DOM <script src="...">, handled by assembleBundle.

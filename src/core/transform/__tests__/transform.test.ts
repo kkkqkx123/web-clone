@@ -869,7 +869,7 @@ describe('Transform Pipeline - Real World Scenarios', () => {
         events: [
           { selector: '.widget', event: 'click', handler: 'widget_toggle', preventDefault: false },
         ],
-        refs: ['.widget', '#widget-main'],
+        refs: [{ selector: '.widget', method: 'on' }, { selector: '#widget-main', method: 'on' }],
         lifecycles: {},
         todos: []
       };

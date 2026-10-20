@@ -23,7 +23,7 @@ const mockComponents: ComponentSpec[] = [
       migration: {
         effort: '0.5h',
         effortBreakdown: { extraction: '5m', conversion: '10m' },
-        suggestions: [],
+        todos: [],        suggestions: [],
         
       },
     },
@@ -50,7 +50,7 @@ const mockComponents: ComponentSpec[] = [
       migration: {
         effort: '1h',
         effortBreakdown: { extraction: '10m', conversion: '20m' },
-        suggestions: [],
+        todos: [],        suggestions: [],
         
       },
     },

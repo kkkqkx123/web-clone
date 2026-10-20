@@ -1,4 +1,4 @@
-import type { CodegenFramework, FrameworkCodeGenOptions } from '@kkkqkx123/web-clone/types';
+import type { FrameworkCodeGenOptions } from '@kkkqkx123/web-clone/types';
 
 export type { CodegenFramework, FrameworkCodeGenOptions } from '@kkkqkx123/web-clone/types';
 

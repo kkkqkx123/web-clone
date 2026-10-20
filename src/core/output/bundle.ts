@@ -347,7 +347,7 @@ export function assembleBundle(
           // Browsers may percent-encode the URL in srcset (e.g. ? → %3F),
           // so we try matching both the raw originUrl and its encoded form.
           const rawEscaped = escRegex(a.originUrl);
-          const encodedUrl = a.originUrl.replace(/[^a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=]/g, c =>
+          const encodedUrl = a.originUrl.replace(/[^a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]/g, c =>
             encodeURIComponent(c)
           );
           const encodedEscaped = encodedUrl !== a.originUrl ? escRegex(encodedUrl) : null;

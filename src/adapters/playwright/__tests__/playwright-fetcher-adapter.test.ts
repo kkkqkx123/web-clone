@@ -11,7 +11,7 @@ import { PlaywrightFetcherAdapter } from '../adapter.js';
 /**
  * Create a simulated Playwright page object
  */
-function createMockPage(): Page {
+function createMockPage() {
   return {
     goto: vi.fn(),
     content: vi.fn(),
@@ -20,13 +20,13 @@ function createMockPage(): Page {
     close: vi.fn(),
     isClosed: vi.fn(() => false),
     url: vi.fn(() => 'http://127.0.0.1:9000'),
-  } as unknown as Page;
+  };
 }
 
 /**
  * Creating a Simulated Playwright Browser Context
  */
-function createMockContext(): BrowserContext {
+function createMockContext() {
   return {
     cookies: vi.fn().mockResolvedValue([
       { name: 'session', value: 'abc123', url: '', domain: '', path: '' },
@@ -47,18 +47,18 @@ function createMockContext(): BrowserContext {
       fetch: vi.fn(),
       head: vi.fn(),
     },
-  } as unknown as BrowserContext;
+  };
 }
 
 describe('PlaywrightFetcherAdapter', () => {
-  let mockPage: Page;
-  let mockContext: BrowserContext;
+  let mockPage: ReturnType<typeof createMockPage>;
+  let mockContext: ReturnType<typeof createMockContext>;
   let adapter: PlaywrightFetcherAdapter;
 
   beforeEach(() => {
     mockPage = createMockPage();
     mockContext = createMockContext();
-    adapter = new PlaywrightFetcherAdapter(mockPage, mockContext);
+    adapter = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext);
     vi.clearAllMocks();
   });
 
@@ -113,7 +113,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should use custom waitForLoadState option', async () => {
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         waitForLoadState: 'load',
       });
 
@@ -149,7 +149,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should save debug screenshot if configured', async () => {
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         debugScreenshot: '/tmp/debug.png',
       });
 
@@ -218,7 +218,7 @@ describe('PlaywrightFetcherAdapter', () => {
     it('should inherit custom headers in sub-resource fetch', async () => {
       vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         customHeaders: { 'Authorization': 'Bearer token123' },
       });
 
@@ -247,7 +247,7 @@ describe('PlaywrightFetcherAdapter', () => {
     it('should merge fetch options headers with custom headers', async () => {
       vi.spyOn(mockPage, 'url').mockReturnValue('http://127.0.0.1:9000/page');
 
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         customHeaders: { 'Authorization': 'Bearer token' },
       });
 
@@ -383,7 +383,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should return custom headers', async () => {
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         customHeaders: { 'X-Custom': 'value' },
       });
 
@@ -537,7 +537,7 @@ describe('PlaywrightFetcherAdapter', () => {
     });
 
     it('should work with Playwright adapter options', async () => {
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage, mockContext, {
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage as unknown as Page, mockContext as unknown as BrowserContext, {
         waitForLoadState: 'load',
         waitForNavigation: true,
         executeJs: true,
@@ -609,7 +609,7 @@ describe('PlaywrightFetcherAdapter', () => {
     it('should handle multiple adapter instances independently', async () => {
       const mockPage2 = createMockPage();
       const mockContext2 = createMockContext();
-      const adapter2 = new PlaywrightFetcherAdapter(mockPage2, mockContext2);
+      const adapter2 = new PlaywrightFetcherAdapter(mockPage2 as unknown as Page, mockContext2 as unknown as BrowserContext);
 
       vi.spyOn(mockPage, 'goto').mockResolvedValueOnce({
         status: () => 200,

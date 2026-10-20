@@ -127,7 +127,7 @@ describe('adapters/common exports', () => {
       ],
     };
     expect(auth.cookies).toHaveLength(1);
-    expect(auth.cookies![0].name).toBe('session');
+    expect(auth.cookies?.[0]?.name).toBe('session');
   });
 
   it('should export AutomationAuthOptions with storageState', () => {

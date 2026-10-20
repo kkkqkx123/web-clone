@@ -67,6 +67,7 @@ program
   .option('--serve-port <port>', 'Port for the HTTP server (default: 8080)', '8080')
   .option('--run', 'Start the HTTP server immediately (only valid with --serve)')
   .option('--proxy', 'Enable reverse proxy for runtime API requests (default: on, only with --serve --run)')
+  .option('--verbose', 'Show fetch log summary after snapshot')
   .option('-c, --config <path>', 'Path to a JSON config file (overrides auto-discovered project config)')
   .action(async (url: string, opts: CommanderOpts) => {
     const options = fromCommander(opts, url);

@@ -1,4 +1,4 @@
-import type { SnapshotOptions, ConvertResult, MemoryBudget, ComponentSpec } from './types.js';
+import type { SnapshotOptions, ConvertResult, MemoryBudget } from './types.js';
 import type { ComponentRoot } from './transform/types.js';
 import type { FrameworkDetection, FrameworkType } from './framework/types.js';
 import { analyzeHtml } from './transform/component-analyzer.js';

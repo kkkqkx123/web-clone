@@ -19,7 +19,7 @@
 import chalk from 'chalk';
 import { JSDOM } from 'jsdom';
 import { inspectStructure, locateElement, countElements, toMarkdown, emitLines } from '@kkkqkx123/web-clone';
-import type { OutlineEntry, LocateHit } from '@kkkqkx123/web-clone';
+import type { OutlineEntry } from '@kkkqkx123/web-clone';
 
 export interface InspectOptions {
   outline?: boolean;
