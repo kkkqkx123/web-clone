@@ -5,15 +5,15 @@
  * Cookies are automatically forwarded from the current page for each snapshot.
  *
  * Usage:
- *   pnpm tsx examples/puppeteer/03-multiple-pages.ts
+ *   npx tsx examples/puppeteer/03-multiple-pages.ts
  *
  * Prerequisites:
- *   pnpm add puppeteer @web-clone/core @web-clone/adapter-puppeteer
+ *   npm install -D @kkkqkx123/web-clone puppeteer
  */
 
 import puppeteer from 'puppeteer';
-import { snapshot } from '@web-clone/core';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 
 async function main() {
   const browser = await puppeteer.launch({ headless: true });

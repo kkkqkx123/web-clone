@@ -17,7 +17,7 @@
 
 ```bash
 # 运行 E2E 测试
-pnpm test:e2e
+npm run test:e2e
 
 # 执行回归检查
 ./scripts/e2e-regression-check.sh

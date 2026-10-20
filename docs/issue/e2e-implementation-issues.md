@@ -168,16 +168,16 @@ html = html.replace(
 **状态**：待处理
 
 **问题描述**：
-`pnpm test:e2e` 直接运行 vitest，不检查项目是否已构建。如果 `@web-clone/core` 和 `@web-clone/adapter-playwright` 的 `dist/` 不存在或过期，E2E 测试会因模块找不到而直接失败。
+`npm run test:e2e` 直接运行 vitest，不检查项目是否已构建。如果 `@kkkqkx123/web-clone` 和 `@kkkqkx123/web-clone/adapters/playwright` 的 `dist/` 不存在或过期，E2E 测试会因模块找不到而直接失败。
 
 **影响**：
-首次克隆仓库或在 `pnpm clean` 后直接运行 `pnpm test:e2e` 会报错。
+首次克隆仓库或在 `npm run clean` 后直接运行 `npm run test:e2e` 会报错。
 
 **建议方案**：
 在 `package.json` 添加 `test:e2e:all` 脚本：
 
 ```json
-"test:e2e:all": "pnpm build && pnpm test:e2e"
+"test:e2e:all": "npm run build && npm run test:e2e"
 ```
 
 ### 2.6 缺少 CSS @import 递归发现的 E2E 测试
@@ -190,7 +190,7 @@ html = html.replace(
 Web Clone 管线的阶段 3（CSS @import 递归发现）完全没有 E2E 验证。当前 fixture 的 CSS 文件不含 `@import url("...")` 引用。`@import` 递归解析是复杂页面（如 Bootstrap + 自定义主题组合）的常见场景。
 
 **影响**：
-CSS 解析器（`packages/core/src/css-parser.ts`）中的 `@import` 递归逻辑仅在单元测试中覆盖。如果解析器变更引入 bug，E2E 测试不会捕获。
+CSS 解析器（`src/core/css-parser.ts`）中的 `@import` 递归逻辑仅在单元测试中覆盖。如果解析器变更引入 bug，E2E 测试不会捕获。
 
 **建议方案**：
 在现有 fixture（推荐 `nuxt3-ssr` 或 `nextjs-ssr`，因为它们的 CSS 文件更大）中添加一个含 `@import url("nested.css")` 的测试样式表，并添加断言验证被引用文件的内联。
@@ -202,7 +202,7 @@ CSS 解析器（`packages/core/src/css-parser.ts`）中的 `@import` 递归逻�
 **状态**：待处理
 
 **问题描述**：
-资源过滤器（`ResourceFilter`，`packages/core/src/resource-filter.ts`）用于跳过不需要的扩展名（`.map`、`.ts` 等）。当前 E2E 测试未覆盖自定义 `skipExtensions` 和 `includeExtensions` 场景。
+资源过滤器（`ResourceFilter`，`src/core/resource-filter.ts`）用于跳过不需要的扩展名（`.map`、`.ts` 等）。当前 E2E 测试未覆盖自定义 `skipExtensions` 和 `includeExtensions` 场景。
 
 **影响**：
 如果 ResourceFilter 逻辑变更导致正确资源被误过滤，E2E 测试不会报警。
@@ -217,7 +217,7 @@ CSS 解析器（`packages/core/src/css-parser.ts`）中的 `@import` 递归逻�
 **状态**：待处理
 
 **问题描述**：
-递归扫描功能（`scanDepth` 参数，`packages/core/src/recursive-scanner.ts`）在 `scanDepth > 1` 时会从 JS/CSS/JSON 中提取 URL 并执行额外轮次的下载。此功能完全没有 E2E 测试。
+递归扫描功能（`scanDepth` 参数，`src/core/recursive-scanner.ts`）在 `scanDepth > 1` 时会从 JS/CSS/JSON 中提取 URL 并执行额外轮次的下载。此功能完全没有 E2E 测试。
 
 **影响**：
 递归扫描是复杂单页应用的关键功能，如果没有 E2E 验证，实现变更可能引入未被检测的 bug。

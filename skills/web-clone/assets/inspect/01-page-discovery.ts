@@ -1,15 +1,15 @@
 /**
  * Page Discovery — Programmatic Library API Usage
  *
- * Demonstrates using the inspect/query APIs from @web-clone/core as a library,
+ * Demonstrates using the inspect/query APIs from @kkkqkx123/web-clone as a library,
  * without going through the CLI. Useful for scripting, automation, and
  * integrating page analysis into your own tools.
  *
  * Usage:
- *   pnpm tsx examples/inspect/01-page-discovery.ts https://example.com
+ *   npx tsx examples/inspect/01-page-discovery.ts https://example.com
  *
  * Prerequisites:
- *   pnpm add @web-clone/core jsdom
+ *   npm install -D @kkkqkx123/web-clone jsdom
  */
 
 import { JSDOM } from 'jsdom';
@@ -20,11 +20,11 @@ import {
   toMarkdown,
   tableToRows,
   spaNote,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 const url = process.argv[2];
 if (!url) {
-  console.error('Usage: pnpm tsx examples/inspect/01-page-discovery.ts <url>');
+  console.error('Usage: npx tsx examples/inspect/01-page-discovery.ts <url>');
   process.exit(1);
 }
 

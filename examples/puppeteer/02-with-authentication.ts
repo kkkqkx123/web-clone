@@ -6,15 +6,15 @@
  *
  * Usage:
  *   AUTH_EMAIL=user@example.com AUTH_PASSWORD=secret \
- *     pnpm tsx examples/puppeteer/02-with-authentication.ts
+ *     npx tsx examples/puppeteer/02-with-authentication.ts
  *
  * Prerequisites:
- *   pnpm add puppeteer @web-clone/core @web-clone/adapter-puppeteer
+ *   npm install -D @kkkqkx123/web-clone puppeteer
  */
 
 import puppeteer from 'puppeteer';
-import { snapshot } from '@web-clone/core';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 
 async function main() {
   const browser = await puppeteer.launch({ headless: true });

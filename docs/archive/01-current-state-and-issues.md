@@ -1,7 +1,7 @@
 # 当前状态与已知问题
 
-> 快照命令：`pnpm dev:cli https://fanyi.pdf365.cn/?agent=zhihu --adapter playwright --max-assets 500`
-> 输出目录：`apps/cli/snapshot/`
+> 快照命令：`npm run snapshot -- https://fanyi.pdf365.cn/?agent=zhihu --adapter playwright --max-assets 500`
+> 输出目录：`./snapshot/`
 > 归档日期：2026-07-14
 
 ## 已完成的工作
@@ -31,11 +31,11 @@
 
 **根因**：
 
-`packages/core/src/parser/css-parser.ts` 的 `rewriteCssUrls` 函数使用 `urlMap` 替换 CSS 中的 URL。`urlMap` 的 key 是**完整 URL**（如 `https://fanyi.pdf365.cn/_nuxt/fonts/element-icons.313f7da.woff`），但 CSS 文件内容中使用的是**绝对路径**（如 `/_nuxt/fonts/element-icons.313f7da.woff`）。字符串替换时找不到匹配项，因此所有 CSS 中的 `url()` 引用保持原样。
+`src/core/parser/css-parser.ts` 的 `rewriteCssUrls` 函数使用 `urlMap` 替换 CSS 中的 URL。`urlMap` 的 key 是**完整 URL**（如 `https://fanyi.pdf365.cn/_nuxt/fonts/element-icons.313f7da.woff`），但 CSS 文件内容中使用的是**绝对路径**（如 `/_nuxt/fonts/element-icons.313f7da.woff`）。字符串替换时找不到匹配项，因此所有 CSS 中的 `url()` 引用保持原样。
 
 **涉及文件**：
-- `packages/core/src/parser/css-parser.ts` — `rewriteCssUrls` 函数
-- `packages/core/src/output/bundle.ts` — `assembleBundle` 中的 CSS 重写逻辑
+- `src/core/parser/css-parser.ts` — `rewriteCssUrls` 函数
+- `src/core/output/bundle.ts` — `assembleBundle` 中的 CSS 重写逻辑
 
 **具体数据**：
 
@@ -85,7 +85,7 @@ for (const [originUrl, localRelPath] of urlMap) {
 ## 项目结构参考
 
 ```
-apps/cli/snapshot/              ← 快照输出目录
+./snapshot/              ← 快照输出目录
 ├── index.html                  ← 入口 HTML
 ├── snapshot.json               ← 资源清单
 └── assets/
@@ -103,10 +103,10 @@ apps/cli/snapshot/              ← 快照输出目录
 
 | 文件 | 说明 |
 |------|------|
-| `packages/core/src/parser/css-parser.ts` | `rewriteCssUrls` — CSS URL 重写（问题 1 的修复点） |
-| `packages/core/src/output/bundle.ts` | `assembleBundle` — 调用 `rewriteCssUrls` 的汇编逻辑 |
-| `packages/core/src/output/path-fixer.ts` | `fixNuxtConfig` — 修复 `__NUXT__.assetsPath` |
-| `packages/core/src/assembler.ts` | `scanAssets` — 递归扫描集成 `extractWebpackChunks` |
-| `packages/core/src/discovery/recursive-scanner.ts` | `extractWebpackChunks` — webpack chunk 映射表提取 |
-| `apps/cli/src/cli.ts` | CLI 入口 + `--serve` 静态服务器 |
-| `apps/cli/src/config/cli-adapter.ts` | `fromCommander` — CLI 参数到 `SnapshotOptions` 转换 |
+| `src/core/parser/css-parser.ts` | `rewriteCssUrls` — CSS URL 重写（问题 1 的修复点） |
+| `src/core/output/bundle.ts` | `assembleBundle` — 调用 `rewriteCssUrls` 的汇编逻辑 |
+| `src/core/output/path-fixer.ts` | `fixNuxtConfig` — 修复 `__NUXT__.assetsPath` |
+| `src/core/assembler.ts` | `scanAssets` — 递归扫描集成 `extractWebpackChunks` |
+| `src/core/discovery/recursive-scanner.ts` | `extractWebpackChunks` — webpack chunk 映射表提取 |
+| `src/cli/cli.ts` | CLI 入口 + `--serve` 静态服务器 |
+| `src/cli/config/cli-adapter.ts` | `fromCommander` — CLI 参数到 `SnapshotOptions` 转换 |

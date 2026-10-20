@@ -1,15 +1,10 @@
 npm login
 
-# 先在 monorepo 根目录构建所有包
-pnpm build
+# 构建单包
+npm run build
 
-# 逐个发布子包（pnpm 会自动替换 workspace:* 为实际版本）
-pnpm --filter @web-clone/types publish
-pnpm --filter @web-clone/codegen publish
-pnpm --filter @web-clone/core publish
-pnpm --filter @web-clone/adapter-common publish
-pnpm --filter @web-clone/adapter-playwright publish
-pnpm --filter @web-clone/adapter-puppeteer publish
-pnpm --filter @kkkqkx123/web-clone-cli publish
+# 发布(单包 @kkkqkx123/web-clone,含 CLI bin 与库导出)
+npm publish
 
-cli包为个人作用域，其余为web-clone组织作用域
+playwright / puppeteer 为 optional peer dependencies,
+用户按需自行安装(如 --adapter playwright 时需 npm install -D playwright)。

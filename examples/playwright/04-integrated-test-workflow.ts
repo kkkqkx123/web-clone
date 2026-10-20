@@ -12,21 +12,21 @@
  *   - snapshot provides a complete offline-readable archive for debugging
  *
  * Usage:
- *   pnpm tsx examples/playwright/04-integrated-test-workflow.ts
+ *   npx tsx examples/playwright/04-integrated-test-workflow.ts
  *
  *   # Simulate a failure:
- *   ASSERT_FAIL=true pnpm tsx examples/playwright/04-integrated-test-workflow.ts
+ *   ASSERT_FAIL=true npx tsx examples/playwright/04-integrated-test-workflow.ts
  *
  * Prerequisites:
- *   pnpm add @web-clone/core @web-clone/adapter-playwright playwright jsdom
+ *   npm install -D @kkkqkx123/web-clone playwright jsdom
  */
 
 import { chromium } from 'playwright';
 import { JSDOM } from 'jsdom';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 import {
   inspectStructure,
   countElements,
@@ -34,7 +34,7 @@ import {
   toMarkdown,
   tableToRows,
   spaNote,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 // ─── Utilities ──────────────────────────────────────────────────
 

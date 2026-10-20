@@ -2,31 +2,36 @@
 
 **Language**: Use English in code files and Simplified Chinese in docs.
 
-**web-clone** — Monorepo (pnpm + Turborepo). A single-execution web page snapshot tool that downloads and bundles a webpage into a single HTML file or directory bundle, with optional component extraction and multi-framework code generation.
+**web-clone** — A single-execution web page snapshot tool that downloads and bundles a webpage into a single HTML file or directory bundle, with optional component extraction and multi-framework code generation. Single npm package (`@kkkqkx123/web-clone`), no monorepo tooling (npm + tsc + vitest).
 
 ## Build & Development
 
 ```bash
-pnpm install              # Install all dependencies
-pnpm build                # Build all packages (turbo run build)
-pnpm dev:cli -- <url>     # Run CLI via tsx
-pnpm dev                  # All packages in watch mode
-pnpm test                 # Run all tests (turbo run test)
-pnpm clean                # Clean all dist directories
+npm install              # Install dependencies
+npm run build            # Build (tsc → dist/)
+npm run start -- <url>   # Run CLI via tsx
+npm test                 # Run all tests (vitest)
+npm run test:unit        # Unit tests only
+npm run test:integration # CLI/browser adapter integration tests
+npm run test:e2e         # SPA crawl E2E tests (real browser)
+npm run clean            # Clean dist/coverage
 ```
 
-Entry point: `apps/cli/src/cli.ts`
+Entry point: `src/cli/cli.ts` (bin: `web-clone`)
 
-## Packages
+## Source Layout
 
-| Package | Description |
+| Directory | Description |
 |---------|-------------|
-| `@web-clone/core` | Core snapshot logic, HTTP adapter, types, component analysis |
-| `@web-clone/adapter-common` | Shared SPA hydration detection & automation types |
-| `@web-clone/adapter-playwright` | Playwright browser automation adapter |
-| `@web-clone/adapter-puppeteer` | Puppeteer browser automation adapter |
-| `@web-clone/codegen` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
-| `web-clone-cli` | CLI application |
+| `src/core/` | Core snapshot logic, HTTP adapter, types, component analysis |
+| `src/codegen/` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
+| `src/adapters/common.ts` | Shared SPA hydration detection & automation types |
+| `src/adapters/playwright/` | Playwright browser automation adapter |
+| `src/adapters/puppeteer/` | Puppeteer browser automation adapter |
+| `src/cli/` | CLI application (bin `web-clone`) |
+| `src/types.ts` | Shared types (also exported as subpath `./types`) |
+
+`playwright` / `puppeteer` are optional peer dependencies — only installed/used when the user passes `--browser`.
 
 ## Skills
 

@@ -2,12 +2,11 @@
 /**
  * 验证 Playwright 浏览器配置
  *
- * 在 pnpm monorepo 中正确解析 playwright 模块路径，
+ * 在单包仓库根目录正确解析 playwright 模块路径，
  * 检查浏览器二进制可用性，并实际启动验证。
  *
  * 用法：
  *   node scripts/verify-playwright.mjs
- *   pnpm verify-playwright
  */
 
 import { createRequire } from 'node:module';
@@ -40,10 +39,9 @@ function startLocalPage() {
   });
 }
 
-// 在 monorepo 中从 adapter-playwright 解析 playwright
+// 从仓库根目录解析 playwright（npm 扁平化安装）
 function loadPlaywright() {
-  const base = resolve(ROOT, 'packages/adapter-playwright');
-  const req = createRequire(resolve(base, 'noop.mjs'));
+  const req = createRequire(resolve(ROOT, 'package.json'));
   try {
     const pkg = req('playwright/package.json');
     const { chromium } = req('playwright');
@@ -66,7 +64,7 @@ async function main() {
   const pw = loadPlaywright();
   if (!pw) {
     console.error('❌ Playwright package not found.');
-    console.error('   Install: pnpm add @web-clone/adapter-playwright\n');
+    console.error('   Install: npm install -D playwright\n');
     process.exit(1);
   }
   console.log(`📦 Playwright Version: ${pw.version}\n`);

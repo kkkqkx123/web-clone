@@ -1,7 +1,7 @@
 # URL 处理分析报告
 
 > 分析日期：2026-07-14
-> 分析范围：`@web-clone/core` 包，涵盖 URL 发现、下载、改写全流程
+> 分析范围：`@kkkqkx123/web-clone` 包，涵盖 URL 发现、下载、改写全流程
 
 ---
 
@@ -83,7 +83,7 @@
 
 #### 问题 ⑦：目录模式 CSS 内容中 `url()` 不重写
 
-**文件**: `packages/core/src/output/bundle.ts` — `assembleBundle()`
+**文件**: `src/core/output/bundle.ts` — `assembleBundle()`
 
 **现象**: 下载的 CSS 文件写入磁盘后，其内部的 `url(https://example.com/font.woff2)` 仍指向远程地址，离线打开时无法加载字体/背景图等资源。
 
@@ -97,7 +97,7 @@
 
 #### 问题 ⑤：JS 动态 URL 发现盲区
 
-**文件**: `packages/core/src/discovery/recursive-scanner.ts`
+**文件**: `src/core/discovery/recursive-scanner.ts`
 
 **现象**: SPA 框架（Vue/React/Angular）通过运行时拼接的 URL（如 `new URL(\`./chunk-${hash}.js\`, import.meta.url)`）加载的代码分割资源无法被发现。
 
@@ -109,7 +109,7 @@
 
 #### 问题 ①：同站点导航链接未改写
 
-**文件**: `packages/core/src/output/bundle.ts`
+**文件**: `src/core/output/bundle.ts`
 
 **现象**: `<a href="/about">` 指向同一站点其他页面的链接未被改写为本地路径，离线模式下点击会跳转到远程网站（或无法加载）。
 
@@ -123,7 +123,7 @@
 
 #### 问题 ⑥：srcset URL 百分比编码匹配失败
 
-**文件**: `packages/core/src/output/bundle.ts` — `assembleBundle()` 的 srcset 重写
+**文件**: `src/core/output/bundle.ts` — `assembleBundle()` 的 srcset 重写
 
 **现象**: 浏览器在 `srcset` 属性中会对 URL 进行百分比编码（如 `image.png?w=200` 可能变为 `image.png%3Fw%3D200`），而 `originUrl` 是未编码的，导致正则匹配失败。
 
@@ -133,7 +133,7 @@
 
 #### 问题 ②：字符串替换误伤风险
 
-**文件**: `packages/core/src/output/single-file.ts` — `rewriteUrls()`
+**文件**: `src/core/output/single-file.ts` — `rewriteUrls()`
 
 **现象**: 全局字符串替换 `.split(original).join(replacement)` 可能将 URL 文本在非 URL 上下文中替换（如 JS 注释中出现相同 URL 文本）。
 
@@ -145,7 +145,7 @@
 
 #### 问题 ③：单文件模式媒体文件未处理
 
-**文件**: `packages/core/src/output/single-file.ts` — `assembleSingleFile()`
+**文件**: `src/core/output/single-file.ts` — `assembleSingleFile()`
 
 **现象**: `<video>`/`<audio>` 的 `src` 在单文件模式下不被改写，仍指向远程 URL。
 
@@ -153,7 +153,7 @@
 
 #### 问题 ⑧：协议相对 URL 处理不一致
 
-**文件**: `packages/core/src/parser/url-resolver.ts` vs `packages/core/src/discovery/recursive-scanner.ts`
+**文件**: `src/core/parser/url-resolver.ts` vs `src/core/discovery/recursive-scanner.ts`
 
 **现象**: `resolveUrl()` 使用 `new URL(raw, baseUrl)` 处理 `//` 协议相对 URL，而 `recursive-scanner.ts` 的 `normalizeUrl()` 手动补 `https:` 前缀，行为不同。
 
@@ -171,7 +171,7 @@
 3. 使用 `css-parser.ts` 中已有的 `rewriteCssUrls()` 函数进行替换
 4. 修改后的内容保存在 `asset.textContent` 中，由 `writeAssets()` 写入磁盘
 
-**文件**: `packages/core/src/output/bundle.ts`
+**文件**: `src/core/output/bundle.ts`
 
 ### 修复 2：srcset URL 编码兼容（P2）
 
@@ -179,7 +179,7 @@
 
 **方案**: 除了匹配原始 `originUrl`，同时尝试匹配经过 `encodeURI` 编码的版本。
 
-**文件**: `packages/core/src/output/bundle.ts`
+**文件**: `src/core/output/bundle.ts`
 
 ### 修复 3：JS 动态 URL 发现（P1）
 
@@ -187,7 +187,7 @@
 
 **方案**: 在 Playwright/Puppeteer 适配器中，通过 `page.on('request')` 事件拦截并记录所有发出的 HTTP 请求，作为 `extractJsUrls` 的补充。
 
-**文件**: `packages/core/src/adapters/fetcher-adapter.ts`（接口变更）
+**文件**: `src/core/adapters/fetcher-adapter.ts`（接口变更）
 `packages/adapter-playwright/src/adapter.ts`
 `packages/adapter-puppeteer/src/adapter.ts`
 
@@ -197,7 +197,7 @@
 
 **方案**: 在 `assembleBundle()` 中，遍历所有 `<a href>`，如果链接指向的 URL 与已下载的某个资产匹配，则改写为本地路径（不限于 route-path 资产）。
 
-**文件**: `packages/core/src/output/bundle.ts`
+**文件**: `src/core/output/bundle.ts`
 
 ---
 
@@ -217,13 +217,13 @@
 
 | 文件 | 角色 |
 |------|------|
-| `packages/core/src/parser/url-resolver.ts` | URL 解析与规范化 |
-| `packages/core/src/parser/html-parser.ts` | HTML 中的 URL 发现 |
-| `packages/core/src/parser/css-parser.ts` | CSS 中的 URL 发现与重写 |
-| `packages/core/src/discovery/recursive-scanner.ts` | JS/JSON 中的 URL 发现 |
-| `packages/core/src/fetcher.ts` | 资源下载与 data URI 生成 |
-| `packages/core/src/resource-filter.ts` | 资源过滤规则 |
-| `packages/core/src/assembler.ts` | 主调度逻辑 |
-| `packages/core/src/output/single-file.ts` | 单文件模式组装 |
-| `packages/core/src/output/bundle.ts` | 目录模式组装 |
-| `packages/core/src/output/path-fixer.ts` | 绝对路径修复 |
+| `src/core/parser/url-resolver.ts` | URL 解析与规范化 |
+| `src/core/parser/html-parser.ts` | HTML 中的 URL 发现 |
+| `src/core/parser/css-parser.ts` | CSS 中的 URL 发现与重写 |
+| `src/core/discovery/recursive-scanner.ts` | JS/JSON 中的 URL 发现 |
+| `src/core/fetcher.ts` | 资源下载与 data URI 生成 |
+| `src/core/resource-filter.ts` | 资源过滤规则 |
+| `src/core/assembler.ts` | 主调度逻辑 |
+| `src/core/output/single-file.ts` | 单文件模式组装 |
+| `src/core/output/bundle.ts` | 目录模式组装 |
+| `src/core/output/path-fixer.ts` | 绝对路径修复 |

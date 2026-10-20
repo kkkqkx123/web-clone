@@ -18,9 +18,9 @@
 import { mkdirSync, existsSync, rmSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { Page, BrowserContext, Browser } from 'playwright';
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
-import type { SignalTier } from '@web-clone/adapter-common';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
+import type { SignalTier } from '@kkkqkx123/web-clone/adapters/common';
 
 /**
  * 单次爬取的输入参数

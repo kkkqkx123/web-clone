@@ -5,15 +5,15 @@
  * This is the recommended starting point for Puppeteer users.
  *
  * Usage:
- *   pnpm tsx examples/puppeteer/01-basic-snapshot.ts
+ *   npx tsx examples/puppeteer/01-basic-snapshot.ts
  *
  * Prerequisites:
- *   pnpm add puppeteer @web-clone/core @web-clone/adapter-puppeteer
+ *   npm install -D @kkkqkx123/web-clone puppeteer
  */
 
 import puppeteer from 'puppeteer';
-import { snapshot } from '@web-clone/core';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 
 async function main() {
   // 1. Launch browser (you control this)

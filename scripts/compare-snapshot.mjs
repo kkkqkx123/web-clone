@@ -7,7 +7,7 @@
  *
  * 用法：
  *   node scripts/compare-snapshot.mjs <original.html> <snapshot.html>
- *   node scripts/compare-snapshot.mjs debug-page.html apps/cli/snapshot/index.html
+ *   node scripts/compare-snapshot.mjs debug-page.html ./snapshot/index.html
  */
 
 import { readFileSync } from 'node:fs';

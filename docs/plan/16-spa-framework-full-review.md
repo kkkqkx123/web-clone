@@ -37,18 +37,18 @@ HTTP 适配器 ──→ 静态 HTML ──→ detectFramework() ──→ detec
 | `packages/adapter-common/src/spa-detector.ts` | adapter-common | 浏览器端 SPA 水合检测（四阶段等待） |
 | `packages/adapter-playwright/src/adapter.ts` | adapter-playwright | Playwright 浏览器适配器 |
 | `packages/adapter-puppeteer/src/adapter.ts` | adapter-puppeteer | Puppeteer 浏览器适配器 |
-| `packages/core/src/framework/detector.ts` | core | 静态框架检测（五维度分层） |
-| `packages/core/src/framework/types.ts` | core | FrameworkType、PostSnapshotStrategy 类型 |
-| `packages/core/src/framework/injector.ts` | core | 探针脚本注入器 |
-| `packages/core/src/framework/strategies/*.ts` | core | 12 种框架策略（nuxt2/nuxt3/vue2/vue3/react18/nextjs/angular/sveltekit/vitepress/astro/static） |
-| `packages/core/src/assembler.ts` | core | 快照组装主管线（含合并决策） |
-| `packages/core/src/converter.ts` | core | 组件转换管线 |
-| `packages/core/src/transform/component-analyzer.ts` | core | HTML 组件边界识别（SAX 流解析） |
-| `packages/core/src/transform/css-analyzer.ts` | core | CSS 规则分组（BEM 命名） |
-| `packages/core/src/transform/js-analyzer.ts` | core | JS 分析（Babel AST + 正则回退） |
-| `packages/core/src/transform/correlator.ts` | core | 组件与 CSS/JS 关联 |
-| `packages/core/src/transform/generator.ts` | core | 组件结构生成 |
-| `packages/core/src/output/convert.ts` | core | 组件输出与代码生成组装 |
+| `src/core/framework/detector.ts` | core | 静态框架检测（五维度分层） |
+| `src/core/framework/types.ts` | core | FrameworkType、PostSnapshotStrategy 类型 |
+| `src/core/framework/injector.ts` | core | 探针脚本注入器 |
+| `src/core/framework/strategies/*.ts` | core | 12 种框架策略（nuxt2/nuxt3/vue2/vue3/react18/nextjs/angular/sveltekit/vitepress/astro/static） |
+| `src/core/assembler.ts` | core | 快照组装主管线（含合并决策） |
+| `src/core/converter.ts` | core | 组件转换管线 |
+| `src/core/transform/component-analyzer.ts` | core | HTML 组件边界识别（SAX 流解析） |
+| `src/core/transform/css-analyzer.ts` | core | CSS 规则分组（BEM 命名） |
+| `src/core/transform/js-analyzer.ts` | core | JS 分析（Babel AST + 正则回退） |
+| `src/core/transform/correlator.ts` | core | 组件与 CSS/JS 关联 |
+| `src/core/transform/generator.ts` | core | 组件结构生成 |
+| `src/core/output/convert.ts` | core | 组件输出与代码生成组装 |
 | `packages/codegen/src/framework-rules.ts` | codegen | 框架规则映射 + 模板转换 |
 | `packages/codegen/src/*-generator.ts` | codegen | Vue/React/Angular/Svelte/jQuery 代码生成器 |
 
@@ -228,7 +228,7 @@ if (browserFramework && browserFramework.framework !== 'unknown') {
 
 ### 3.3 策略注册表
 
-`packages/core/src/framework/strategies/index.ts` 中 12 种策略按优先级有序排列：
+`src/core/framework/strategies/index.ts` 中 12 种策略按优先级有序排列：
 
 ```
 nuxt3     → markers.includes('__NUXT__')
@@ -362,7 +362,7 @@ vue3/nuxt3 及其他  → Composition API (默认)
 #### 问题 2：合并逻辑使用严格 `>` 比较
 
 **严重程度**：P1
-**位置**：`packages/core/src/assembler.ts:669`
+**位置**：`src/core/assembler.ts:669`
 
 **现状**：`if (browserConfidence > detection.confidence)` 使用严格大于比较。当浏览器检测与静态检测置信度相等时（例如 `0.80 === 0.80`），静态检测结果优先。
 
@@ -376,7 +376,7 @@ vue3/nuxt3 及其他  → Composition API (默认)
 
 **严重程度**：P1
 **位置**：
-- `packages/core/src/framework/detector.ts:113-120`
+- `src/core/framework/detector.ts:113-120`
 - `packages/adapter-common/src/spa-detector.ts:174-179`
 
 **现状**：维度4 的 Angular 检测依赖 `ng.probe`（仅 dev 环境存在）和 `platformBrowser`（会被生产构建压缩器重命名）。新增的 `ɵcmp`/`ɵmod`/`ɵdir`/`ɵfac` 后缀提供了部分改进，但 Angular 17+ 的 standalone components API 可能减少这些模式的使用频率。
@@ -398,7 +398,7 @@ hasAngular: w.ng !== undefined && w.ng.probe !== undefined
 #### 问题 4：Nuxt 2/3 混淆风险（维度5 回退）
 
 **严重程度**：P1
-**位置**：`packages/core/src/framework/detector.ts:130-131`
+**位置**：`src/core/framework/detector.ts:130-131`
 
 **现状**：当 `id="__nuxt"` DOM 节点存在但未检测到 `window.__NUXT__` 全局变量时，返回 `nuxt2`（置信度 0.5）：
 
@@ -423,7 +423,7 @@ Nuxt 3 SSR 输出同样包含 `#__nuxt` 挂载点。如果 `window.__NUXT__` 的
 #### 问题 5：P2 语义标签假阳性
 
 **严重程度**：P2
-**位置**：`packages/core/src/transform/component-analyzer.ts`（P2 优先级检测）
+**位置**：`src/core/transform/component-analyzer.ts`（P2 优先级检测）
 
 **现状**：所有 `<section>`、`<article>`、`<header>`、`<footer>`、`<nav>`、`<main>` 标签被无条件识别为组件根。在典型营销页面中产生大量假阳性：
 
@@ -446,7 +446,7 @@ Nuxt 3 SSR 输出同样包含 `#__nuxt` 挂载点。如果 `window.__NUXT__` 的
 #### 问题 6：P4 嵌套判断仅用 `startOffset`
 
 **严重程度**：P2
-**位置**：`packages/core/src/transform/component-analyzer.ts`（`StreamingHtmlAnalyzer.isCandidateContaining` 方法）
+**位置**：`src/core/transform/component-analyzer.ts`（`StreamingHtmlAnalyzer.isCandidateContaining` 方法）
 
 **现状**：嵌套判断仅比较起始偏移量：
 
@@ -468,7 +468,7 @@ return parent.startOffset < child.startOffset && parent.endOffset > child.endOff
 #### 问题 7：递归扫描后不重新检测框架
 
 **严重程度**：P2
-**位置**：`packages/core/src/assembler.ts:484-626`（递归扫描）、`assembler.ts:666`（框架检测调用）
+**位置**：`src/core/assembler.ts:484-626`（递归扫描）、`assembler.ts:666`（框架检测调用）
 
 **现状**：多轮递归资源扫描（round 2+）可能发现新的 JS 文件，但框架检测仅在管线末尾执行一次，使用的是首轮 HTML + 首轮 JS 内容。
 
@@ -504,7 +504,7 @@ cleanAttributes: (html: string): string => {
 #### 问题 9：CSS Modern 方案分析能力缺失
 
 **严重程度**：P3
-**位置**：`packages/core/src/transform/css-analyzer.ts`
+**位置**：`src/core/transform/css-analyzer.ts`
 
 **现状**：CSS 分析使用 BEM 命名规则（`block__element--modifier`）进行规则分组。以下现代 CSS 方案的组件分组能力为零：
 
@@ -551,7 +551,7 @@ vue2: 'vue', vue3: 'vue', nuxt2: 'vue', nuxt3: 'vue', vitepress: 'vue'
 #### 问题 11：JS 分析的模块导入理解缺失
 
 **严重程度**：P3
-**位置**：`packages/core/src/transform/js-analyzer.ts`
+**位置**：`src/core/transform/js-analyzer.ts`
 
 **现状**：Babel AST 解析能提取变量声明、函数定义，但对框架 DSL 的理解有限：
 - `import { ref } from 'vue'` 创建的 `ref()` 响应式变量被当作普通 `const` 变量

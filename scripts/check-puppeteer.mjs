@@ -21,7 +21,6 @@ const ROOT = resolve(__dirname, '..');
 
 function resolvePuppeteer() {
   const candidates = [
-    resolve(ROOT, 'packages/adapter-puppeteer'),
     resolve(ROOT, 'node_modules'),
   ];
   for (const base of candidates) {
@@ -54,7 +53,7 @@ async function main() {
   const resolved = resolvePuppeteer();
   if (!resolved) {
     console.log('  ❌ Puppeteer package not found');
-    console.log('\n  Install: pnpm add @web-clone/adapter-puppeteer\n');
+    console.log('\n  Install: npm install -D puppeteer\n');
     process.exit(1);
   }
 

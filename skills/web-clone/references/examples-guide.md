@@ -50,7 +50,7 @@ All examples write output to `examples/output/`. This directory is created autom
 
 ### inspect/01-page-discovery.ts
 
-Demonstrates `@web-clone/core` library APIs for page analysis:
+Demonstrates `@kkkqkx123/web-clone` library APIs for page analysis:
 - `inspectStructure()` — Find repeating HTML structures
 - `locateElement()` — Find elements containing specific text
 - `countElements()` — Count CSS selector matches
@@ -135,12 +135,12 @@ Swap the import and adapter class — the rest of the logic stays identical:
 ```typescript
 // Playwright
 import { chromium } from 'playwright';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 const adapter = new PlaywrightFetcherAdapter(page, context, opts);
 
 // Puppeteer
 import puppeteer from 'puppeteer';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 const adapter = new PuppeteerFetcherAdapter(page, opts);
 ```
 
@@ -191,6 +191,6 @@ const browser = await puppeteer.launch({
 ## Notes
 
 - Output goes to `examples/output/`. Add this directory to `.gitignore`.
-- Inspect examples use only `fetch` + `@web-clone/core` — no browser needed.
-- Playwright examples import `playwright` directly (peer dependency of `@web-clone/adapter-playwright`).
+- Inspect examples use only `fetch` + `@kkkqkx123/web-clone` — no browser needed.
+- Playwright examples import `playwright` directly (peer dependency of `@kkkqkx123/web-clone/adapters/playwright`).
 - Puppeteer examples require `puppeteer` to be installed separately.

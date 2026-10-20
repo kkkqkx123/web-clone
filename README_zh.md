@@ -25,7 +25,7 @@
 通过 npm 全局安装 CLI 工具：
 
 ```bash
-npm install -g @kkkqkx123/web-clone-cli
+npm install -g @kkkqkx123/web-clone
 ```
 
 安装后，`web-clone` 命令即可全局使用：
@@ -39,57 +39,50 @@ web-clone https://example.com -o ./snapshot
 在您的 Node.js/TypeScript 项目中以库的方式使用 web-clone：
 
 ```bash
-# 核心快照引擎
-pnpm add @web-clone/core
+# 单包(含核心引擎、CLI、代码生成)
+npm install -D @kkkqkx123/web-clone
 
-# 可选：浏览器自动化适配器
-pnpm add @web-clone/adapter-playwright
-pnpm add @web-clone/adapter-puppeteer
-
-# 可选：框架代码生成器
-pnpm add @web-clone/codegen
-
-# 可选：共享类型
-pnpm add @web-clone/types
+# 可选:浏览器自动化(peer 依赖,按需安装)
+npm install -D playwright   # 用于 --adapter playwright
+npm install -D puppeteer    # 用于 --adapter puppeteer
 ```
 
-### 包一览
+### 模块一览
 
-| 包名 | npm 作用域 | 说明 |
+| 模块 | 位置 | 说明 |
 |------|-----------|------|
-| `@kkkqkx123/web-clone-cli` | `@kkkqkx123`（个人） | CLI 应用，提供 `web-clone` 命令 |
-| `@web-clone/core` | `@web-clone`（组织） | 核心快照引擎 |
-| `@web-clone/adapter-common` | `@web-clone`（组织） | 共享 SPA 水合检测与自动化类型 |
-| `@web-clone/adapter-playwright` | `@web-clone`（组织） | Playwright 浏览器自动化适配器 |
-| `@web-clone/adapter-puppeteer` | `@web-clone`（组织） | Puppeteer 浏览器自动化适配器 |
-| `@web-clone/codegen` | `@web-clone`（组织） | 框架代码生成器（Vue/React/Angular/Svelte/jQuery） |
-| `@web-clone/types` | `@web-clone`（组织） | 共享 TypeScript 类型定义 |
+| 核心快照引擎 | `src/core/` | 快照引擎、解析器、输出组装、组件分析、查询、校验 |
+| SPA 水合检测 | `src/adapters/common.ts` | 共享 SPA 水合检测与自动化类型 |
+| Playwright 适配器 | `src/adapters/playwright/` | Playwright 浏览器自动化适配器 |
+| Puppeteer 适配器 | `src/adapters/puppeteer/` | Puppeteer 浏览器自动化适配器 |
+| 代码生成器 | `src/codegen/` | 框架代码生成器(Vue/React/Angular/Svelte/jQuery) |
+| CLI | `src/cli/` | Commander CLI,提供 `web-clone` 命令 |
 
 ## 快速开始
 
 ```bash
 # 安装依赖
-pnpm install
+npm install
 
 # 直接运行（无需编译）
-pnpm dev:cli https://example.com -o ./snapshot
+npm run snapshot -- https://example.com -o ./snapshot
 
 # 或先编译再运行
-pnpm build
-node apps/cli/dist/cli.js https://example.com -o ./snapshot
+npm run build
+node dist/cli/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell 用户**：`pnpm dev:cli <url>` 可直接使用（CLI 已自动处理 `--` 传递问题）。如仍遇到问题，可将 `--` 加引号 —— `pnpm dev:cli '--' <url>`，或直接使用 `npx tsx apps/cli/src/cli.ts <url>`。
+> **PowerShell 用户**：`npm run snapshot -- <url>` 可直接使用（CLI 已自动处理 `--` 传递问题）。如仍遇到问题，可将 `--` 加引号 —— `npm run snapshot -- '--' <url>`，或直接使用 `npx tsx src/cli/cli.ts <url>`。
 > **代理用户注意**：工具自动读取 `HTTPS_PROXY`/`HTTP_PROXY` 环境变量，见 [docs/proxy.md](docs/proxy.md)。
 
 ## CLI 使用
 
 ```bash
-pnpm dev:cli <url> [options]                         # 快照（默认命令）
-pnpm dev:cli inspect <url> [options]                    # 页面结构分析
-pnpm dev:cli query <url> <selector> [options]           # 结构化数据提取
-pnpm dev:cli validate <output-dir>                      # 验证快照完整性
-pnpm dev:cli clean <output-dir> [options]               # 清理损坏文件
+npm run snapshot -- <url> [options]                         # 快照（默认命令）
+npm run snapshot -- inspect <url> [options]                    # 页面结构分析
+npm run snapshot -- query <url> <selector> [options]           # 结构化数据提取
+npm run snapshot -- validate <output-dir>                      # 验证快照完整性
+npm run snapshot -- clean <output-dir> [options]               # 清理损坏文件
 ```
 
 ### 基础选项
@@ -181,16 +174,16 @@ pnpm dev:cli clean <output-dir> [options]               # 清理损坏文件
 
 ```
 # 页面结构分析
-pnpm dev:cli inspect <url> [--outline | --locate <text> | --count <sel> | --md]
+npm run snapshot -- inspect <url> [--outline | --locate <text> | --count <sel> | --md]
 
 # 结构化数据提取
-pnpm dev:cli query <url> <selector> [--row <spec> | --table | --attr <n> | --json]
+npm run snapshot -- query <url> <selector> [--row <spec> | --table | --attr <n> | --json]
 
 # 验证快照完整性
-pnpm dev:cli validate <output-dir>
+npm run snapshot -- validate <output-dir>
 
 # 清理损坏/零字节文件
-pnpm dev:cli clean <output-dir> [--dry-run] [--re-download]
+npm run snapshot -- clean <output-dir> [--dry-run] [--re-download]
 ```
 
 完整选项参考见 [docs/commands.md](docs/commands.md)。
@@ -201,80 +194,80 @@ pnpm dev:cli clean <output-dir> [--dry-run] [--re-download]
 
 ```bash
 # Bundle 模式（默认）— 目录结构，资源分离存储
-pnpm dev:cli https://example.com -o ./site
+npm run snapshot -- https://example.com -o ./site
 
 # Single 模式 — 自包含 HTML 文件
-pnpm dev:cli https://example.com -o snapshot.html -m single
+npm run snapshot -- https://example.com -o snapshot.html -m single
 ```
 
 ### 浏览器自动化
 
 ```bash
 # Playwright（SPA/SSR 站点）
-pnpm dev:cli https://spa-site.com --adapter playwright
+npm run snapshot -- https://spa-site.com --adapter playwright
 
 # 混合模式：浏览器渲染 + HTTP 池下载
-pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
+npm run snapshot -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### 组件提取
 
 ```bash
 # 提取组件结构
-pnpm dev:cli https://example.com --extract-components
+npm run snapshot -- https://example.com --extract-components
 
 # 指定框架和深度限制
-pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5
+npm run snapshot -- https://example.com --extract-components --framework vue --component-depth 5
 
 # 生成框架代码
-pnpm dev:cli https://example.com --extract-components --codegen-framework react
+npm run snapshot -- https://example.com --extract-components --codegen-framework react
 ```
 
 ### 资源过滤
 
 ```bash
 # 使用预设
-pnpm dev:cli https://example.com --resource-preset no-media
+npm run snapshot -- https://example.com --resource-preset no-media
 
 # 精细控制
-pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
+npm run snapshot -- https://example.com --include-video --include-fonts --exclude-images
 
 # 包含所有文件类型
-pnpm dev:cli https://example.com --include-all
+npm run snapshot -- https://example.com --include-all
 ```
 
 ### 递归扫描
 
 ```bash
-pnpm dev:cli https://example.com --scan-depth 3 --scan-json
+npm run snapshot -- https://example.com --scan-depth 3 --scan-json
 ```
 
 ### 本地转换（无需重新拉取）
 
 ```bash
-pnpm dev:cli --convert-local ./project --codegen-framework vue
+npm run snapshot -- --convert-local ./project --codegen-framework vue
 ```
 
 ### 本地转换（无需重新拉取）
 
 ```bash
-pnpm dev:cli --convert-local ./project --codegen-framework vue
+npm run snapshot -- --convert-local ./project --codegen-framework vue
 ```
 
 ### 服务模式
 
 ```bash
 # 仅生成服务文件（不启动服务器）
-pnpm dev:cli https://example.com -o ./site --serve
+npm run snapshot -- https://example.com -o ./site --serve
 
 # 生成服务文件并立即启动服务器
-pnpm dev:cli https://example.com -o ./site --serve --run
+npm run snapshot -- https://example.com -o ./site --serve --run
 
 # 使用反向代理（处理运行时 API 请求）
-pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+npm run snapshot -- https://spa-site.com --adapter playwright --serve --run --proxy
 
 # 自定义端口，禁用代理
-pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+npm run snapshot -- https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
 ```
 
 生成服务文件后，输出目录可直接独立部署：
@@ -291,23 +284,23 @@ start.bat               # Windows
 
 ```bash
 # 结构大纲
-pnpm dev:cli inspect https://example.com --outline
+npm run snapshot -- inspect https://example.com --outline
 
 # 查找包含文本的元素
-pnpm dev:cli inspect https://example.com --locate "搜索"
+npm run snapshot -- inspect https://example.com --locate "搜索"
 
 # 提取表格数据
-pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100' --json
+npm run snapshot -- query https://example.com 'table' --table --where 'Stars >= 100' --json
 
 # 验证和清理
-pnpm dev:cli validate ./output
-pnpm dev:cli clean ./output --dry-run
+npm run snapshot -- validate ./output
+npm run snapshot -- clean ./output --dry-run
 ```
 
 ### 完整示例
 
 ```bash
-pnpm dev:cli https://example.com \
+npm run snapshot -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -393,13 +386,13 @@ snapshot_components/            # （如果 --extract-components）
 web-clone 也可作为库在您自己的 Node.js/TypeScript 项目中使用：
 
 ```bash
-pnpm add @web-clone/core
-# 可选：pnpm add @web-clone/adapter-playwright @web-clone/codegen
+npm install -D @kkkqkx123/web-clone
+# 可选浏览器自动化：npm install -D playwright
 ```
 
 ```typescript
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 
 // HTTP 快照
 const result = await snapshot('https://example.com', {
@@ -420,7 +413,7 @@ web-clone 支持多层配置合并（优先级从低到高）：
 
 | 优先级 | 位置 | 说明 |
 |--------|------|------|
-| 0 | 内置默认值 | `packages/core/src/config/defaults.ts` |
+| 0 | 内置默认值 | `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | 全局用户配置 |
 | 2 | `./web-clone.config.json` / `.web-clonerc` | 项目级配置 |
 | 3 | CLI 参数 | 最高优先级 |
@@ -431,13 +424,13 @@ web-clone 支持多层配置合并（优先级从低到高）：
 
 ### PowerShell
 
-`pnpm dev:cli <url>` 可直接使用 —— CLI 已自动过滤 pnpm 传递的 `"--"` 字面量。如仍遇到问题：
+`npm run snapshot -- <url>` 可直接使用 —— CLI 已自动过滤 npm 传递的 `"--"` 字面量。如仍遇到问题：
 
 ```powershell
 # 将 -- 加引号以避免 PowerShell 截获：
-pnpm dev:cli '--' "https://example.com" -o ./snapshot
-# 或绕过 pnpm 直接使用 tsx：
-npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
+npm run snapshot -- '--' "https://example.com" -o ./snapshot
+# 或绕过 npm scripts 直接使用 tsx：
+npx tsx src/cli/cli.ts "https://example.com" -o ./snapshot
 ```
 
 ### 代理
@@ -448,41 +441,40 @@ npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
 
 ```bash
 # 安装依赖
-pnpm install
+npm install
 
-# 构建所有包（turbo 并行编译）
-pnpm build
+# 构建
+npm run build
 
 # 无需编译直接运行
-pnpm dev:cli <url>
+npm run snapshot -- <url>
 
-# 监听模式（所有包）
-pnpm dev
+# 监听模式
+npm run dev
 
 # 运行测试
-pnpm test                # turbo run test
-pnpm test:unit           # @web-clone/core 单元测试
-pnpm test:integration    # CLI 集成测试
+npm run test
+npm run test:unit           # 仅单元测试
+npm run test:integration    # CLI/浏览器适配器集成测试
 
 # 清理构建产物
-pnpm clean
+npm run clean
 ```
 
 ## 项目结构
 
 ```
-├── apps/cli/                     # CLI 应用（Commander）
-├── packages/
-│   ├── core/                     # @web-clone/core — 快照引擎
-│   ├── adapter-common/           # 共享 SPA 水合检测
-│   ├── adapter-playwright/       # Playwright 浏览器适配器
-│   ├── adapter-puppeteer/        # Puppeteer 浏览器适配器
-│   └── codegen/                  # 框架代码生成器
+├── src/
+│   ├── cli/                      # CLI 应用（Commander）
+│   ├── core/                     # 快照引擎
+│   ├── codegen/                  # 框架代码生成器
+│   ├── adapters/                 # Playwright/Puppeteer 适配器 + 共享水合检测
+│   └── types.ts                  # 共享类型
 ├── docs/                         # 文档
 ├── examples/                     # 使用示例
 │   ├── config-examples/          # 配置文件示例
 │   └── playwright/               # Playwright 集成示例
-└── pnpm-workspace.yaml           # Monorepo 配置
+└── package.json                  # 单包配置（npm）
 ```
 
 ## 文档

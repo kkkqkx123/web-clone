@@ -13,13 +13,13 @@
  *   - Visual diff workflows
  *
  * Usage:
- *   pnpm tsx examples/inspect/03-test-workflow-with-snapshot.ts <url>
+ *   npx tsx examples/inspect/03-test-workflow-with-snapshot.ts <url>
  *
  *   # Simulate a failing assertion to see the snapshot behavior:
- *   ASSERT_FAIL=true pnpm tsx examples/inspect/03-test-workflow-with-snapshot.ts https://example.com
+ *   ASSERT_FAIL=true npx tsx examples/inspect/03-test-workflow-with-snapshot.ts https://example.com
  *
  * Prerequisites:
- *   pnpm add @web-clone/core jsdom
+ *   npm install -D @kkkqkx123/web-clone jsdom
  */
 
 import { JSDOM } from 'jsdom';
@@ -31,7 +31,7 @@ import {
   countElements,
   toMarkdown,
   sanitizeLine,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 // ─── Failure Context ────────────────────────────────────────────
 // Collected when an assertion fails, to aid debugging.
@@ -212,7 +212,7 @@ async function runTests(
 
 const url = process.argv[2];
 if (!url) {
-  console.error('Usage: pnpm tsx examples/inspect/03-test-workflow-with-snapshot.ts <url>');
+  console.error('Usage: npx tsx examples/inspect/03-test-workflow-with-snapshot.ts <url>');
   console.error('');
   console.error('Environment:');
   console.error('  ASSERT_FAIL=true    Simulate a failing assertion to demonstrate snapshot-on-failure');

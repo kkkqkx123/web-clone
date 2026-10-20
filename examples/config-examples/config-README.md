@@ -89,7 +89,7 @@ All config files use JSON format with the following top-level fields:
 #   { "include": { "wasm": true }, "defaults": { "concurrency": 8, "maxAssets": 200 } }
 
 # CLI invocation:
-pnpm dev:cli -- https://example.com --include-video -o ./out
+npm run snapshot -- https://example.com --include-video -o ./out
 
 # Actual effective config:
 #   resourcePreset: "minimal" (from global)
@@ -125,7 +125,7 @@ Create `web-clone.config.json` in your project root:
 
 ```bash
 # Uses merged config (global + project) + CLI overrides
-pnpm dev:cli -- https://example.com --output ./custom-out
+npm run snapshot -- https://example.com --output ./custom-out
 ```
 
 ## Example Files

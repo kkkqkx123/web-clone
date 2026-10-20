@@ -1,0 +1,195 @@
+import { BaseFrameworkGenerator } from './base-generator.js';
+import type { ComponentSpec, FrameworkCodeGenOptions, GeneratedComponent } from '@kkkqkx123/web-clone/types';
+import type { StateVariable, EventBinding } from '@kkkqkx123/web-clone/types';
+import { frameworkRules, templateRules } from './framework-rules.js';
+
+/**
+ * jQuery component code generator
+ * Generates jQuery-based component class with DOM manipulation
+ */
+export class JQueryGenerator extends BaseFrameworkGenerator {
+  constructor() {
+    super('jquery');
+  }
+
+  generate(
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
+  ): GeneratedComponent {
+    const componentName = this.pascalCase(spec.name);
+    const stateDeclarations = this.mapState(spec.logic?.state || [], options);
+    const eventSetup = this.mapEvents(spec.logic?.events || [], options);
+    const imports = this.collectImports(spec, options);
+    const cssGuidance = spec.styles ? this.mapStyles(spec.styles, options) : '';
+
+    const code = `${imports.join('\n')}
+
+export class ${componentName} {
+  private $root: JQuery;
+${stateDeclarations}
+
+  constructor(selector: string) {
+    this.$root = $(selector);
+    this.init();
+  }
+
+  private init(): void {
+    this.setupEventListeners();
+    this.render();
+  }
+
+  private setupEventListeners(): void {
+${eventSetup}
+  }
+
+  private render(): void {
+    // TODO: Implement render() to update DOM based on state
+    this.updateContent();
+  }
+
+  private updateContent(): void {
+    // TODO: Update component content with current state
+  }
+}
+${cssGuidance ? '\n' + cssGuidance : ''}`;
+
+    return {
+      name: spec.name,
+      code,
+      language: options.typescript ? 'ts' : 'js',
+      imports,
+      dependencies: this.resolveDependencies(spec, options),
+      metadata: this.buildMetadata(spec)
+    };
+  }
+
+  protected mapState(
+    state: StateVariable[],
+    options: FrameworkCodeGenOptions
+  ): string {
+    if (state.length === 0) {
+      return '';
+    }
+
+    return state
+      .map(
+        (s) => {
+          const decl = frameworkRules.jquery.stateDeclaration(s.name, s.type, s.initial);
+          // When TypeScript is disabled, remove type annotations
+          if (options.typescript === false) {
+            return decl.replace(/: \w+ =/, ' =');
+          }
+          return '  ' + decl;
+        }
+      )
+      .join('\n');
+  }
+
+  protected mapEvents(
+    events: EventBinding[],
+    _options: FrameworkCodeGenOptions
+  ): string {
+    if (events.length === 0) {
+      return '    // No event listeners configured';
+    }
+
+    return events
+      .map(
+        (e) =>
+          `    this.$root.on('${e.event}', () => this.${e.handler}());`
+      )
+      .join('\n');
+  }
+
+  protected mapTemplate(
+    html: string,
+    _logic: unknown,
+    _options: FrameworkCodeGenOptions
+  ): string {
+    let template = html;
+
+    // Step 1: Replace data-binding with data-* attributes for jQuery selectors
+    // data-binding="count" -> data-count=""
+    template = template.replace(
+      /data-binding="([^"]*)"/g,
+      (_, variable) => `data-${variable}=""`
+    );
+
+    // Step 2: Clean up remaining data-event and data-condition attributes
+    template = templateRules.cleanAttributes(template);
+
+    return template;
+  }
+
+  protected mapStyles(
+    css: string,
+    _options: FrameworkCodeGenOptions
+  ): string {
+    if (!css) {
+      return '';
+    }
+    return `
+/* CSS (include via <link> tag or use inline styles) */
+${css}`;
+  }
+
+  protected collectImports(
+    spec: ComponentSpec,
+    options: FrameworkCodeGenOptions
+  ): string[] {
+    const imports = ["import $ from 'jquery';"];
+
+    if (options.typescript) {
+      imports.push("import type { JQuery } from 'jquery';");
+    }
+
+    return imports;
+  }
+
+  // ─── App template, main entry ────────────────────────────────────────────
+
+  generateAppTemplate(components: GeneratedComponent[], _options: FrameworkCodeGenOptions): string {
+    const imports = components
+      .map((c) => `import { ${c.name} } from './components/${c.name}/${c.name}';`)
+      .join('\n');
+
+    const initLines = components
+      .map((c) => `  new ${c.name}('#${c.name.toLowerCase()}');`)
+      .join('\n');
+
+    const htmlLines = components
+      .map((c) => `  <div id="${c.name.toLowerCase()}"></div>`)
+      .join('\n');
+
+    return `${imports}
+import $ from 'jquery';
+
+$(document).ready(() => {
+  console.log('App initialized');
+${initLines}
+});
+
+// HTML structure:
+// <div id="app">
+//   <main>
+${htmlLines}
+//   </main>
+// </div>
+`;
+  }
+
+  generateMainEntry(options: FrameworkCodeGenOptions): { filename: string; code: string } {
+    const filename = options.typescript ? 'main.ts' : 'main.js';
+    return {
+      filename,
+      code: `import $ from 'jquery'
+import('./App').then(module => {
+  $(document).ready(() => {
+    console.log('jQuery app ready');
+    // Initialize components here
+  });
+});
+`,
+    };
+  }
+}

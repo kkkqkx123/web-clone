@@ -12,16 +12,16 @@ want to import web-clone programmatically into their own projects.
 
 | Package | npm Scope | Description |
 |---------|-----------|-------------|
-| Core | `@web-clone/core` | Snapshot engine, parsers, output assemblers, component analysis, query, validation |
-| Adapter Common | `@web-clone/adapter-common` | Shared SPA hydration detection and automation types |
-| Adapter Playwright | `@web-clone/adapter-playwright` | Playwright browser integration (hard dep on Playwright) |
-| Adapter Puppeteer | `@web-clone/adapter-puppeteer` | Puppeteer browser integration (hard dep on Puppeteer) |
-| Codegen | `@web-clone/codegen` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
+| Core | `@kkkqkx123/web-clone` | Snapshot engine, parsers, output assemblers, component analysis, query, validation |
+| Adapter Common | `@kkkqkx123/web-clone/adapters/common` | Shared SPA hydration detection and automation types |
+| Adapter Playwright | `@kkkqkx123/web-clone/adapters/playwright` | Playwright browser integration (hard dep on Playwright) |
+| Adapter Puppeteer | `@kkkqkx123/web-clone/adapters/puppeteer` | Puppeteer browser integration (hard dep on Puppeteer) |
+| Codegen | `@kkkqkx123/web-clone` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
 | CLI | `web-clone-cli` | Commander-based CLI (separate application) |
 
 ---
 
-## @web-clone/core
+## @kkkqkx123/web-clone
 
 The core library. Provides the snapshot engine, HTML/CSS parsers, output assemblers,
 component extraction, query/data extraction, validation, and resource filtering.
@@ -29,17 +29,17 @@ component extraction, query/data extraction, validation, and resource filtering.
 ### Installation
 
 ```bash
-pnpm add @web-clone/core
+npm install -D @kkkqkx123/web-clone
 ```
 
 Peer dependencies (optional):
 - `jsdom` — required for component extraction and query subcommands
-- `@web-clone/codegen` — required for framework code generation
+- `@kkkqkx123/web-clone` — required for framework code generation
 
 ### Entry Point
 
 ```typescript
-import { snapshot } from '@web-clone/core';
+import { snapshot } from '@kkkqkx123/web-clone';
 ```
 
 ### Exports
@@ -60,7 +60,7 @@ async function snapshot(
 **Basic usage** (HTTP only):
 
 ```typescript
-import { snapshot } from '@web-clone/core';
+import { snapshot } from '@kkkqkx123/web-clone';
 
 const result = await snapshot('https://example.com', {
   output: './snapshot',
@@ -77,8 +77,8 @@ const result = await snapshot('https://example.com', {
 
 ```typescript
 import { chromium } from 'playwright';
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
@@ -109,7 +109,7 @@ async function convertLocalSnapshot(options: SnapshotOptions): Promise<SnapshotR
 ```
 
 ```typescript
-import { convertLocalSnapshot } from '@web-clone/core';
+import { convertLocalSnapshot } from '@kkkqkx123/web-clone';
 
 const result = await convertLocalSnapshot({
   url: './snapshot',          // path to existing output
@@ -236,7 +236,7 @@ interface ConvertResult extends SnapshotResult {
 Start a local HTTP server to serve a snapshot directory. Supports static file serving with ETag/Last-Modified cache control, CORS headers, and optional reverse proxy.
 
 ```typescript
-import { startSnapshotServer } from '@web-clone/core';
+import { startSnapshotServer } from '@kkkqkx123/web-clone';
 
 const server = startSnapshotServer('./snapshot', {
   port: 8080,
@@ -262,7 +262,7 @@ interface SnapshotServerOptions {
 Generate standalone server files (`server.js`, `package.json`, `proxy-config.json`, `start.bat`, `start.sh`) in the output directory. The generated `server.js` uses only Node.js built-in modules — zero npm dependencies.
 
 ```typescript
-import { generateStandaloneServerFiles } from '@web-clone/core';
+import { generateStandaloneServerFiles } from '@kkkqkx123/web-clone';
 
 generateStandaloneServerFiles('./snapshot', {
   url: 'https://example.com',
@@ -307,9 +307,9 @@ interface FetcherAdapter {
 
 | Adapter | Package | Description |
 |---------|---------|-------------|
-| `HttpFetcherAdapter` | `@web-clone/core` (built-in) | Default HTTP-based fetcher |
-| `PlaywrightFetcherAdapter` | `@web-clone/adapter-playwright` | Playwright browser adapter |
-| `PuppeteerFetcherAdapter` | `@web-clone/adapter-puppeteer` | Puppeteer browser adapter |
+| `HttpFetcherAdapter` | `@kkkqkx123/web-clone` (built-in) | Default HTTP-based fetcher |
+| `PlaywrightFetcherAdapter` | `@kkkqkx123/web-clone/adapters/playwright` | Playwright browser adapter |
+| `PuppeteerFetcherAdapter` | `@kkkqkx123/web-clone/adapters/puppeteer` | Puppeteer browser adapter |
 
 ---
 
@@ -318,7 +318,7 @@ interface FetcherAdapter {
 Built-in HTTP adapter. Used by default when no adapter is passed to `snapshot()`.
 
 ```typescript
-import { HttpFetcherAdapter } from '@web-clone/core';
+import { HttpFetcherAdapter } from '@kkkqkx123/web-clone';
 
 const adapter = new HttpFetcherAdapter({
   timeout: 15000,
@@ -341,7 +341,7 @@ import {
   resolveGroupOverrides,
   RESOURCE_PRESETS,
   EXTENSION_GROUPS,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 ```
 
 - `RESOURCE_PRESETS` — available presets: `none`, `minimal`, `default`, `no-media`, `aggressive`
@@ -354,7 +354,7 @@ import {
 #### ▸ HTML/CSS Parsers
 
 ```typescript
-import { parseHtml } from '@web-clone/core';
+import { parseHtml } from '@kkkqkx123/web-clone';
 // parse HTML document → extract asset references (CSS, JS, img, font, media)
 ```
 
@@ -368,7 +368,7 @@ import {
   cleanSnapshot,
   formatValidationReport,
   formatCleanResult,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 ```
 
 - `validateSnapshot(outputDir)` — inspect a snapshot directory for integrity issues
@@ -381,7 +381,7 @@ import {
 Use the `convert()` function directly if you already have HTML/CSS/JS strings:
 
 ```typescript
-import { convert } from '@web-clone/core';  // Note: internal, use snapshot() with extractComponents
+import { convert } from '@kkkqkx123/web-clone';  // Note: internal, use snapshot() with extractComponents
 
 // For direct access to analysis pipeline:
 // 1. analyzeHtml()      — HTML component boundary detection
@@ -415,10 +415,10 @@ import {
   rowStats,               // Row count statistics
   parseRowSpec,           // Parse "name=sel, name=sel@attr" row spec
   collapse, signature, selectorPath, inlineToMd,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 // Output formatting
-import { sanitizeLine, emitLines, emitJson } from '@web-clone/core';
+import { sanitizeLine, emitLines, emitJson } from '@kkkqkx123/web-clone';
 ```
 
 ---
@@ -436,7 +436,7 @@ import {
   parseFileSize,
   validateOptions,
   loadMergedConfig,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 ```
 
 - `DEFAULTS` — built-in default values
@@ -448,7 +448,7 @@ import {
 #### ▸ Worker Pool
 
 ```typescript
-import { runPool } from '@web-clone/core';
+import { runPool } from '@kkkqkx123/web-clone';
 
 // Generic concurrent task executor with timeout protection
 const results = await runPool(tasks, {
@@ -463,7 +463,7 @@ const results = await runPool(tasks, {
 #### ▸ Memory Budget
 
 ```typescript
-import { assessMemoryBudget, MemoryWatchdog } from '@web-clone/core';
+import { assessMemoryBudget, MemoryWatchdog } from '@kkkqkx123/web-clone';
 
 // Assess memory strategy based on input sizes
 const budget = assessMemoryBudget(html, css, js, maxMemoryMB);
@@ -490,7 +490,7 @@ import type {
   FetcherAdapter, FetchOptions, FetchResult, AuthContext,
   QueryEmitOptions, OutlineEntry, LocateHit, TableResult,
   EmitOptions, EmitResult,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 ```
 
 ---
@@ -508,21 +508,21 @@ import type {
 
 | Subpath | Contents |
 |---------|----------|
-| `@web-clone/core` | Main entry — snapshot, types, parsers, config, validation, query, resource filter |
-| `@web-clone/core/adapters` | FetcherAdapter interface + HttpFetcherAdapter implementation |
-| `@web-clone/core/types` | Core type definitions |
-| `@web-clone/core/config` | Config schema types |
+| `@kkkqkx123/web-clone` | Main entry — snapshot, types, parsers, config, validation, query, resource filter |
+| `@kkkqkx123/web-clone/adapters` | FetcherAdapter interface + HttpFetcherAdapter implementation |
+| `@kkkqkx123/web-clone/types` | Core type definitions |
+| `@kkkqkx123/web-clone/config` | Config schema types |
 
 ---
 
-## @web-clone/adapter-common
+## @kkkqkx123/web-clone/adapters/common
 
 Shared utilities for browser automation adapters.
 
 ### Installation
 
 ```bash
-pnpm add @web-clone/adapter-common
+npm install -D @kkkqkx123/web-clone/adapters/common
 ```
 
 ### Exports
@@ -537,7 +537,7 @@ export type { SpaPageLike, SpaDetectorOptions } from './spa-detector.js';
 Framework-agnostic SPA hydration detector. Works with both Playwright and Puppeteer pages.
 
 ```typescript
-import { waitForSpaHydration, type SpaPageLike } from '@web-clone/adapter-common';
+import { waitForSpaHydration, type SpaPageLike } from '@kkkqkx123/web-clone/adapters/common';
 
 // After page.goto()
 await waitForSpaHydration(page, {
@@ -565,7 +565,7 @@ interface SpaPageLike {
 
 ---
 
-## @web-clone/adapter-playwright
+## @kkkqkx123/web-clone/adapters/playwright
 
 Playwright browser automation adapter. Provides rendered HTML snapshots of
 SPA/SSR applications with authentication support.
@@ -573,9 +573,9 @@ SPA/SSR applications with authentication support.
 ### Installation
 
 ```bash
-pnpm add @web-clone/adapter-playwright
+npm install -D @kkkqkx123/web-clone/adapters/playwright
 # Peer: also install playwright in your project
-pnpm add playwright
+npm install -D playwright
 ```
 
 ### Exports
@@ -589,8 +589,8 @@ export type { PlaywrightAdapterOptions, PlaywrightWaitUntil } from './options.js
 
 ```typescript
 import { chromium } from 'playwright';
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
@@ -648,7 +648,7 @@ type PlaywrightWaitUntil = 'load' | 'domcontentloaded' | 'networkidle';
 
 ---
 
-## @web-clone/adapter-puppeteer
+## @kkkqkx123/web-clone/adapters/puppeteer
 
 Puppeteer browser automation adapter. Alternative to Playwright for projects
 already using Puppeteer.
@@ -656,9 +656,9 @@ already using Puppeteer.
 ### Installation
 
 ```bash
-pnpm add @web-clone/adapter-puppeteer
+npm install -D @kkkqkx123/web-clone/adapters/puppeteer
 # Peer: also install puppeteer in your project
-pnpm add puppeteer
+npm install -D puppeteer
 ```
 
 ### Exports
@@ -672,8 +672,8 @@ export type { PuppeteerAdapterOptions, PuppeteerWaitUntil } from './options.js';
 
 ```typescript
 import puppeteer from 'puppeteer';
-import { snapshot } from '@web-clone/core';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 
 const browser = await puppeteer.launch({ headless: true });
 const page = await browser.newPage();
@@ -721,7 +721,7 @@ type PuppeteerWaitUntil = 'load' | 'domcontentloaded' | 'networkidle';
 
 ---
 
-## @web-clone/codegen
+## @kkkqkx123/web-clone
 
 Framework code generators. Converts extracted component specifications into
 actual framework component source code.
@@ -729,7 +729,7 @@ actual framework component source code.
 ### Installation
 
 ```bash
-pnpm add @web-clone/codegen
+npm install -D @kkkqkx123/web-clone
 ```
 
 ### Exports
@@ -744,17 +744,17 @@ Subpath exports for individual generators:
 
 | Subpath | Generator |
 |---------|-----------|
-| `@web-clone/codegen/vue` | `VueGenerator` |
-| `@web-clone/codegen/react` | `ReactGenerator` |
-| `@web-clone/codegen/angular` | `AngularGenerator` |
-| `@web-clone/codegen/svelte` | `SvelteGenerator` |
-| `@web-clone/codegen/jquery` | `JQueryGenerator` |
+| `@kkkqkx123/web-clone/vue` | `VueGenerator` |
+| `@kkkqkx123/web-clone/react` | `ReactGenerator` |
+| `@kkkqkx123/web-clone/angular` | `AngularGenerator` |
+| `@kkkqkx123/web-clone/svelte` | `SvelteGenerator` |
+| `@kkkqkx123/web-clone/jquery` | `JQueryGenerator` |
 
 ### Usage
 
 ```typescript
-import { FrameworkCodeGenerator } from '@web-clone/codegen';
-import type { ComponentSpec, FrameworkCodeGenOptions } from '@web-clone/core';
+import { FrameworkCodeGenerator } from '@kkkqkx123/web-clone';
+import type { ComponentSpec, FrameworkCodeGenOptions } from '@kkkqkx123/web-clone';
 
 const generator = new FrameworkCodeGenerator();
 
@@ -815,7 +815,7 @@ The CLI application. Built on Commander. See [docs/commands.md](./commands.md) f
 ### Installation (global)
 
 ```bash
-pnpm add -g web-clone-cli
+npm install -g @kkkqkx123/web-clone
 snapshot --help
 ```
 
@@ -823,7 +823,7 @@ snapshot --help
 
 ```bash
 pnpm --filter web-clone-cli add
-pnpm dev:cli -- <url> [options]
+npm run <url> [options]
 ```
 
 ---
@@ -834,7 +834,7 @@ Implement the `FetcherAdapter` interface to integrate web-clone with any
 resource source (caching, custom auth, proxy chains, etc.):
 
 ```typescript
-import type { FetcherAdapter, FetchOptions, FetchResult, AuthContext } from '@web-clone/core';
+import type { FetcherAdapter, FetchOptions, FetchResult, AuthContext } from '@kkkqkx123/web-clone';
 
 class CustomCachingAdapter implements FetcherAdapter {
   private cache = new Map<string, FetchResult>();
@@ -874,7 +874,7 @@ const result = await snapshot('https://example.com', options, adapter);
 ### Pattern 1: Basic HTTP Snapshot
 
 ```typescript
-import { snapshot } from '@web-clone/core';
+import { snapshot } from '@kkkqkx123/web-clone';
 
 const result = await snapshot('https://example.com', {
   output: './output',
@@ -889,7 +889,7 @@ console.log(result.stats);
 ### Pattern 2: Snapshot with Component Extraction
 
 ```typescript
-import { snapshot } from '@web-clone/core';
+import { snapshot } from '@kkkqkx123/web-clone';
 
 const result = await snapshot('https://example.com', {
   output: './output',
@@ -911,7 +911,7 @@ if ('components' in result) {
 ### Pattern 3: Validate and Clean After Snapshot
 
 ```typescript
-import { validateSnapshot, cleanSnapshot, formatValidationReport } from '@web-clone/core';
+import { validateSnapshot, cleanSnapshot, formatValidationReport } from '@kkkqkx123/web-clone';
 
 // Validate
 const report = validateSnapshot('./output');
@@ -930,7 +930,7 @@ const result = await cleanSnapshot('./output', {
 
 ```typescript
 import { JSDOM } from 'jsdom';
-import { tableToRows, compileWhere, rowStats } from '@web-clone/core';
+import { tableToRows, compileWhere, rowStats } from '@kkkqkx123/web-clone';
 
 const dom = new JSDOM(await fetch(url).then(r => r.text()));
 const tables = [...dom.window.document.querySelectorAll('table')];
@@ -952,8 +952,8 @@ for (const table of tables) {
 ### Pattern 5: Framework Code Generation
 
 ```typescript
-import { FrameworkCodeGenerator } from '@web-clone/codegen';
-import type { ComponentSpec } from '@web-clone/core';
+import { FrameworkCodeGenerator } from '@kkkqkx123/web-clone';
+import type { ComponentSpec } from '@kkkqkx123/web-clone';
 
 const specs: ComponentSpec[] = [ /* ...extracted components */ ];
 const generator = new FrameworkCodeGenerator();
@@ -976,7 +976,7 @@ const genComponents = generator.generateComponents(specs, {
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                 User Project (your code)                  │
-│  import { snapshot } from '@web-clone/core'               │
+│  import { snapshot } from '@kkkqkx123/web-clone'               │
 └───────────┬──────────────────────────────┬───────────────┘
             │ snapshot()                   │ snapshot(..., adapter)
             ▼                              ▼
@@ -990,7 +990,7 @@ const genComponents = generator.generateComponents(specs, {
             │                            │
             ▼                            ▼
 ┌──────────────────────────────────────────────────────────┐
-│              @web-clone/core (snapshot engine)             │
+│              @kkkqkx123/web-clone (snapshot engine)             │
 │                                                            │
 │  fetchHTML → parseHTML → extractCSSAssets → deduplicate   │
 │  → downloadAllAssets → assembleBundle / assembleSingleFile │
@@ -1004,18 +1004,18 @@ const genComponents = generator.generateComponents(specs, {
 ## Dependencies Overview
 
 ```
-@web-clone/adapter-common ← @web-clone/adapter-playwright
-                          ← @web-clone/adapter-puppeteer
+@kkkqkx123/web-clone/adapters/common ← @kkkqkx123/web-clone/adapters/playwright
+                          ← @kkkqkx123/web-clone/adapters/puppeteer
 
-@web-clone/core (peer)    ← @web-clone/codegen
-@web-clone/core           ← @web-clone/adapter-common (dep)
+@kkkqkx123/web-clone (peer)    ← @kkkqkx123/web-clone
+@kkkqkx123/web-clone           ← @kkkqkx123/web-clone/adapters/common (dep)
 
-web-clone-cli             ← @web-clone/core (dep)
-                          ← @web-clone/codegen (dep)
-                          ← @web-clone/adapter-playwright (optional)
-                          ← @web-clone/adapter-puppeteer (optional)
+web-clone-cli             ← @kkkqkx123/web-clone (dep)
+                          ← @kkkqkx123/web-clone (dep)
+                          ← @kkkqkx123/web-clone/adapters/playwright (optional)
+                          ← @kkkqkx123/web-clone/adapters/puppeteer (optional)
 ```
 
 - `adapter-playwright` and `adapter-puppeteer` are **optional** — only needed for browser automation
-- `@web-clone/codegen` and `jsdom` are **optional peer deps** of `@web-clone/core`
+- `@kkkqkx123/web-clone` and `jsdom` are **optional peer deps** of `@kkkqkx123/web-clone`
 - The CLI (`web-clone-cli`) pulls in adapters as optional dependencies

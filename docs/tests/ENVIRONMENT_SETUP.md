@@ -12,16 +12,16 @@
 
 ```bash
 # 总览 — 同时检查 Playwright + Puppeteer
-pnpm browsers:check
+npm run browsers:check
 
 # 仅 Playwright（含二进制路径检测）
-pnpm browsers:check:playwright
+npm run browsers:check:playwright
 
 # 仅 Puppeteer
-pnpm browsers:check:puppeteer
+npm run browsers:check:puppeteer
 
 # 全功能 Playwright 验证（含导航测试）
-pnpm verify-playwright
+npm run verify-playwright
 ```
 
 ### ✅ 已验证的环境

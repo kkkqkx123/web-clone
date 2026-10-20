@@ -31,14 +31,14 @@ echo "=========================================="
 # 检查基线文件是否存在
 if [ ! -f "$BASELINE" ]; then
   echo "WARNING: 基线文件不存在: $BASELINE"
-  echo "请先运行一次全量 E2E 测试（pnpm test:e2e），然后将 outputs/results.json 复制为 baseline/results.json"
+  echo "请先运行一次全量 E2E 测试（npm run test:e2e），然后将 outputs/results.json 复制为 baseline/results.json"
   exit 0
 fi
 
 # 检查当前结果文件是否存在
 if [ ! -f "$CURRENT" ]; then
   echo "ERROR: 当前结果文件不存在: $CURRENT"
-  echo "请先运行 pnpm test:e2e"
+  echo "请先运行 npm run test:e2e"
   exit 2
 fi
 

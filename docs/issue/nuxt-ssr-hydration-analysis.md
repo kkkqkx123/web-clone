@@ -1,7 +1,7 @@
 # Nuxt SSR 快照水合失败分析报告
 
 > 目标页面：`https://fanyi.pdf365.cn/?agent=zhihu`
-> 快照命令：`pnpm dev:cli https://fanyi.pdf365.cn/?agent=zhihu --adapter playwright --max-assets 500`
+> 快照命令：`npm run snapshot -- https://fanyi.pdf365.cn/?agent=zhihu --adapter playwright --max-assets 500`
 > 报告日期：2026-07-14
 
 ## 现象
@@ -16,7 +16,7 @@ gift.277061f.png:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
 b02411f.js:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
 
 ChunkLoadError: Loading chunk 41 failed.
-(error: file:///D:/project/cli/web-clone/apps/cli/snapshot/assets/js/_nuxt/b02411f.js)
+(error: file:///D:/project/cli/web-clone/./snapshot/assets/js/_nuxt/b02411f.js)
     at f.e (14014a2.js:1:1438)
     at component (d1ef0fc.js:2:949654)
     at d1ef0fc.js:2:345066
@@ -94,7 +94,7 @@ gift.277061f.png:1  Failed to load resource: net::ERR_FILE_NOT_FOUND
 
 ### 缺陷 1：缺乏递归 JS 扫描
 
-**文件**：`packages/core/src/assembler.ts` 第 293-463 行
+**文件**：`src/core/assembler.ts` 第 293-463 行
 
 `scanDepth` 默认值为 1，只扫描 HTML 中直接引用的资源。Nuxt 的异步 chunk 只存在于 webpack 运行时内的 chunk 映射表中，不直接出现在 HTML 中。即使 `scanDepth > 1`，JS 扫描仅提取 `extractJsUrls` 中的 URL 字面量，而 chunk 映射表是动态的 `{...}[e] + ".js"` 表达式，无法通过静态扫描提取。
 
@@ -105,7 +105,7 @@ const scanDepth = options.scanDepth ?? 1; // 默认 1
 
 ### 缺陷 2：HTML 内容被误判为 JS 资源
 
-**文件**：`packages/core/src/parser/html-parser.ts` 第 21-23 行
+**文件**：`src/core/parser/html-parser.ts` 第 21-23 行
 
 ```typescript
 script: [
@@ -117,7 +117,7 @@ script: [
 
 ### 缺陷 3：路径修复双重修改
 
-**文件**：`packages/core/src/output/path-fixer.ts` 第 64-81 行
+**文件**：`src/core/output/path-fixer.ts` 第 64-81 行
 
 `fixScriptPaths` 将 `/_nuxt/14014a2.js` → `./assets/js/_nuxt/14014a2.js`（带 `./` 前缀）。
 
@@ -164,7 +164,7 @@ script: [
 新增内置 HTTP 服务器模式，避免 `file://` 协议的安全限制：
 
 ```bash
-pnpm dev:cli <url> --serve
+npm run snapshot -- <url> --serve
 ```
 
 在本地启动一个 HTTP 服务器来提供快照文件，解决 `file://` 唯一安全来源限制。
@@ -173,9 +173,9 @@ pnpm dev:cli <url> --serve
 
 | 文件 | 说明 |
 |------|------|
-| `packages/core/src/assembler.ts` | 主流水线，扫描/下载/组装 |
-| `packages/core/src/parser/html-parser.ts` | HTML 解析与资源发现 |
-| `packages/core/src/output/path-fixer.ts` | 路径修复（file:// 兼容） |
-| `packages/core/src/output/bundle.ts` | Bundle 模式组装 |
-| `packages/core/src/output/single-file.ts` | Single-file 模式组装 |
-| `apps/cli/src/cli.ts` | CLI 入口与 Vue 水合脚本注入 |
+| `src/core/assembler.ts` | 主流水线，扫描/下载/组装 |
+| `src/core/parser/html-parser.ts` | HTML 解析与资源发现 |
+| `src/core/output/path-fixer.ts` | 路径修复（file:// 兼容） |
+| `src/core/output/bundle.ts` | Bundle 模式组装 |
+| `src/core/output/single-file.ts` | Single-file 模式组装 |
+| `src/cli/cli.ts` | CLI 入口与 Vue 水合脚本注入 |

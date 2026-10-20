@@ -8,7 +8,7 @@
  *   definitive > strong > moderate > weak > none
  *
  * 运行方式：
- *   pnpm test:e2e
+ *   npm run test:e2e
  *   或
  *   npx vitest run --config tests/e2e/vitest.config.ts
  */

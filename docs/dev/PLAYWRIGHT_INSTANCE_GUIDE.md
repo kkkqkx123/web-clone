@@ -24,8 +24,8 @@ export PLAYWRIGHT_BROWSERS_PATH="D:\\Source\\pw-browsers"
 ### 2. 验证环境
 
 ```bash
-pnpm browsers:check          # 总览 — 同时检查 Playwright + Puppeteer
-pnpm browsers:check:playwright  # 仅 Playwright（含二进制路径检测）
+npm run browsers:check          # 总览 — 同时检查 Playwright + Puppeteer
+npm run browsers:check:playwright  # 仅 Playwright（含二进制路径检测）
 ```
 
 输出应该显示：
@@ -39,7 +39,7 @@ pnpm browsers:check:playwright  # 仅 Playwright（含二进制路径检测）
 ### 3. 测试 Playwright 功能
 
 ```bash
-pnpm verify-playwright
+npm run verify-playwright
 ```
 
 输出应该显示所有测试通过。
@@ -48,10 +48,10 @@ pnpm verify-playwright
 
 ```bash
 # 使用 Playwright 适配器快照 SPA 页面
-pnpm dev:cli -- https://example.com --adapter playwright
+npm run snapshot -- https://example.com --adapter playwright
 
 # 混合模式：Playwright 渲染 HTML，HTTP 下载子资源
-pnpm dev:cli -- https://example.com --adapter playwright --hybrid
+npm run snapshot -- https://example.com --adapter playwright --hybrid
 ```
 
 ---

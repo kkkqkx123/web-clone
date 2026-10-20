@@ -1,16 +1,16 @@
 # `--serve` 模式 — 本地静态文件服务器
 
 > 用于在快照完成后启动本地 HTTP 服务器提供静态文件服务，避免 `file://` 协议的安全限制。
-> 实现位置：`apps/cli/src/cli.ts` lines 159-172, 327-387
+> 实现位置：`src/cli/cli.ts` lines 159-172, 327-387
 
 ## 使用方式
 
 ```bash
 # 快照完成后启动服务器（默认端口 8080）
-pnpm dev:cli <url> --adapter playwright --serve
+npm run snapshot -- <url> --adapter playwright --serve
 
 # 指定端口
-pnpm dev:cli <url> --adapter playwright --serve --serve-port 3000
+npm run snapshot -- <url> --adapter playwright --serve --serve-port 3000
 ```
 
 ## 解决的问题

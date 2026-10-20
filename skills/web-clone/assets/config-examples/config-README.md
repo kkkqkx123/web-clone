@@ -6,7 +6,7 @@ web-clone merges configuration from multiple sources (lower number = lower prior
 
 | Priority | Source | Description |
 |----------|--------|-------------|
-| 0 (base) | Built-in defaults | Hardcoded in `packages/core/src/config/defaults.ts` |
+| 0 (base) | Built-in defaults | Hardcoded in `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | User-global config (applies to all projects) |
 | 2 | `./web-clone.config.json` | Project-level config (nearest ancestor) |
 | 2 | `.web-clonerc` | Alternative project config (JSON) |
@@ -190,7 +190,7 @@ In addition to all `SnapshotOptions`, `defaults` supports:
 #   { "include": { "wasm": true }, "defaults": { "concurrency": 8, "maxAssets": 200 } }
 
 # CLI invocation:
-pnpm dev:cli -- https://example.com --include-video -o ./out
+npm run snapshot -- https://example.com --include-video -o ./out
 
 # Actual effective config:
 #   resourcePreset: "minimal" (from global)
@@ -226,15 +226,15 @@ Create `web-clone.config.json` in your project root:
 
 ```bash
 # Uses the specified config file instead of auto-discovery
-pnpm dev:cli -- https://example.com --config ./my-config.json
-pnpm dev:cli -- https://example.com -c ./my-config.json
+npm run snapshot -- https://example.com --config ./my-config.json
+npm run snapshot -- https://example.com -c ./my-config.json
 ```
 
 ### 4. Run snapshot
 
 ```bash
 # Uses merged config (global + project) + CLI overrides
-pnpm dev:cli -- https://example.com --output ./custom-out
+npm run snapshot -- https://example.com --output ./custom-out
 ```
 
 ## Example Files

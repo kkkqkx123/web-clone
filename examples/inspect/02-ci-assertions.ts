@@ -5,19 +5,19 @@
  * Checks page structure stability, element presence, and content correctness.
  *
  * This is the library equivalent of:
- *   pnpm dev:cli inspect <url> --outline
- *   pnpm dev:cli inspect <url> --count <selector>
- *   pnpm dev:cli inspect <url> --locate <text>
+ *   npm run snapshot inspect <url> --outline
+ *   npm run snapshot inspect <url> --count <selector>
+ *   npm run snapshot inspect <url> --locate <text>
  *
  * Usage:
- *   pnpm tsx examples/inspect/02-ci-assertions.ts <url>
+ *   npx tsx examples/inspect/02-ci-assertions.ts <url>
  *
  *   # With custom assertions via environment:
  *   MIN_COUNT=5 MIN_IMAGES=1 ASSERT_TEXT="Submit" ASSERT_SELECTOR=".product-card" \
- *     pnpm tsx examples/inspect/02-ci-assertions.ts https://example.com
+ *     npx tsx examples/inspect/02-ci-assertions.ts https://example.com
  *
  * Prerequisites:
- *   pnpm add @web-clone/core jsdom
+ *   npm install -D @kkkqkx123/web-clone jsdom
  */
 
 import { JSDOM } from 'jsdom';
@@ -26,7 +26,7 @@ import {
   countElements,
   locateElement,
   spaNote,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 // ─── Configuration ──────────────────────────────────────────────
 // All values can be overridden via environment variables for CI flexibility.
@@ -217,7 +217,7 @@ async function runAssertions(url: string, assertions: Assertions): Promise<Asser
 
 const url = process.argv[2];
 if (!url) {
-  console.error('Usage: pnpm tsx examples/inspect/02-ci-assertions.ts <url>');
+  console.error('Usage: npx tsx examples/inspect/02-ci-assertions.ts <url>');
   console.error('');
   console.error('Environment variables for assertions:');
   console.error('  MIN_STRUCTURE_COUNT=<n>       Min repeating patterns');

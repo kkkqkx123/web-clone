@@ -17,7 +17,7 @@ This skill provides guidance for using the web-clone CLI and library API.
 ### CLI (Global Install)
 
 ```bash
-npm install -g @kkkqkx123/web-clone-cli
+npm install -g @kkkqkx123/web-clone
 # Then use the `web-clone` command directly:
 web-clone https://example.com -o ./snapshot
 ```
@@ -25,10 +25,10 @@ web-clone https://example.com -o ./snapshot
 ### Library (Project Use)
 
 ```bash
-# Core engine
-pnpm add @web-clone/core
-# Optional: browser adapters & codegen
-pnpm add @web-clone/adapter-playwright @web-clone/codegen
+# Core engine + adapters & codegen (single package)
+npm install -D @kkkqkx123/web-clone
+# Optional: browser automation (peer deps, install what you use)
+npm install -D playwright   # for --adapter playwright
 ```
 
 See [references/cli-usage.md](references/cli-usage.md) for more entry commands.
@@ -37,16 +37,16 @@ See [references/cli-usage.md](references/cli-usage.md) for more entry commands.
 
 ```bash
 # Snapshot a page (bundle mode, default)
-pnpm dev:cli https://example.com -o ./site
+npm run snapshot -- https://example.com -o ./site
 
 # Snapshot + extract components
-pnpm dev:cli https://example.com -o ./project -m bundle --extract-components
+npm run snapshot -- https://example.com -o ./project -m bundle --extract-components
 
 # Single-file snapshot
-pnpm dev:cli https://example.com -o snapshot.html -m single
+npm run snapshot -- https://example.com -o snapshot.html -m single
 
 # With browser automation
-pnpm dev:cli https://spa-site.com --adapter playwright
+npm run snapshot -- https://spa-site.com --adapter playwright
 ```
 
 ## Reference Files

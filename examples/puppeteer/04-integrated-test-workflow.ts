@@ -12,28 +12,28 @@
  *   - getAuthContext() extracts cookies + localStorage from the current page
  *
  * Usage:
- *   pnpm tsx examples/puppeteer/04-integrated-test-workflow.ts
+ *   npx tsx examples/puppeteer/04-integrated-test-workflow.ts
  *
  *   # Simulate a failure:
- *   ASSERT_FAIL=true pnpm tsx examples/puppeteer/04-integrated-test-workflow.ts
+ *   ASSERT_FAIL=true npx tsx examples/puppeteer/04-integrated-test-workflow.ts
  *
  * Prerequisites:
- *   pnpm add @web-clone/core @web-clone/adapter-puppeteer puppeteer jsdom
+ *   npm install -D @kkkqkx123/web-clone puppeteer jsdom
  */
 
 import puppeteer from 'puppeteer';
 import { JSDOM } from 'jsdom';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { snapshot } from '@web-clone/core';
-import { PuppeteerFetcherAdapter } from '@web-clone/adapter-puppeteer';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PuppeteerFetcherAdapter } from '@kkkqkx123/web-clone/adapters/puppeteer';
 import {
   inspectStructure,
   countElements,
   locateElement,
   toMarkdown,
   spaNote,
-} from '@web-clone/core';
+} from '@kkkqkx123/web-clone';
 
 // ─── Utilities ──────────────────────────────────────────────────
 

@@ -25,7 +25,7 @@
 Install the CLI tool globally via npm:
 
 ```bash
-npm install -g @kkkqkx123/web-clone-cli
+npm install -g @kkkqkx123/web-clone
 ```
 
 After installation, the `web-clone` command is available globally:
@@ -39,57 +39,50 @@ web-clone https://example.com -o ./snapshot
 Use web-clone as a library in your Node.js/TypeScript project:
 
 ```bash
-# Core snapshot engine
-pnpm add @web-clone/core
+# Single package (includes core engine, CLI, codegen)
+npm install -D @kkkqkx123/web-clone
 
-# Optional: Browser automation adapters
-pnpm add @web-clone/adapter-playwright
-pnpm add @web-clone/adapter-puppeteer
-
-# Optional: Framework code generators
-pnpm add @web-clone/codegen
-
-# Optional: Shared types
-pnpm add @web-clone/types
+# Optional: browser automation (peer deps, install what you use)
+npm install -D playwright   # for --adapter playwright
+npm install -D puppeteer    # for --adapter puppeteer
 ```
 
 ### Package Overview
 
-| Package | npm Scope | Description |
+| Module | Location | Description |
 |---------|-----------|-------------|
-| `@kkkqkx123/web-clone-cli` | `@kkkqkx123` (personal) | CLI application with `web-clone` binary |
-| `@web-clone/core` | `@web-clone` (org) | Core snapshot engine |
-| `@web-clone/adapter-common` | `@web-clone` (org) | Shared SPA hydration detection & automation types |
-| `@web-clone/adapter-playwright` | `@web-clone` (org) | Playwright browser automation adapter |
-| `@web-clone/adapter-puppeteer` | `@web-clone` (org) | Puppeteer browser automation adapter |
-| `@web-clone/codegen` | `@web-clone` (org) | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
-| `@web-clone/types` | `@web-clone` (org) | Shared TypeScript type definitions |
+| Core snapshot engine | `src/core/` | Snapshot engine, parsers, output assemblers, component analysis, query, validation |
+| SPA hydration detection | `src/adapters/common.ts` | Shared SPA hydration detection & automation types |
+| Playwright adapter | `src/adapters/playwright/` | Playwright browser automation adapter |
+| Puppeteer adapter | `src/adapters/puppeteer/` | Puppeteer browser automation adapter |
+| Code generators | `src/codegen/` | Framework code generators (Vue/React/Angular/Svelte/jQuery) |
+| CLI | `src/cli/` | Commander-based CLI with `web-clone` binary |
 
 ## Quick Start
 
 ```bash
 # Install dependencies
-pnpm install
+npm install
 
 # Run directly (no build required)
-pnpm dev:cli https://example.com -o ./snapshot
+npm run snapshot -- https://example.com -o ./snapshot
 
 # Or build first, then run
-pnpm build
-node apps/cli/dist/cli.js https://example.com -o ./snapshot
+npm run build
+node dist/cli/cli.js https://example.com -o ./snapshot
 ```
 
-> **PowerShell users**: `pnpm dev:cli <url>` works directly (the CLI handles `--` passthrough automatically). If you encounter issues, quote `--` — `pnpm dev:cli '--' <url>` — or use `npx tsx apps/cli/src/cli.ts <url>`.
+> **PowerShell users**: `npm run snapshot -- <url>` works directly (the CLI handles `--` passthrough automatically). If you encounter issues, quote `--` — `npm run snapshot -- '--' <url>` — or use `npx tsx src/cli/cli.ts <url>`.
 > **Proxy users**: The tool automatically detects `HTTPS_PROXY`/`HTTP_PROXY` env vars. See [docs/proxy.md](docs/proxy.md).
 
 ## CLI Usage
 
 ```bash
-pnpm dev:cli <url> [options]                         # Snapshot (default command)
-pnpm dev:cli inspect <url> [options]                    # Page structure analysis
-pnpm dev:cli query <url> <selector> [options]           # Structured data extraction
-pnpm dev:cli validate <output-dir>                      # Validate snapshot integrity
-pnpm dev:cli clean <output-dir> [options]               # Clean corrupted files
+npm run snapshot -- <url> [options]                         # Snapshot (default command)
+npm run snapshot -- inspect <url> [options]                    # Page structure analysis
+npm run snapshot -- query <url> <selector> [options]           # Structured data extraction
+npm run snapshot -- validate <output-dir>                      # Validate snapshot integrity
+npm run snapshot -- clean <output-dir> [options]               # Clean corrupted files
 ```
 
 ### Basic Options
@@ -181,16 +174,16 @@ pnpm dev:cli clean <output-dir> [options]               # Clean corrupted files
 
 ```
 # Page structure analysis
-pnpm dev:cli inspect <url> [--outline | --locate <text> | --count <sel> | --md]
+npm run snapshot -- inspect <url> [--outline | --locate <text> | --count <sel> | --md]
 
 # Structured data extraction
-pnpm dev:cli query <url> <selector> [--row <spec> | --table | --attr <n> | --json]
+npm run snapshot -- query <url> <selector> [--row <spec> | --table | --attr <n> | --json]
 
 # Validate snapshot integrity
-pnpm dev:cli validate <output-dir>
+npm run snapshot -- validate <output-dir>
 
 # Clean corrupted/zero-byte files
-pnpm dev:cli clean <output-dir> [--dry-run] [--re-download]
+npm run snapshot -- clean <output-dir> [--dry-run] [--re-download]
 ```
 
 See [docs/commands.md](docs/commands.md) for the complete option reference.
@@ -201,91 +194,91 @@ See [docs/commands.md](docs/commands.md) for the complete option reference.
 
 ```bash
 # Bundle mode (default) — directory structure with separated assets
-pnpm dev:cli https://example.com -o ./site
+npm run snapshot -- https://example.com -o ./site
 
 # Single file mode — self-contained HTML
-pnpm dev:cli https://example.com -o snapshot.html -m single
+npm run snapshot -- https://example.com -o snapshot.html -m single
 ```
 
 ### Browser Automation
 
 ```bash
 # Playwright (SPA/SSR sites)
-pnpm dev:cli https://spa-site.com --adapter playwright
+npm run snapshot -- https://spa-site.com --adapter playwright
 
 # Hybrid: browser renders HTML, HTTP pool downloads assets
-pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
+npm run snapshot -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### Component Extraction
 
 ```bash
 # Extract component structure
-pnpm dev:cli https://example.com --extract-components
+npm run snapshot -- https://example.com --extract-components
 
 # With framework hint and depth limit
-pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5
+npm run snapshot -- https://example.com --extract-components --framework vue --component-depth 5
 
 # Generate framework code
-pnpm dev:cli https://example.com --extract-components --codegen-framework react
+npm run snapshot -- https://example.com --extract-components --codegen-framework react
 ```
 
 ### Resource Filtering
 
 ```bash
 # Use a preset
-pnpm dev:cli https://example.com --resource-preset no-media
+npm run snapshot -- https://example.com --resource-preset no-media
 
 # Fine-grained control
-pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
+npm run snapshot -- https://example.com --include-video --include-fonts --exclude-images
 
 # Include all file types
-pnpm dev:cli https://example.com --include-all
+npm run snapshot -- https://example.com --include-all
 ```
 
 ### Recursive Scan
 
 ```bash
-pnpm dev:cli https://example.com --scan-depth 3 --scan-json
+npm run snapshot -- https://example.com --scan-depth 3 --scan-json
 ```
 
 ### Local Conversion (skip URL fetch)
 
 ```bash
-pnpm dev:cli --convert-local ./project --codegen-framework vue
+npm run snapshot -- --convert-local ./project --codegen-framework vue
 ```
 
 ### Page Diagnostics
 
 ```bash
 # Structure outline
-pnpm dev:cli inspect https://example.com --outline
+npm run snapshot -- inspect https://example.com --outline
 
 # Find elements containing text
-pnpm dev:cli inspect https://example.com --locate "Search"
+npm run snapshot -- inspect https://example.com --locate "Search"
 
 # Extract table data
-pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100' --json
+npm run snapshot -- query https://example.com 'table' --table --where 'Stars >= 100' --json
 
 # Validate and clean
-pnpm dev:cli validate ./output
-pnpm dev:cli clean ./output --dry-run
+npm run snapshot -- validate ./output
+npm run snapshot -- clean ./output --dry-run
 ```
 
 ### Serve Mode
 
 ```bash
 # Generate server files in the output (no server started)
-pnpm dev:cli https://example.com -o ./site --serve
+npm run snapshot -- https://example.com -o ./site --serve
 
 # Generate server files and start the server immediately
-pnpm dev:cli https://example.com -o ./site --serve --run
+npm run snapshot -- https://example.com -o ./site --serve --run
 
 # Serve with reverse proxy (handles runtime API requests)
-pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+npm run snapshot -- https://spa-site.com --adapter playwright --serve --run --proxy
 
 # Serve on custom port, disable proxy
-pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+npm run snapshot -- https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
 ```
 
 After `--serve` generates the files, the output directory is self-contained:
@@ -301,7 +294,7 @@ start.bat               # Windows
 ### Full Example
 
 ```bash
-pnpm dev:cli https://example.com \
+npm run snapshot -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -382,13 +375,13 @@ snapshot_components/            # (if --extract-components)
 web-clone can also be used as a library in your own Node.js/TypeScript projects:
 
 ```bash
-pnpm add @web-clone/core
-# Optional: pnpm add @web-clone/adapter-playwright @web-clone/codegen
+npm install -D @kkkqkx123/web-clone
+# Optional browser automation: npm install -D playwright
 ```
 
 ```typescript
-import { snapshot } from '@web-clone/core';
-import { PlaywrightFetcherAdapter } from '@web-clone/adapter-playwright';
+import { snapshot } from '@kkkqkx123/web-clone';
+import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwright';
 
 // HTTP snapshot
 const result = await snapshot('https://example.com', {
@@ -409,7 +402,7 @@ web-clone supports multi-layer configuration (lowest → highest priority):
 
 | Priority | Location | Description |
 |----------|----------|-------------|
-| 0 | Built-in defaults | Hardcoded in `packages/core/src/config/defaults.ts` |
+| 0 | Built-in defaults | Hardcoded in `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | Global user config |
 | 2 | `./web-clone.config.json` / `.web-clonerc` | Project-level config |
 | 3 | CLI flags | Highest priority |
@@ -420,13 +413,13 @@ See [examples/config-examples/config-README.md](examples/config-examples/config-
 
 ### PowerShell
 
-`pnpm dev:cli <url>` works directly — the CLI automatically filters out the `"--"` literal that pnpm's `--` passthrough may inject. If you still encounter issues:
+`npm run snapshot -- <url>` works directly — the CLI automatically filters out the `"--"` literal that npm's `--` passthrough may inject. If you still encounter issues:
 
 ```powershell
 # Quote -- to prevent PowerShell interception:
-pnpm dev:cli '--' "https://example.com" -o ./snapshot
-# Or bypass pnpm entirely:
-npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
+npm run snapshot -- '--' "https://example.com" -o ./snapshot
+# Or bypass npm scripts entirely:
+npx tsx src/cli/cli.ts "https://example.com" -o ./snapshot
 ```
 
 ### Proxy
@@ -437,41 +430,40 @@ The tool automatically reads `HTTPS_PROXY` / `HTTP_PROXY` environment variables.
 
 ```bash
 # Install dependencies
-pnpm install
+npm install
 
-# Build all packages (turbo parallel)
-pnpm build
+# Build
+npm run build
 
 # Run CLI without building
-pnpm dev:cli <url>
+npm run snapshot -- <url>
 
-# Watch mode (all packages)
-pnpm dev
+# Watch mode
+npm run dev
 
 # Run all tests
-pnpm test          # turbo run test
-pnpm test:unit     # @web-clone/core unit tests
-pnpm test:integration  # CLI integration tests
+npm run test
+npm run test:unit     # unit tests only
+npm run test:integration  # CLI/browser adapter integration tests
 
-# Clean all build artifacts
-pnpm clean
+# Clean build artifacts
+npm run clean
 ```
 
 ## Project Structure
 
 ```
-├── apps/cli/                     # CLI application (Commander)
-├── packages/
-│   ├── core/                     # @web-clone/core — Snapshot engine
-│   ├── adapter-common/           # Shared SPA hydration detection
-│   ├── adapter-playwright/       # Playwright browser adapter
-│   ├── adapter-puppeteer/        # Puppeteer browser adapter
-│   └── codegen/                  # Framework code generators
+├── src/
+│   ├── cli/                      # CLI application (Commander)
+│   ├── core/                     # Snapshot engine
+│   ├── codegen/                  # Framework code generators
+│   ├── adapters/                 # Playwright/Puppeteer adapters + shared hydration detection
+│   └── types.ts                  # Shared types
 ├── docs/                         # Documentation
 ├── examples/                     # Usage examples
 │   ├── config-examples/          # Config file examples
 │   └── playwright/               # Playwright integration examples
-└── pnpm-workspace.yaml           # Monorepo config
+└── package.json                  # Single-package config (npm)
 ```
 
 ## Docs
@@ -479,10 +471,9 @@ pnpm clean
 | Document | Description |
 |----------|-------------|
 | [docs/commands.md](docs/commands.md) | Full CLI command reference |
-| [docs/library.md](docs/library.md) | Library API reference for all packages |
+| [docs/library.md](docs/library.md) | Library API reference |
 | [docs/proxy.md](docs/proxy.md) | Proxy configuration |
 | [docs/COMPONENT_TRANSFORM.md](docs/COMPONENT_TRANSFORM.md) | Component extraction details |
-| [docs/architecture/MONOREPO_DESIGN.md](docs/architecture/MONOREPO_DESIGN.md) | Monorepo architecture |
 
 ## License
 

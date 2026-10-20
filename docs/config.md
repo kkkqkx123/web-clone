@@ -6,7 +6,7 @@ web-clone 支持通过 JSON 配置文件管理所有运行参数，避免在 CLI
 
 | 优先级 | 来源 | 说明 |
 |--------|------|------|
-| 0 (基础) | 代码内置默认值 | `packages/core/src/config/defaults.ts` |
+| 0 (基础) | 代码内置默认值 | `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | 全局用户配置（适用于所有项目） |
 | 2 | `./web-clone.config.json` / `.web-clonerc` / `.web-clonerc.json` | 自动发现的项目配置（向上查找目录树） |
 | 3 | `--config <path>` 显式指定 | 显式配置文件（替代自动发现） |
@@ -53,17 +53,17 @@ mkdir -p ~/.config/web-clone
 
 ```bash
 # 使用 --config 指定配置文件
-pnpm dev:cli -- https://example.com --config ./my-config.json
+npm run snapshot -- https://example.com --config ./my-config.json
 
 # 短选项
-pnpm dev:cli -- https://example.com -c ./my-config.json
+npm run snapshot -- https://example.com -c ./my-config.json
 ```
 
 ### 4. 运行快照
 
 ```bash
 # 自动发现并使用项目配置 + CLI 覆盖
-pnpm dev:cli -- https://example.com --output ./custom-out
+npm run snapshot -- https://example.com --output ./custom-out
 ```
 
 ---
@@ -266,7 +266,7 @@ pnpm dev:cli -- https://example.com --output ./custom-out
 #   { "include": { "wasm": true }, "defaults": { "concurrency": 8, "maxAssets": 200 } }
 
 # CLI 调用：
-pnpm dev:cli -- https://example.com --include-video -o ./out
+npm run snapshot -- https://example.com --include-video -o ./out
 
 # 实际生效的配置：
 #   resourcePreset: "minimal"（来自全局）
@@ -282,7 +282,7 @@ pnpm dev:cli -- https://example.com --include-video -o ./out
 # 使用 --config 显式指定配置文件
 # 此时自动发现的项目配置被跳过，但全局配置仍然生效
 
-pnpm dev:cli -- https://example.com -c ./special-config.json
+npm run snapshot -- https://example.com -c ./special-config.json
 ```
 
 ---

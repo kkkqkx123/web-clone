@@ -12,7 +12,7 @@
 
 ### 修改 1：`extractWebpackChunks` 函数重写
 
-**文件**：`packages/core/src/discovery/recursive-scanner.ts`
+**文件**：`src/core/discovery/recursive-scanner.ts`
 
 **问题**：原实现使用逐条目 30 字符上下文窗口验证 chunk 是否在 webpack chunk map 中。但 Nuxt 的 chunk map 有 30+ 个条目（约 200+ 字符长度），中间条目（如 chunk 41 `b02411f`）的上下文看不到开头的 `{` 和结尾的 `}[e] + ".js"`，验证失败、chunk 被静默跳过。
 
@@ -39,7 +39,7 @@ while ((mapMatch = chunkMapRe.exec(jsText)) !== null) {
 
 ### 修改 2：CLI `--scan-depth` 默认值修复
 
-**文件**：`apps/cli/src/cli.ts`
+**文件**：`src/cli/cli.ts`
 
 **问题**：Commander 的 `--scan-depth` 选项默认值为 `'1'`，即使 `DEFAULTS.scanDepth = 2`，Commander 传递的 `'1'` 使 `fromCommander` 中的 `cmd.scanDepth !== undefined` 为 true，导致递归扫描始终不执行。
 
@@ -52,7 +52,7 @@ while ((mapMatch = chunkMapRe.exec(jsText)) !== null) {
 
 ### 修改 3：`fromCommander` 默认值兜底
 
-**文件**：`apps/cli/src/config/cli-adapter.ts`
+**文件**：`src/cli/config/cli-adapter.ts`
 
 **问题**：当 CLI 和配置文件都未提供 `scanDepth` 时，`opts.scanDepth` 保持 `undefined`，`assembler.ts` 中的 `?? 1` 回退使其为 1。
 

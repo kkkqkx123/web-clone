@@ -10,7 +10,7 @@ web-clone 的测试分为三个层次，共 37 个测试文件：
 |------|------|---------|--------|---------|
 | 单元测试 | `packages/*/src/__tests__/` | Mock + vitest | 无 | 各模块独立逻辑 |
 | 集成测试 | `packages/*/src/__tests__/integration/` | 真实 Playwright + 本地服务器 | 有 | 完整管线 |
-| CLI E2E | `apps/cli/src/__tests__/integration/` | tsx 执行 CLI + Python 服务器 | 无 | CLI 命令行 |
+| CLI E2E | `src/cli/__tests__/integration/` | tsx 执行 CLI + Python 服务器 | 无 | CLI 命令行 |
 
 ### 1.2 SPA 检测测试现状
 
@@ -86,7 +86,7 @@ const TEST_SPA_HTML = `<!DOCTYPE html>
 - 不包含其他框架（React、Angular、Nuxt、Next.js、SvelteKit）
 - 无法验证生产环境下的真实场景
 
-#### CLI E2E 测试（`apps/cli/src/__tests__/integration/cli-e2e.test.ts`）
+#### CLI E2E 测试（`src/cli/__tests__/integration/cli-e2e.test.ts`）
 
 使用 Python HTTP 服务器提供静态 HTML 页面，但**不涉及任何 SPA 框架**：
 
@@ -481,14 +481,14 @@ export default defineConfig({
 
 ```bash
 # 安装依赖（含 Playwright 浏览器）
-pnpm install
+npm install
 npx playwright install chromium --with-deps
 
 # 构建项目
-pnpm build
+npm run build
 
 # 运行 E2E 测试
-pnpm --filter @web-clone/e2e test
+npm run test:e2e
 
 # 输出抓取结果（用于后续回归对比）
 ls -la tests/e2e/outputs/
@@ -530,7 +530,7 @@ tests/e2e/fixtures/*/.svelte-kit/
 ```
 Phase 1 (基础设施):
   1. tests/e2e/helpers/fixture-server.ts        # 无依赖
-  2. tests/e2e/helpers/spider-runner.ts          # 依赖 @web-clone/core、adapter-playwright
+  2. tests/e2e/helpers/spider-runner.ts          # 依赖 @kkkqkx123/web-clone、adapter-playwright
   3. tests/e2e/helpers/assertion-utils.ts        # 无依赖
   4. tests/e2e/vitest.config.ts                  # 无依赖
 
@@ -584,5 +584,5 @@ E2E 测试套件满足以下条件即视为完成：
 4. 所有测试输出目录包含有效的 `index.html`
 5. 所有 `index.html` 中文本内容 > 100 字符
 6. 抓取结果自动写入 `tests/e2e/outputs/` 目录
-7. `pnpm test:e2e` 命令可一键运行
+7. `npm run test:e2e` 命令可一键运行
 8. 在未安装框架构建工具的环境中，仅依赖预构建产物即可运行测试

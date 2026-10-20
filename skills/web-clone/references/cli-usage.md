@@ -5,19 +5,17 @@
 ### Global Install (npm)
 
 ```bash
-npm install -g @kkkqkx123/web-clone-cli
+npm install -g @kkkqkx123/web-clone
 ```
 After installation, the `web-clone` command is available globally.
 
 ### Library (as project dependency)
 
 ```bash
-pnpm add @web-clone/core
-# Optional: browser adapters
-pnpm add @web-clone/adapter-playwright
-pnpm add @web-clone/adapter-puppeteer
-# Optional: code generators
-pnpm add @web-clone/codegen
+npm install -D @kkkqkx123/web-clone
+# Optional: browser adapters (peer deps, install what you use)
+npm install -D playwright   # for --adapter playwright
+npm install -D puppeteer    # for --adapter puppeteer
 ```
 
 ## Entry Commands
@@ -26,19 +24,16 @@ pnpm add @web-clone/codegen
 # Global install (npm)
 web-clone <url> [options]
 
-# Dev mode (tsx, inside monorepo)
-pnpm dev:cli <url> [options]
-
-# Via filter
-pnpm --filter web-clone-cli start -- <url>
+# Dev mode (tsx, in repo)
+npm run snapshot -- <url> [options]
 
 # After build (direct node)
-node apps/cli/dist/cli.js <url> [options]
+node dist/cli/cli.js <url> [options]
 ```
 
-After `pnpm build`, the dist binary is also callable as:
+After `npm run build`, the dist binary is also callable as:
 ```bash
-pnpm --filter web-clone-cli start <url> [options]
+npm run start -- <url> [options]
 ```
 
 ## Subcommands
@@ -54,7 +49,7 @@ pnpm --filter web-clone-cli start <url> [options]
 ### inspect
 
 ```
-pnpm dev:cli inspect <url> [options]
+npm run snapshot -- inspect <url> [options]
 ```
 
 | Option | Description |
@@ -71,7 +66,7 @@ pnpm dev:cli inspect <url> [options]
 ### query
 
 ```
-pnpm dev:cli query <url> <selector> [options]
+npm run snapshot -- query <url> <selector> [options]
 ```
 
 | Option | Description |
@@ -91,7 +86,7 @@ pnpm dev:cli query <url> <selector> [options]
 ### validate
 
 ```
-pnpm dev:cli validate <output-dir>
+npm run snapshot -- validate <output-dir>
 ```
 
 Checks zero-byte files, corrupted files, missing resource references.
@@ -99,7 +94,7 @@ Checks zero-byte files, corrupted files, missing resource references.
 ### clean
 
 ```
-pnpm dev:cli clean <output-dir> [options]
+npm run snapshot -- clean <output-dir> [options]
 ```
 
 | Option | Default | Description |
@@ -192,16 +187,16 @@ Vue/Nuxt SSR snapshots automatically inject hydration scripts (CLI-level optimiz
 
 ```bash
 # Generate server files only (no server started)
-pnpm dev:cli https://example.com -o ./site --serve
+npm run snapshot -- https://example.com -o ./site --serve
 
 # Generate server files and start the server
-pnpm dev:cli https://example.com -o ./site --serve --run
+npm run snapshot -- https://example.com -o ./site --serve --run
 
 # With reverse proxy (handles runtime API calls)
-pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+npm run snapshot -- https://spa-site.com --adapter playwright --serve --run --proxy
 
 # Custom port, no proxy
-pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+npm run snapshot -- https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
 ```
 
 After `--serve` generates the files, the output is self-contained:
@@ -244,100 +239,100 @@ All options require `--extract-components`.
 ### Basic Snapshot
 ```bash
 # Bundle mode (default)
-pnpm dev:cli https://example.com -o ./site
+npm run snapshot -- https://example.com -o ./site
 
 # Single file
-pnpm dev:cli https://example.com -o snapshot.html -m single
+npm run snapshot -- https://example.com -o snapshot.html -m single
 
 # Pretty HTML
-pnpm dev:cli https://example.com --pretty
+npm run snapshot -- https://example.com --pretty
 ```
 
 ### Browser Automation
 ```bash
-pnpm dev:cli https://spa-site.com --adapter playwright
-pnpm dev:cli https://spa-site.com --adapter puppeteer
-pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
+npm run snapshot -- https://spa-site.com --adapter playwright
+npm run snapshot -- https://spa-site.com --adapter puppeteer
+npm run snapshot -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### Component Extraction
 ```bash
 # Basic extraction
-pnpm dev:cli https://example.com --extract-components
+npm run snapshot -- https://example.com --extract-components
 
 # With framework hint and depth
-pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5 -o ./output
+npm run snapshot -- https://example.com --extract-components --framework vue --component-depth 5 -o ./output
 
 # Disable JS logic extraction
-pnpm dev:cli https://example.com --extract-components --extract-logic false
+npm run snapshot -- https://example.com --extract-components --extract-logic false
 
 # Filter by confidence
-pnpm dev:cli https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
+npm run snapshot -- https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
 ```
 
 ### Code Generation
 ```bash
 # Vue code generation
-pnpm dev:cli https://example.com --extract-components --codegen-framework vue
+npm run snapshot -- https://example.com --extract-components --codegen-framework vue
 
 # React with CSS Modules
-pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-css-modules
+npm run snapshot -- https://example.com --extract-components --codegen-framework react --codegen-css-modules
 
 # Full project template
-pnpm dev:cli https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
+npm run snapshot -- https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
 
 # Extract shared logic
-pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-extract-shared
+npm run snapshot -- https://example.com --extract-components --codegen-framework react --codegen-extract-shared
 ```
 
 ### Local Conversion (Re-run without fetching)
 ```bash
-pnpm dev:cli --convert-local ./output --codegen-framework vue
-pnpm dev:cli --convert-local snapshot.html --codegen-framework react
-pnpm dev:cli --convert-local ./output -o ./alt --codegen-framework react
+npm run snapshot --convert-local ./output --codegen-framework vue
+npm run snapshot --convert-local snapshot.html --codegen-framework react
+npm run snapshot --convert-local ./output -o ./alt --codegen-framework react
 ```
 
 ### Resource Filtering
 ```bash
 # Skip specific types
-pnpm dev:cli https://example.com --skip-types .zip,.mp4,.pdf
+npm run snapshot -- https://example.com --skip-types .zip,.mp4,.pdf
 
 # Use preset
-pnpm dev:cli https://example.com --resource-preset no-media
+npm run snapshot -- https://example.com --resource-preset no-media
 
 # Disable all filtering
-pnpm dev:cli https://example.com --include-all
+npm run snapshot -- https://example.com --include-all
 
 # Fine-grained: include video+fonts, exclude images
-pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
+npm run snapshot -- https://example.com --include-video --include-fonts --exclude-images
 
 # Recursive scan hidden URLs
-pnpm dev:cli https://example.com --scan-depth 3 --scan-json
+npm run snapshot -- https://example.com --scan-depth 3 --scan-json
 ```
 
 ### Subcommands
 ```bash
 # Inspect page structure
-pnpm dev:cli inspect https://example.com --outline
-pnpm dev:cli inspect https://example.com --locate "Search"
-pnpm dev:cli inspect https://example.com --count '.card'
-pnpm dev:cli inspect https://example.com --md --budget 2000
+npm run snapshot -- inspect https://example.com --outline
+npm run snapshot -- inspect https://example.com --locate "Search"
+npm run snapshot -- inspect https://example.com --count '.card'
+npm run snapshot -- inspect https://example.com --md --budget 2000
 
 # Query structured data
-pnpm dev:cli query https://example.com '.card' --row 'title=a, href=a@href' --json
-pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100'
+npm run snapshot -- query https://example.com '.card' --row 'title=a, href=a@href' --json
+npm run snapshot -- query https://example.com 'table' --table --where 'Stars >= 100'
 
 # Validate snapshot
-pnpm dev:cli validate ./output
+npm run snapshot -- validate ./output
 
 # Clean snapshot
-pnpm dev:cli clean ./output --dry-run
-pnpm dev:cli clean ./output --re-download
+npm run snapshot -- clean ./output --dry-run
+npm run snapshot -- clean ./output --re-download
 ```
 
 ### Full Example
 ```bash
-pnpm dev:cli https://example.com \
+npm run snapshot -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -359,7 +354,7 @@ web-clone merges config from multiple levels (low to high priority):
 
 | Priority | Location | Description |
 |----------|----------|-------------|
-| 0 | Built-in defaults | `packages/core/src/config/defaults.ts` |
+| 0 | Built-in defaults | `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | Global user config |
 | 2 | `./web-clone.config.json` / `.web-clonerc` | Project-level config |
 | 3 | CLI arguments | Highest priority |
@@ -370,11 +365,11 @@ See [config examples](../../examples/config-examples/config-README.md) for detai
 
 **PowerShell**: Quote `--` to avoid interception:
 ```powershell
-pnpm dev:cli '--' "https://example.com" -o ./snapshot
-npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot  # Alternative
+npm run snapshot -- '--' "https://example.com" -o ./snapshot
+npx tsx src/cli/cli.ts "https://example.com" -o ./snapshot  # Alternative
 ```
 
-**pnpm `--` passthrough**: `pnpm dev:cli <url>` (without `--`) is the recommended form and works on all platforms. `pnpm dev:cli -- <url>` also works — the CLI automatically filters out the extra `"--"` literal that pnpm may inject on Windows/Git Bash.
+**`--` passthrough**: `npm run snapshot -- <url>` is the recommended form and works on all platforms — the CLI automatically filters out any extra `"--"` literal that npm may inject on Windows/Git Bash.
 
 **Proxy**: Tool reads `HTTPS_PROXY` / `HTTP_PROXY` env vars automatically.
 See [docs/proxy.md](../../docs/proxy.md).
@@ -382,8 +377,8 @@ See [docs/proxy.md](../../docs/proxy.md).
 ## Testing
 
 ```bash
-pnpm test                    # All tests (turbo)
-pnpm test:unit               # @web-clone/core only
-pnpm test:integration        # CLI only
-pnpm --filter web-clone-cli lint  # Lint CLI only
+npm run test                    # All tests (vitest)
+npm run test:unit               # Unit tests only
+npm run test:integration        # CLI/browser adapter integration tests
+npm run lint                    # Lint
 ```

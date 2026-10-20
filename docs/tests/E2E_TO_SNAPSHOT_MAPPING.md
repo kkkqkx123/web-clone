@@ -2,7 +2,7 @@
 
 ## 文档概述
 
-本文档分析 `tests/e2e/` 下的 E2E 测试基础设施如何用于验证 `@web-clone/core` 的核心页面抓取（snapshot）功能。文档阐明每个 E2E 测试断言对应的 snapshot 管线阶段，以及如何利用现有测试框架扩展对新功能的验证。
+本文档分析 `tests/e2e/` 下的 E2E 测试基础设施如何用于验证 `@kkkqkx123/web-clone` 的核心页面抓取（snapshot）功能。文档阐明每个 E2E 测试断言对应的 snapshot 管线阶段，以及如何利用现有测试框架扩展对新功能的验证。
 
 **相关文档**：
 
@@ -30,7 +30,7 @@ E2E Test (spa-crawl-e2e.test.ts)
         |     ├── fetchWithPage()      → page.goto() + SPA hydration 检测
         |     └── fetchWithContext()   → context.request.fetch() (子资源)
         |
-        └── snapshot(options, adapter)              → @web-clone/core
+        └── snapshot(options, adapter)              → @kkkqkx123/web-clone
               └── snapshotInternal()
                     ├── 1. fetchHtml            → adapter.fetch(url, { isMainDocument: true })
                     ├── 2. parseHtml            → HTML 解析 + 资源引用提取
@@ -145,7 +145,7 @@ runCrawl() → extractFrameworkMatch(result, expected, spa)
 - 6 种框架（Vue 3 SPA、React 18 SPA、Angular SPA、SvelteKit SSR、Next.js SSR、Nuxt 3 SSR）的正确检测
 - 置信度是否达到各框架设定的最小阈值
 
-**关键意义**：框架检测是 Web Clone 后续进行组件提取和代码生成的前提。此断言确保检测模块 `packages/core/src/framework/detector.ts` 在真实框架构建产物的生产环境中正确工作——这补上了 Mock 单元测试 `spa-detector.test.ts` 的验证盲区。
+**关键意义**：框架检测是 Web Clone 后续进行组件提取和代码生成的前提。此断言确保检测模块 `src/core/framework/detector.ts` 在真实框架构建产物的生产环境中正确工作——这补上了 Mock 单元测试 `spa-detector.test.ts` 的验证盲区。
 
 #### 2.2.4 `assertSpaHydrationDetected` — 验证 SPA 水合检测
 
@@ -409,7 +409,7 @@ tests/e2e/outputs/
 
 4. 构建并运行
    ├── npx tsx tests/e2e/build-fixtures.ts --framework my-fixture
-   └── pnpm test:e2e
+   └── npm run test:e2e
 ```
 
 ### 5.2 扩展示例
@@ -541,10 +541,10 @@ E2E 测试通过真实浏览器执行完整的框架 production build，填补�
 
 ```
 CI Pipeline:
-  ├── pnpm install
+  ├── npm install
   ├── npx playwright install chromium --with-deps
-  ├── pnpm build                    # 构建 @web-clone/core 及所有依赖包
-  ├── pnpm test:e2e                  # 运行 E2E 测试
+  ├── npm run build                    # 构建 @kkkqkx123/web-clone 及所有依赖包
+  ├── npm run test:e2e                  # 运行 E2E 测试
   │     ├── 启动 FixtureServer
   │     ├── 启动 Playwright Browser
   │     ├── 依次抓取 6 个框架 → 写入 outputs/
@@ -601,6 +601,6 @@ echo "E2E regression check passed."
 
 1. **建立 baseline**：首次全量测试通过后，将 `results.json` 保存为 `tests/e2e/baseline/results.json`
 2. **添加 single-file 模式测试**：当前优先级最高的缺失覆盖
-3. **CI 集成**：在 CI pipeline 中添加 `pnpm test:e2e` 步骤
+3. **CI 集成**：在 CI pipeline 中添加 `npm run test:e2e` 步骤
 4. **路径后处理增强**：`build-fixtures.ts` 的路径修复逻辑目前适用于 SSR 框架，后续框架升级可能需要调整
 5. **Fixture 版本管理**：每半年运行 `build-fixtures.ts` 全量重建一次 fixture 产物

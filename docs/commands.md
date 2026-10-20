@@ -1,17 +1,16 @@
 # 命令参考
 
-> **PowerShell 用户注意**：`pnpm dev:cli <url>` 可直接使用（CLI 已自动处理 `--` 传递问题）。如仍遇到问题，见下方说明。
+> **PowerShell 用户注意**：`npm run snapshot -- <url>` 可直接使用（CLI 已自动处理 `--` 传递问题）。如仍遇到问题，见下方说明。
 > **代理用户注意**：工具自动读取 `HTTPS_PROXY`/`HTTP_PROXY` 环境变量，见 [proxy.md](./proxy.md)。
 
 ## 入口命令
 
 ```bash
-pnpm dev:cli <url> [options]               # 开发模式 (tsx)
-pnpm --filter web-clone-cli start -- <url>  # 通过 filter 运行
-node apps/cli/dist/cli.js <url> [options]      # 编译后执行
+npm run snapshot -- <url> [options]               # 开发模式 (tsx)
+node dist/cli/cli.js <url> [options]              # 编译后执行
 ```
 
-编译后也可通过 bin 执行（需先 `pnpm build`）：
+编译后也可通过 bin 执行（需先 `npm run build`）：
 
 ```bash
 web-clone <url> [options]
@@ -21,44 +20,44 @@ web-clone <url> [options]
 
 | 命令 | 作用 |
 |------|------|
-| `pnpm build` | 构建所有包（turbo 并行编译） |
-| `pnpm dev` | 所有包监听模式 |
-| `pnpm dev:cli <url>` | 直接通过 tsx 运行快照 |
-| `pnpm test` | 运行所有测试（turbo） |
-| `pnpm test:unit` | 仅运行 `@web-clone/core` 单元测试 |
-| `pnpm test:integration` | 仅运行 CLI 集成测试 |
-| `pnpm clean` | 清理所有 dist 目录 |
-| `pnpm --filter web-clone-cli lint` | 仅对 CLI 执行 lint |
+| `npm run build` | 构建(tsc 编译到 dist/) |
+| `npm run dev` | 监听模式编译 |
+| `npm run snapshot -- <url>` | 直接通过 tsx 运行快照 |
+| `npm run test` | 运行所有测试(vitest) |
+| `npm run test:unit` | 仅运行单元测试 |
+| `npm run test:integration` | 仅运行 CLI/浏览器适配器集成测试 |
+| `npm run clean` | 清理 dist/coverage |
+| `npm run lint` | 执行 lint |
 
 ### 子命令
 
 | 命令 | 作用 |
 |------|------|
-| `pnpm dev:cli snapshot -- <url>` | 网页快照（默认命令） |
-| `pnpm dev:cli inspect <url>` | 页面结构分析（大纲/定位/计数/Markdown） |
-| `pnpm dev:cli query <url> <selector>` | 结构化数据提取（行提取/表格解析/过滤） |
-| `pnpm dev:cli validate <output-dir>` | 验证已下载的快照目录完整性 |
-| `pnpm dev:cli clean <output-dir>` | 清理损坏/零字节文件 |
+| `npm run snapshot -- snapshot -- <url>` | 网页快照（默认命令） |
+| `npm run snapshot -- inspect <url>` | 页面结构分析（大纲/定位/计数/Markdown） |
+| `npm run snapshot -- query <url> <selector>` | 结构化数据提取（行提取/表格解析/过滤） |
+| `npm run snapshot -- validate <output-dir>` | 验证已下载的快照目录完整性 |
+| `npm run snapshot -- clean <output-dir>` | 清理损坏/零字节文件 |
 
 ## PowerShell 兼容性
 
-在 **PowerShell** 中，`--` 是 stop-parsing 符号，会被 PowerShell 自身截获而不会传递给 npm。但 CLI 已添加自动过滤 `"--"` 字面量的逻辑，因此 `pnpm dev:cli <url>` 可直接使用。如仍遇到问题，可加上引号：
+在 **PowerShell** 中，`--` 是 stop-parsing 符号，会被 PowerShell 自身截获而不会传递给 npm。但 CLI 已添加自动过滤 `"--"` 字面量的逻辑，因此 `npm run snapshot -- <url>` 可直接使用。如仍遇到问题，可加上引号：
 
 ```powershell
 # ✅ 推荐（CLI 已自动处理 -- 传递）
-pnpm dev:cli https://example.com -o ./snapshot
+npm run snapshot -- https://example.com -o ./snapshot
 
 # ✅ 备用方案：将 -- 加引号
-pnpm dev:cli '--' "https://example.com" -o ./snapshot
+npm run snapshot -- '--' "https://example.com" -o ./snapshot
 
 # ❌ 错误，-- 会被 PowerShell 吃掉（现在已被 CLI 自动过滤，所以实际可用）
-pnpm dev:cli -- https://example.com -o ./snapshot
+npm run snapshot -- https://example.com -o ./snapshot
 ```
 
-**推荐方案**：绕过 pnpm，直接使用 `npx tsx` 运行（不受 PowerShell 参数解析影响）：
+**推荐方案**：直接使用 `npx tsx` 运行（不受 PowerShell 参数解析影响）：
 
 ```powershell
-npx tsx apps/cli/src/cli.ts "https://example.com" -o ./snapshot
+npx tsx src/cli/cli.ts "https://example.com" -o ./snapshot
 ```
 
 ## CLI 选项
@@ -160,16 +159,16 @@ Vue/Nuxt SSR 快照会自动注入 hydration 脚本（CLI 层优化），帮助�
 
 ```bash
 # 仅生成服务文件（不启动服务器）
-pnpm dev:cli https://example.com -o ./site --serve
+npm run snapshot -- https://example.com -o ./site --serve
 
 # 生成服务文件并立即启动服务器
-pnpm dev:cli https://example.com -o ./site --serve --run
+npm run snapshot -- https://example.com -o ./site --serve --run
 
 # 使用反向代理（处理运行时 API 请求）
-pnpm dev:cli https://spa-site.com --adapter playwright --serve --run --proxy
+npm run snapshot -- https://spa-site.com --adapter playwright --serve --run --proxy
 
 # 自定义端口，禁用代理
-pnpm dev:cli https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
+npm run snapshot -- https://example.com -o ./site --serve --run --serve-port 3000 --no-proxy
 ```
 
 生成服务文件后，输出目录可直接独立部署：
@@ -210,7 +209,7 @@ start.bat               # Windows
 #### `inspect`（页面分析）
 
 ```
-pnpm dev:cli inspect <url> [options]
+npm run snapshot -- inspect <url> [options]
 ```
 
 | 选项 | 说明 |
@@ -227,7 +226,7 @@ pnpm dev:cli inspect <url> [options]
 #### `query`（结构化数据提取）
 
 ```
-pnpm dev:cli query <url> <selector> [options]
+npm run snapshot -- query <url> <selector> [options]
 ```
 
 | 选项 | 说明 |
@@ -247,7 +246,7 @@ pnpm dev:cli query <url> <selector> [options]
 #### `validate`（快照验证）
 
 ```
-pnpm dev:cli validate <output-dir>
+npm run snapshot -- validate <output-dir>
 ```
 
 验证已下载的快照目录完整性：检查零字节文件、损坏文件、缺失资源引用。
@@ -255,7 +254,7 @@ pnpm dev:cli validate <output-dir>
 #### `clean`（快照清理）
 
 ```
-pnpm dev:cli clean <output-dir> [options]
+npm run snapshot -- clean <output-dir> [options]
 ```
 
 | 选项 | 默认值 | 说明 |
@@ -271,80 +270,80 @@ pnpm dev:cli clean <output-dir> [options]
 
 ```bash
 # 生成目录束（默认）
-pnpm dev:cli https://example.com -o ./site
+npm run snapshot -- https://example.com -o ./site
 
 # 生成单文件
-pnpm dev:cli https://example.com -o snapshot.html -m single
+npm run snapshot -- https://example.com -o snapshot.html -m single
 
 # 美化 HTML
-pnpm dev:cli https://example.com --pretty
+npm run snapshot -- https://example.com --pretty
 ```
 
 ### 浏览器自动化快照
 
 ```bash
 # 使用 Playwright 渲染 SPA 页面
-pnpm dev:cli https://spa-site.com --adapter playwright
+npm run snapshot -- https://spa-site.com --adapter playwright
 
 # 使用 Puppeteer
-pnpm dev:cli https://spa-site.com --adapter puppeteer
+npm run snapshot -- https://spa-site.com --adapter puppeteer
 
 # 混合模式：Playwright 渲染 HTML，HTTP 池下载资源
-pnpm dev:cli https://spa-site.com --adapter playwright --hybrid
+npm run snapshot -- https://spa-site.com --adapter playwright --hybrid
 ```
 
 ### 组件提取
 
 ```bash
 # 提取组件，输出到 ./snapshot/components/
-pnpm dev:cli https://example.com --extract-components
+npm run snapshot -- https://example.com --extract-components
 
 # 提取组件到 bundle 中
-pnpm dev:cli https://example.com -o ./site -m bundle --extract-components
+npm run snapshot -- https://example.com -o ./site -m bundle --extract-components
 
 # 提取组件到单文件模式中
-pnpm dev:cli https://example.com -o snapshot.html -m single --extract-components
+npm run snapshot -- https://example.com -o snapshot.html -m single --extract-components
 
 # 指定框架和组件深度
-pnpm dev:cli https://example.com --extract-components --framework vue --component-depth 5 -o ./output
+npm run snapshot -- https://example.com --extract-components --framework vue --component-depth 5 -o ./output
 
 # 禁用逻辑提取（仅提取模板和样式）
-pnpm dev:cli https://example.com --extract-components --extract-logic false
+npm run snapshot -- https://example.com --extract-components --extract-logic false
 
 # 按置信度过滤组件
-pnpm dev:cli https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
+npm run snapshot -- https://example.com --extract-components --component-filter "confidence >= 0.7 && type == 'stateful'"
 ```
 
 ### 代码生成
 
 ```bash
 # 提取组件并生成 Vue 代码
-pnpm dev:cli https://example.com --extract-components --codegen-framework vue
+npm run snapshot -- https://example.com --extract-components --codegen-framework vue
 
 # 生成 React 代码（JS + CSS Modules）
-pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-css-modules
+npm run snapshot -- https://example.com --extract-components --codegen-framework react --codegen-css-modules
 
 # 生成完整项目模板
-pnpm dev:cli https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
+npm run snapshot -- https://example.com --extract-components --codegen-framework vue --codegen-generate-drafts
 
 # 提取共享逻辑
-pnpm dev:cli https://example.com --extract-components --codegen-framework react --codegen-extract-shared
+npm run snapshot -- https://example.com --extract-components --codegen-framework react --codegen-extract-shared
 ```
 
 ### 本地转换
 
 ```bash
 # 对已有 bundle 输出运行组件提取 + Vue 代码生成
-pnpm dev:cli --convert-local ./output --codegen-framework vue
+npm run snapshot -- --convert-local ./output --codegen-framework vue
 
 # 指定不同的输出目录
-pnpm dev:cli --convert-local ./output -o ./alt --codegen-framework react
+npm run snapshot -- --convert-local ./output -o ./alt --codegen-framework react
 
 # 对 single 模式输出运行
-pnpm dev:cli --convert-local snapshot.html --codegen-framework vue
+npm run snapshot -- --convert-local snapshot.html --codegen-framework vue
 
 # 完整选项：本地转换 + 组件深度 + 生成项目模板
-pnpm dev:cli --convert-local ./output \
+npm run snapshot -- --convert-local ./output \
   --codegen-framework vue \
   --component-depth 4 \
   --codegen-generate-drafts \
@@ -355,51 +354,51 @@ pnpm dev:cli --convert-local ./output \
 
 ```bash
 # 跳过指定类型资源
-pnpm dev:cli https://example.com --skip-types .zip,.mp4,.pdf
+npm run snapshot -- https://example.com --skip-types .zip,.mp4,.pdf
 
 # 使用预设
-pnpm dev:cli https://example.com --resource-preset no-media
+npm run snapshot -- https://example.com --resource-preset no-media
 
 # 禁用所有过滤
-pnpm dev:cli https://example.com --include-all
+npm run snapshot -- https://example.com --include-all
 
 # 精细控制：包含视频和字体，排除图片
-pnpm dev:cli https://example.com --include-video --include-fonts --exclude-images
+npm run snapshot -- https://example.com --include-video --include-fonts --exclude-images
 
 # 递归扫描 JS 和 JSON 中的隐藏 URL
-pnpm dev:cli https://example.com --scan-depth 3 --scan-json
+npm run snapshot -- https://example.com --scan-depth 3 --scan-json
 ```
 
 ### 诊断子命令
 
 ```bash
 # 页面结构分析
-pnpm dev:cli inspect https://example.com
-pnpm dev:cli inspect https://example.com --outline
-pnpm dev:cli inspect https://example.com --locate "Search"
-pnpm dev:cli inspect https://example.com --count '.card'
-pnpm dev:cli inspect https://example.com --md
-pnpm dev:cli inspect https://example.com --md --budget 2000
+npm run snapshot -- inspect https://example.com
+npm run snapshot -- inspect https://example.com --outline
+npm run snapshot -- inspect https://example.com --locate "Search"
+npm run snapshot -- inspect https://example.com --count '.card'
+npm run snapshot -- inspect https://example.com --md
+npm run snapshot -- inspect https://example.com --md --budget 2000
 
 # 结构化数据提取
-pnpm dev:cli query https://example.com '.card' --row 'title=a, href=a@href' --json
-pnpm dev:cli query https://example.com 'table' --table --where 'Stars >= 100'
-pnpm dev:cli query https://example.com '.item' --count
-pnpm dev:cli query https://example.com '.item' --html
+npm run snapshot -- query https://example.com '.card' --row 'title=a, href=a@href' --json
+npm run snapshot -- query https://example.com 'table' --table --where 'Stars >= 100'
+npm run snapshot -- query https://example.com '.item' --count
+npm run snapshot -- query https://example.com '.item' --html
 
 # 快照验证
-pnpm dev:cli validate ./output
+npm run snapshot -- validate ./output
 
 # 快照清理
-pnpm dev:cli clean ./output --dry-run
-pnpm dev:cli clean ./output --re-download
+npm run snapshot -- clean ./output --dry-run
+npm run snapshot -- clean ./output --re-download
 ```
 
 ### 完整示例
 
 ```bash
 # 完整示例：生成 bundle + 资源过滤 + 组件提取 + React 代码生成
-pnpm dev:cli https://example.com \
+npm run snapshot -- https://example.com \
   -o ./project \
   -m bundle \
   --extract-components \
@@ -550,7 +549,7 @@ web-clone 支持从多个层级合并配置（优先级从低到高）：
 
 | 优先级 | 位置 | 说明 |
 |--------|------|------|
-| 0 | 内置默认值 | `packages/core/src/config/defaults.ts` |
+| 0 | 内置默认值 | `src/core/config/defaults.ts` |
 | 1 | `~/.config/web-clone/config.json` | 全局用户配置（适用于所有项目） |
 | 2 | `./web-clone.config.json` | 项目级配置（最近祖先目录） |
 | 2 | `.web-clonerc` / `.web-clonerc.json` | 替代配置文件（JSON 格式） |
@@ -573,7 +572,7 @@ web-clone 支持从多个层级合并配置（优先级从低到高）：
 ### 场景 1：完整项目备份 + 组件分析 + 代码生成
 
 ```bash
-pnpm dev:cli https://app.example.com \
+npm run snapshot -- https://app.example.com \
   -o ./backup \
   -m bundle \
   --extract-components \
@@ -590,7 +589,7 @@ pnpm dev:cli https://app.example.com \
 ### 场景 2：轻量级快照 + 组件结构
 
 ```bash
-pnpm dev:cli https://example.com \
+npm run snapshot -- https://example.com \
   -o snapshot.html \
   -m single \
   --extract-components
@@ -604,18 +603,18 @@ pnpm dev:cli https://example.com \
 
 ```bash
 # 使用 Playwright 渲染 SPA 页面
-pnpm dev:cli https://spa-app.com --adapter playwright
+npm run snapshot -- https://spa-app.com --adapter playwright
 
 # 使用 Puppeteer
-pnpm dev:cli https://spa-app.com --adapter puppeteer
+npm run snapshot -- https://spa-app.com --adapter puppeteer
 ```
 
 ### 场景 4：仅提取组件（不重新拉取）
 
 ```bash
 # 对已有 bundle 输出运行组件提取
-pnpm dev:cli --convert-local ./snapshot --codegen-framework vue
+npm run snapshot -- --convert-local ./snapshot --codegen-framework vue
 
 # 对已有 single 输出运行组件提取
-pnpm dev:cli --convert-local snapshot.html --codegen-framework react
+npm run snapshot -- --convert-local snapshot.html --codegen-framework react
 ```

@@ -1,52 +1,143 @@
 {
-  "name": "web-clone-monorepo",
+  "name": "@kkkqkx123/web-clone",
   "version": "1.0.4",
-  "private": true,
-  "packageManager": "pnpm@10.8.0",
-  "description": "Monorepo for web-clone snapshot tool",
+  "description": "Single-execution web page snapshot tool: downloads and bundles a webpage into a single HTML file or directory bundle, with optional component extraction and multi-framework code generation.",
+  "type": "module",
+  "bin": {
+    "web-clone": "dist/cli/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen/index.d.ts",
+      "default": "./dist/codegen/index.js"
+    },
+    "./codegen/framework-rules": {
+      "types": "./dist/codegen/framework-rules.d.ts",
+      "default": "./dist/codegen/framework-rules.js"
+    },
+    "./adapters/playwright": {
+      "types": "./dist/adapters/playwright/index.d.ts",
+      "default": "./dist/adapters/playwright/index.js"
+    },
+    "./adapters/puppeteer": {
+      "types": "./dist/adapters/puppeteer/index.d.ts",
+      "default": "./dist/adapters/puppeteer/index.js"
+    },
+    "./adapters/common": {
+      "types": "./dist/adapters/common.d.ts",
+      "default": "./dist/adapters/common.js"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kkkqkx123/web-clone.git"
+  },
+  "homepage": "https://github.com/kkkqkx123/web-clone#readme",
+  "bugs": {
+    "url": "https://github.com/kkkqkx123/web-clone/issues"
+  },
+  "keywords": [
+    "webpage",
+    "snapshot",
+    "archive",
+    "scraper",
+    "html",
+    "cli",
+    "codegen",
+    "playwright",
+    "puppeteer",
+    "web-clone"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "dev:cli": "pnpm --filter web-clone-cli dev",
-    "test": "turbo run test",
-    "test:run": "turbo run test",
-    "test:unit": "pnpm --filter @web-clone/core test:unit",
-    "test:integration": "pnpm --filter web-clone-cli test:integration",
-    "test:all": "pnpm test:unit && pnpm test:integration",
-    "test:coverage": "turbo run test:coverage",
-    "test:clean": "pnpm --filter web-clone-cli test:clean",
-    "lint": "turbo run lint",
-    "lint:fix": "pnpm --recursive lint:fix",
-    "clean": "turbo run clean",
-    "typecheck": "turbo run typecheck",
-    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "snapshot": "pnpm dev:cli --",
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/cli/cli.js",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "start": "tsx src/cli/cli.ts",
+    "snapshot": "tsx src/cli/cli.ts --",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/integration/**'",
+    "test:integration": "vitest run src/cli/__tests__/integration src/adapters/playwright/__tests__/integration src/adapters/puppeteer/__tests__/integration --timeout 60000",
+    "test:coverage": "vitest run --coverage",
+    "test:clean": "rm -rf coverage ./test-* ./__tests__/outputs",
+    "test:e2e": "vitest run --config tests/e2e/vitest.config.ts tests/e2e/spa-crawl-e2e.test.ts",
+    "test:e2e:all": "npm run build && npm run test:e2e",
+    "test:e2e:build": "tsx tests/e2e/build-fixtures.ts",
+    "test:e2e:regression": "bash scripts/e2e-regression-check.sh",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,js,json,md}\"",
     "browsers:check": "node scripts/check-browsers.mjs",
     "browsers:check:playwright": "node scripts/check-playwright.mjs",
     "browsers:check:puppeteer": "node scripts/check-puppeteer.mjs",
     "browsers:install": "npx playwright install chromium",
     "browsers:install:all": "npx playwright install",
-    "test:e2e": "vitest run --config tests/e2e/vitest.config.ts tests/e2e/spa-crawl-e2e.test.ts",
-    "test:e2e:all": "pnpm build && pnpm test:e2e",
-    "test:e2e:build": "npx tsx tests/e2e/build-fixtures.ts",
-    "test:e2e:regression": "bash scripts/e2e-regression-check.sh"
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.4",
+    "@babel/traverse": "^8.0.4",
+    "@babel/types": "^8.0.4",
+    "chalk": "^5.6.2",
+    "commander": "^15.0.0",
+    "css-tree": "^3.2.1",
+    "global-agent": "^4.1.3",
+    "http-proxy-agent": "^9.1.0",
+    "https-proxy-agent": "^9.1.0",
+    "jsdom": "^29.1.1",
+    "node-fetch-native": "^1.6.7",
+    "postcss": "^8.5.17"
+  },
+  "peerDependencies": {
+    "playwright": "1.58.2",
+    "puppeteer": "^25.3.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    },
+    "puppeteer": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/css-tree": "^2.3.11",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
-    "@web-clone/adapter-playwright": "workspace:*",
-    "@web-clone/core": "workspace:*",
     "eslint": "^10.7.0",
-    "jsdom": "^29.1.1",
     "playwright": "1.58.2",
     "prettier": "^3.6.0",
+    "puppeteer": "^25.3.0",
     "tsx": "^4.23.0",
-    "turbo": "^2.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   },
-  "engines": {
-    "node": ">=20.0.0"
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "puppeteer@25.14.0": true
   }
 }

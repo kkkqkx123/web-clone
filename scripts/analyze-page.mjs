@@ -34,10 +34,10 @@ async function fetchHtml(url, timeout = 15000) {
   const isHttps = url.startsWith('https:');
   const mod = isHttps ? await import('https') : await import('http');
 
-  // Resolve proxy agent from core package context (pnpm hoisted dependency)
+  // Resolve proxy agent from repo root (npm flat install)
   let agent;
   if (proxyUrl) {
-    const coreReq = createRequire(resolve(ROOT, 'packages/core/noop.mjs'));
+    const coreReq = createRequire(resolve(ROOT, 'package.json'));
     if (isHttps) {
       const { HttpsProxyAgent } = coreReq('https-proxy-agent');
       agent = new HttpsProxyAgent(proxyUrl);

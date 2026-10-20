@@ -20,10 +20,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
 // 在 monorepo 中，playwright 安装在 adapter-playwright 包下
-// 先尝试从 adapter-playwright 解析，再尝试从根目录解析
+// npm 扁平化安装，playwright 位于根 node_modules
 function resolvePlaywright() {
   const candidates = [
-    resolve(ROOT, 'packages/adapter-playwright'),
     resolve(ROOT, 'node_modules'),
   ];
   for (const base of candidates) {
@@ -55,7 +54,7 @@ async function main() {
   const resolved = resolvePlaywright();
   if (!resolved) {
     console.log('  ❌ Playwright package not found');
-    console.log('\n  Install: pnpm add @web-clone/adapter-playwright\n');
+    console.log('\n  Install: npm install -D playwright\n');
     process.exit(1);
   }
 
@@ -76,7 +75,7 @@ async function main() {
   console.log('\n📁  Browser Binaries');
   console.log('─'.repeat(50));
 
-  // 尝试从 pnpm store 中的 playwright-core 获取浏览器安装信息
+  // 尝试从 node_modules 中的 playwright-core 获取浏览器安装信息
   let browserFound = false;
   let browserExePath = null;
   let browserSize = 0;

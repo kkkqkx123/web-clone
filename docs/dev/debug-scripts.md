@@ -76,7 +76,7 @@ node scripts/analyze-page.mjs https://example.com
 Playwright 环境需已配置，验证方式：
 
 ```bash
-pnpm browsers:check:playwright
+npm run browsers:check:playwright
 ```
 
 输出应显示 `✅ Browser launched successfully`。
@@ -171,13 +171,13 @@ HTTPS_PROXY=http://127.0.0.1:7890 node scripts/analyze-page.mjs https://example.
 # 这会生成 scripts/debug-page.html
 
 # 运行快照
-HTTPS_PROXY=http://127.0.0.1:7890 pnpm dev:cli https://example.com
+HTTPS_PROXY=http://127.0.0.1:7890 npm run snapshot -- https://example.com
 
 # 对比
-node scripts/compare-snapshot.mjs scripts/debug-page.html apps/cli/snapshot/index.html
+node scripts/compare-snapshot.mjs scripts/debug-page.html ./snapshot/index.html
 
 # 对比 Playwright 渲染后的快照
-node scripts/compare-snapshot.mjs scripts/debug-rendered.html apps/cli/snapshot/index.html
+node scripts/compare-snapshot.mjs scripts/debug-rendered.html ./snapshot/index.html
 ```
 
 ### 输出内容
@@ -235,10 +235,10 @@ node scripts/compare-snapshot.mjs scripts/debug-rendered.html apps/cli/snapshot/
    → 如果 "Browser needed: ✅ Yes"，用 analyze-rendered 进一步分析
 
 3. 运行快照
-   → pnpm dev:cli <url> [--adapter playwright]
+   → npm run snapshot -- <url> [--adapter playwright]
 
 4. 验证快照完整性
-   → node scripts/compare-snapshot.mjs scripts/debug-page.html apps/cli/snapshot/index.html
+   → node scripts/compare-snapshot.mjs scripts/debug-page.html ./snapshot/index.html
 ```
 
 ## 常见问题
@@ -258,7 +258,7 @@ analyze-rendered.mjs: net::ERR_CONNECTION_RESET
 analyze-rendered.mjs: browserType.launch: Executable doesn't exist
 ```
 
-原因：`PLAYWRIGHT_BROWSERS_PATH` 未设置或路径不正确。运行 `pnpm browsers:check:playwright` 诊断。
+原因：`PLAYWRIGHT_BROWSERS_PATH` 未设置或路径不正确。运行 `npm run browsers:check:playwright` 诊断。
 
 ### 快照检查失败
 
@@ -268,4 +268,4 @@ analyze-rendered.mjs: browserType.launch: Executable doesn't exist
 ```
 
 原因：`serializeDocument` 使用了 `XMLSerializer`（XML 序列化器）而非 `outerHTML`（HTML 序列化器）。
-检查 `packages/core/src/output/bundle.ts` 和 `single-file.ts` 中的 `serializeDocument` 函数。
+检查 `src/core/output/bundle.ts` 和 `single-file.ts` 中的 `serializeDocument` 函数。

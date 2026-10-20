@@ -40,10 +40,9 @@ if (!TARGET_URL) {
   process.exit(1);
 }
 
-// Load Playwright from monorepo context
+// Load Playwright from repo root (npm flat install)
 function loadPlaywright() {
-  const base = resolve(ROOT, 'packages/adapter-playwright');
-  const req = createRequire(resolve(base, 'noop.mjs'));
+  const req = createRequire(resolve(ROOT, 'package.json'));
   const { chromium } = req('playwright');
   return { chromium };
 }
