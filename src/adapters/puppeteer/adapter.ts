@@ -83,7 +83,7 @@ interface PuppeteerCookie {
 }
 
 /** Minimal representation of a Puppeteer Page (only methods used by this adapter) */
-interface PuppeteerPage {
+export interface PuppeteerPage {
   goto(url: string, options?: {
     timeout?: number;
     waitUntil?: 'load' | 'domcontentloaded' | 'networkidle2';

@@ -790,6 +790,8 @@ describe('File Extension Mapping', () => {
       stats: { total: 0, fetched: 0, failed: 0, skipped: 0, validationWarnings: 0, totalBytes: 0, htmlBytes: 0 },
       components: new Map([['MyComponent', comp]]),
       index: { stats: { stateful: 0, presentational: 1 } },
+      issues: [],
+      logs: [],
     };
 
     // We just verify the convert function doesn't crash and produces output
@@ -1248,5 +1250,7 @@ function createTestConvertResult(): ConvertResult {
         presentational: 1,
       },
     },
+    issues: [],
+    logs: [],
   };
 }

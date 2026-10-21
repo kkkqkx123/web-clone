@@ -80,6 +80,11 @@ describe('Library Standalone Usage (Phase 3)', () => {
       output: testDir,
       mode: 'bundle',
       maxAssets: 10,
+      timeout: 30000,
+      concurrency: 50,
+      retryCount: 3,
+      inline: false,
+      pretty: false,
     });
 
     expect(result).toHaveProperty('sourceUrl', TEST_URL);
