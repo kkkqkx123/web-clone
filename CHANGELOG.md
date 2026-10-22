@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.0 (2026-10-22)
+
+### Changed
+
+- **Package Structure** — migrate to single npm package.
+
 ## v1.0.4 (2026-07-15)
 
 ### Fixed

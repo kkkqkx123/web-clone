@@ -1,6 +1,6 @@
 {
   "name": "@kkkqkx123/web-clone",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Single-execution web page snapshot tool: downloads and bundles a webpage into a single HTML file or directory bundle, with optional component extraction and multi-framework code generation.",
   "type": "module",
   "bin": {
