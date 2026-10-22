@@ -103,8 +103,11 @@ export interface PuppeteerPage {
    * on Puppeteer's own handle types, which are unavailable when Puppeteer is
    * not installed, so the argument tuple stays untyped here.
    */
+  // Intentional `any`: tightening to `unknown[]` would reject typed page
+  // functions under strictFunctionTypes (see doc comment above).
   evaluate<
     Params extends unknown[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Func extends (...args: any[]) => any = (...args: any[]) => any,
   >(
     pageFunction: Func | string,

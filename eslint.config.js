@@ -61,4 +61,13 @@ export default tseslint.config(
       }],
     },
   },
+
+  // Tests: non-null assertions are idiomatic after expect(...).toBeDefined()
+  // guards, and vitest does not narrow types from assertions.
+  {
+    files: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
 );
