@@ -1,31 +1,33 @@
 /**
  * E2E Fixture Build Script
  *
- * 批量构建所有框架的 E2E fixture 并复制产物到 builds/ 目录。
+ * Batch-builds the E2E fixtures for all frameworks and copies the artifacts into the builds/ directory.
  *
- * 使用方式：
- *   # 构建所有框架
+ * Usage:
+ *   # Build all frameworks
  *   npx tsx tests/e2e/build-fixtures.ts
  *
- *   # 构建单个框架
+ *   # Build a single framework
  *   npx tsx tests/e2e/build-fixtures.ts --framework vue3-spa
  *
- * 每个 fixture 的构建流程：
- *   1. npm install（安装依赖）
- *   2. npm run build（生产构建）
- *   3. 复制产物到 tests/e2e/builds/<framework>/
+ * Build steps for each fixture:
+ *   1. npm install (install dependencies)
+ *   2. npm run build (production build)
+ *   3. Copy artifacts to tests/e2e/builds/<framework>/
  */
 
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, 'fixtures');
 const BUILDS_DIR = join(__dirname, 'builds');
 
 interface FixtureConfig {
   name: string;
-  /** 构建产物所在的子目录（相对于 fixture 根目录） */
+  /** Subdirectory that contains the build output (relative to the fixture root) */
   outputSubdir: string;
 }
 
@@ -95,27 +97,27 @@ function buildFixture(config: FixtureConfig): boolean {
 
   cpSync(outputDir, targetDir, { recursive: true });
 
-  // 后处理：修复静态生成框架的绝对路径为相对路径
-  // SvelteKit、Next.js 等框架可能生成绝对路径 (/_app/, /_next/)
-  // 但 E2E fixture server 使用 /fixtureName/ 前缀提供文件
+  // Post-process: rewrite absolute paths to relative paths for statically generated frameworks
+  // SvelteKit, Next.js, etc. may emit absolute paths (/_app/, /_next/),
+  // but the E2E fixture server serves files under the /fixtureName/ prefix
   const htmlPath = join(targetDir, 'index.html');
   if (existsSync(htmlPath)) {
     let html = readFileSync(htmlPath, 'utf-8');
     let modified = false;
 
-    // 修复 src/href 属性中的绝对路径
+    // Fix absolute paths in src/href attributes
     const before1 = html.length;
     html = html.replace(/(src|href)="\/([^"])/g, '$1="./$2');
     if (html.length !== before1) {
       modified = true;
     }
 
-    // 修复内联脚本中的 import('/_app/...') 等动态导入绝对路径
-    // SvelteKit 构建产物会在 <script> 中生成 import("/_app/...") 语句
+    // Fix absolute paths in dynamic imports like import('/_app/...') inside inline scripts
+    // SvelteKit builds emit import("/_app/...") statements inside <script>
     const before2 = html.length;
     html = html.replace(/(import\s*\(\s*["'])\/(_app\/)/g, '$1./$2');
     html = html.replace(/(import\s*\(\s*["'])\/(_next\/)/g, '$1./$2');
-    // 修复 fetch('/api/...') 和类似函数调用中的绝对路径
+    // Fix absolute paths in fetch('/api/...') and similar call sites
     html = html.replace(/(["'])\/(_app\/)/g, '$1./$2');
     html = html.replace(/(["'])\/(_next\/)/g, '$1./$2');
 
@@ -129,12 +131,12 @@ function buildFixture(config: FixtureConfig): boolean {
     }
   }
 
-  // Nuxt 3 特殊处理：如果 index 文件存在但没有 .html 扩展名
+  // Nuxt 3 special case: when the index file exists without a .html extension
   if (config.name === 'nuxt3-ssr') {
     const nuxtIndexPath = join(targetDir, 'index');
     const nuxtHtmlPath = join(targetDir, 'index.html');
     if (existsSync(nuxtIndexPath) && !existsSync(nuxtHtmlPath)) {
-      // Nuxt 静态输出中 index 就是 HTML，重命名
+      // In Nuxt static output the index file is HTML; rename it
       const content = readFileSync(nuxtIndexPath, 'utf-8');
       writeFileSync(nuxtHtmlPath, content);
       console.log(`  (nuxt3-ssr) Renamed index -> index.html`);

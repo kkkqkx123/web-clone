@@ -1,9 +1,9 @@
 /**
  * E2E Spider Runner
  *
- * 封装 web-clone snapshot() 调用，提供统一的爬取接口和结果格式。
+ * Wraps the web-clone snapshot() call, providing a unified crawl interface and result format.
  *
- * 使用方式：
+ * Usage:
  *   const browser = await chromium.launch({ headless: true });
  *   const context = await browser.newContext();
  *   const page = await context.newPage();
@@ -23,32 +23,32 @@ import { PlaywrightFetcherAdapter } from '@kkkqkx123/web-clone/adapters/playwrig
 import type { SignalTier } from '@kkkqkx123/web-clone/adapters/common';
 
 /**
- * 单次爬取的输入参数
+ * Input options for a single crawl
  */
 export interface CrawlOptions {
-  /** 目标 URL */
+  /** Target URL */
   url: string;
-  /** 输出目录 */
+  /** Output directory */
   outputDir: string;
-  /** 期望的框架类型（用于验证），null 表示不做框架验证 */
+  /** Expected framework type (for validation); null disables framework validation */
   expectedFramework?: string | null;
-  /** 超时时间 (ms)，默认 60000 */
+  /** Timeout in ms, default 60000 */
   timeout?: number;
-  /** 输出模式，默认 'bundle' */
+  /** Output mode, default 'bundle' */
   mode?: 'bundle' | 'single';
 }
 
 /**
- * 单次爬取的输出结果
+ * Output result of a single crawl
  */
 export interface CrawlResult {
-  /** 目标框架名称 */
+  /** Target framework name */
   framework: string;
-  /** 目标 URL */
+  /** Target URL */
   url: string;
-  /** 是否成功 */
+  /** Whether the crawl succeeded */
   success: boolean;
-  /** SPA 检测结果 */
+  /** SPA detection result */
   spaDetection: {
     framework: string;
     appElement: string | null;
@@ -56,16 +56,16 @@ export interface CrawlResult {
     markers: string[];
     tier: SignalTier;
   } | null;
-  /** 框架检测匹配信息 */
+  /** Framework detection match info */
   frameworkMatch: {
     detected: string;
     expected: string | null;
     match: boolean;
     tier: SignalTier;
   } | null;
-  /** 输出目录 */
+  /** Output directory */
   outputDir: string;
-  /** 快照统计 */
+  /** Snapshot statistics */
   stats: {
     totalAssets: number;
     fetchedAssets: number;
@@ -74,15 +74,15 @@ export interface CrawlResult {
     totalBytes: number;
     htmlBytes: number;
   } | null;
-  /** 错误信息 */
+  /** Error message */
   error: string | null;
-  /** 耗时 (ms) */
+  /** Duration in ms */
   duration: number;
 }
 
 /**
- * 获取浏览器框架检测的摘要信息。
- * 优先使用 browserFramework（来自运行时检测），回退到 frameworkDetection。
+ * Extract a summary of the browser-side framework detection.
+ * Prefers browserFramework (from runtime detection), falls back to frameworkDetection.
  */
 function extractBrowserFramework(result: any): CrawlResult['spaDetection'] | null {
   const source = result.browserFramework || result.frameworkDetection;
@@ -99,7 +99,7 @@ function extractBrowserFramework(result: any): CrawlResult['spaDetection'] | nul
 }
 
 /**
- * 获取框架检测匹配信息。
+ * Extract the framework detection match info.
  */
 function extractFrameworkMatch(
   result: any,
@@ -117,7 +117,7 @@ function extractFrameworkMatch(
     };
   }
 
-  // 回退到 SPA 检测结果
+  // Fall back to the SPA detection result
   if (spaDetection) {
     return {
       detected: spaDetection.framework,
@@ -131,12 +131,12 @@ function extractFrameworkMatch(
 }
 
 /**
- * 执行一次完整的 SPA 爬取流程。
+ * Execute one full SPA crawl run.
  *
- * @param page Playwright Page 实例
- * @param context Playwright BrowserContext 实例
- * @param options 爬取选项
- * @returns 结构化的爬取结果
+ * @param page Playwright Page instance
+ * @param context Playwright BrowserContext instance
+ * @param options crawl options
+ * @returns structured crawl result
  */
 export async function runCrawl(
   page: Page,
@@ -152,7 +152,7 @@ export async function runCrawl(
     mode = 'bundle',
   } = options;
 
-  // 提取框架名用于结果标识
+  // Extract the framework name for result identification
   const frameworkName = outputDir.split('/').pop() || 'unknown';
 
   try {
@@ -177,7 +177,7 @@ export async function runCrawl(
       }
     }
 
-    // 先导航到目标 URL 并检查 HTTP 状态码
+    // Navigate to the target URL first and check the HTTP status code
     const response = await page.goto(url, {
       waitUntil: 'load',
       timeout,
@@ -188,7 +188,7 @@ export async function runCrawl(
       throw new Error(`HTTP ${statusCode}: ${url} returned status ${statusCode}`);
     }
 
-    // 创建适配器并执行快照
+    // Create the adapter and run the snapshot
     const adapter = new PlaywrightFetcherAdapter(page, context, {
       waitForLoadState: 'networkidle',
     });
@@ -244,11 +244,11 @@ export async function runCrawl(
 }
 
 /**
- * 批量运行多个框架的爬取。
+ * Run crawls for multiple frameworks in batch.
  *
- * @param browser 共享的 Playwright Browser 实例
- * @param tasks 爬取配置列表
- * @returns 所有框架的爬取结果数组
+ * @param browser shared Playwright Browser instance
+ * @param tasks list of crawl configurations
+ * @returns crawl results for all frameworks
  */
 export async function runAllCrawls(
   browser: Browser,

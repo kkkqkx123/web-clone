@@ -1,15 +1,15 @@
 /**
- * SPA 抓取能力 E2E 测试
+ * SPA crawling E2E test suite
  *
- * 验证 web-clone 对真实 SPA/SSR 框架应用的抓取和检测能力。
- * 使用预构建的 fixture 产物，无需安装框架构建工具。
+ * Verifies web-clone's ability to crawl and detect real SPA/SSR framework apps.
+ * Uses prebuilt fixture artifacts, so no framework build tooling needs to be installed.
  *
- * 框架检测使用信号层级（Signal Tier）替代连续置信度：
+ * Framework detection uses signal tiers instead of a continuous confidence score:
  *   definitive > strong > moderate > weak > none
  *
- * 运行方式：
+ * How to run:
  *   npm run test:e2e
- *   或
+ *   or
  *   npx vitest run --config tests/e2e/vitest.config.ts
  */
 
@@ -34,16 +34,16 @@ import {
 import type { Browser, BrowserContext, Page } from 'playwright';
 
 // ============================================================
-// 全局测试环境
+// Global test environment
 // ============================================================
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// __dirname = tests/e2e/ (测试文件所在目录)
+// __dirname = tests/e2e/ (the directory containing this test file)
 const BUILDS_DIR = join(__dirname, 'builds');
-// 所有测试临时输出统一收敛到仓库根目录的 __tests__/outputs/
-// （tests/e2e/ → 上 2 层为仓库根）
+// All temporary test outputs are collected under __tests__/outputs/ at the
+// repo root (tests/e2e/ -> two levels up is the repo root)
 const OUTPUTS_DIR = join(__dirname, '../../__tests__/outputs');
 
 let server: FixtureServer;
@@ -51,9 +51,9 @@ let browser: Browser;
 let allResults: CrawlResult[] = [];
 
 /**
- * 所有已构建的框架 fixture 列表。
- * 新添加的框架需要在此注册。
- * `minTier` 是该框架在 E2E 测试中预期达到的最低信号层级。
+ * List of all built framework fixtures.
+ * Newly added frameworks must be registered here.
+ * `minTier` is the minimum signal tier this framework is expected to reach in E2E tests.
  */
 const FIXTURES = [
   {
@@ -116,18 +116,18 @@ const FIXTURES = [
 ];
 
 // ============================================================
-// 测试生命周期
+// Test lifecycle
 // ============================================================
 
 beforeAll(async () => {
-  // 启动 fixture HTTP 服务器
+  // Start the fixture HTTP server
   console.log(`BUILDS_DIR resolved to: ${BUILDS_DIR}`);
   console.log(`BUILDS_DIR exists: ${existsSync(BUILDS_DIR)}`);
   server = await startFixtureServer(BUILDS_DIR);
   console.log(`Fixture server started on port ${server.port}`);
   console.log(`vue3-spa URL: ${server.getFixtureUrl('vue3-spa')}`);
 
-  // 启动 Playwright 浏览器
+  // Launch the Playwright browser
   browser = await chromium.launch({
     headless: true,
     args: [
@@ -137,33 +137,33 @@ beforeAll(async () => {
     ],
   });
 
-  // 创建输出目录
+  // Create the output directory
   mkdirSync(OUTPUTS_DIR, { recursive: true });
 }, 90000);
 
 afterAll(async () => {
-  // 保存汇总报告(若 beforeAll 失败则目录可能不存在,先确保存在)
+  // Save the summary report (if beforeAll failed the directory may not exist, so ensure it first)
   mkdirSync(OUTPUTS_DIR, { recursive: true });
   const resultsPath = join(OUTPUTS_DIR, 'results.json');
   writeFileSync(resultsPath, JSON.stringify(allResults, null, 2), 'utf-8');
   console.log(`Results written to ${resultsPath}`);
 
-  // 打印汇总
+  // Print the summary
   if (allResults.length > 0) {
     generateResultsSummary(allResults);
   }
 
-  // 清理
+  // Cleanup
   if (server) await server.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
 }, 30000);
 
 // ============================================================
-// 辅助函数
+// Helper functions
 // ============================================================
 
 /**
- * 为指定 fixture 执行一次完整的爬取测试。
+ * Run one full crawl test for the given fixture.
  */
 async function crawlFixture(
   fixtureName: string,
@@ -172,7 +172,7 @@ async function crawlFixture(
   const url = server.getFixtureUrl(fixtureName);
   const outputDir = join(OUTPUTS_DIR, fixtureName);
 
-  // 每个测试使用独立的 context 和 page，避免 cookie/状态残留
+  // Use an isolated context and page per test to avoid cookie/state leakage
   let context: BrowserContext | null = null;
   let page: Page | null = null;
 
@@ -204,14 +204,14 @@ async function crawlFixture(
 }
 
 /**
- * 为指定 fixture 执行 single-file 模式的爬取测试。
- * single-file 模式将所有资源内联到单个 HTML 文件中。
+ * Run a single-file mode crawl test for the given fixture.
+ * Single-file mode inlines all resources into one HTML file.
  */
 async function crawlFixtureSingle(
   fixtureName: string
 ): Promise<CrawlResult> {
   const url = server.getFixtureUrl(fixtureName);
-  // single-file 模式的 output 必须是文件路径
+  // In single-file mode the output must be a file path
   const outputFile = join(OUTPUTS_DIR, `${fixtureName}-single.html`);
   const outputDir = join(OUTPUTS_DIR, fixtureName);
 
@@ -226,7 +226,7 @@ async function crawlFixtureSingle(
 
     const result = await runCrawl(page, context, {
       url,
-      outputDir: outputFile,  // single-file: output 是文件路径
+      outputDir: outputFile,  // single-file: output is a file path
       expectedFramework: null,
       timeout: 60000,
       mode: 'single',
@@ -246,10 +246,10 @@ async function crawlFixtureSingle(
 }
 
 // ============================================================
-// 测试组：各框架 E2E
+// Test groups: per-framework E2E
 // ============================================================
 
-describe('SPA 抓取 E2E', () => {
+describe('SPA crawl E2E', () => {
   // ---- Vue 3 SPA ----
   describe('Vue 3 SPA', () => {
     let result: CrawlResult;
@@ -259,21 +259,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 vue3 (tier >= strong)', () => {
+    it('should correctly detect the framework as vue3 (tier >= strong)', () => {
       assertFrameworkDetection(result, 'vue3', 'strong');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -288,23 +288,23 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 react18 (tier >= moderate)', () => {
+    it('should correctly detect the framework as react18 (tier >= moderate)', () => {
       // Production builds lack __REACT_DEVTOOLS_GLOBAL_HOOK__, so Phase 1 is 'weak'.
       // Phase 3 finds React fiber nodes (__reactFiber$) and upgrades to 'moderate'.
       assertFrameworkDetection(result, 'react18', 'moderate');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -319,22 +319,22 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 angular (tier >= moderate)', () => {
+    it('should correctly detect the framework as angular (tier >= moderate)', () => {
       // Production build: _nghost-* / _ngcontent-* attributes → moderate tier
       assertFrameworkDetection(result, 'angular', 'moderate');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -349,21 +349,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 sveltekit (tier >= definitive)', () => {
+    it('should correctly detect the framework as sveltekit (tier >= definitive)', () => {
       assertFrameworkDetection(result, 'sveltekit', 'definitive');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -378,21 +378,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 nextjs (tier >= definitive)', () => {
+    it('should correctly detect the framework as nextjs (tier >= definitive)', () => {
       assertFrameworkDetection(result, 'nextjs', 'definitive');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -407,21 +407,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 nuxt3 (tier >= definitive)', () => {
+    it('should correctly detect the framework as nuxt3 (tier >= definitive)', () => {
       assertFrameworkDetection(result, 'nuxt3', 'definitive');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -436,21 +436,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 vitepress (tier >= strong)', () => {
+    it('should correctly detect the framework as vitepress (tier >= strong)', () => {
       assertFrameworkDetection(result, 'vitepress', 'strong');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -465,21 +465,21 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 vue2 (tier >= moderate)', () => {
+    it('should correctly detect the framework as vue2 (tier >= moderate)', () => {
       assertFrameworkDetection(result, 'vue2', 'moderate');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
@@ -494,47 +494,48 @@ describe('SPA 抓取 E2E', () => {
       allResults.push(result);
     }, 90000);
 
-    it('应正确检测框架为 astro (tier >= moderate)', () => {
+    it('should correctly detect the framework as astro (tier >= moderate)', () => {
       assertFrameworkDetection(result, 'astro', 'moderate');
     });
 
-    it('应捕获完整的 hydrated DOM 内容', () => {
+    it('should capture the full hydrated DOM content', () => {
       const htmlPath = join(result.outputDir, 'index.html');
       assertValidHtml(htmlPath);
       assertContentCaptured(htmlPath);
     });
 
-    it('应有 SPA 水合检测结果', () => {
+    it('should have SPA hydration detection results', () => {
       assertSpaHydrationDetected(result);
     });
 
-    it('应输出有效的 bundle 结构', () => {
+    it('should output a valid bundle structure', () => {
       assertBundleStructure(result.outputDir);
       assertSubResourcesDownloaded(result.outputDir);
     });
   });
 
-  // ---- 汇总报告 ----
-  describe('汇总报告', () => {
-    it('所有框架抓取应成功', () => {
-      expect(allResults.length, '应有全部 9 个框架的测试结果').toBe(9);
+  // ---- Summary report ----
+  describe('Summary report', () => {
+    it('all framework crawls should succeed', () => {
+      expect(allResults.length, 'should have test results for all 9 frameworks').toBe(9);
       assertAllCrawlsSuccessful(allResults);
     });
 
-    it('结果摘要应生成到控制台', () => {
+    it('the results summary should be generated to the console', () => {
       const summary = generateResultsSummary(allResults);
-      expect(summary, '应生成汇总文本').toBeTruthy();
+      expect(summary, 'summary text should be generated').toBeTruthy();
     });
   });
 });
 
 // ============================================================
-// 测试组：Single-file 模式
+// Test groups: Single-file mode
 // ============================================================
 
-describe('Single-file 模式 E2E', () => {
-  // 覆盖所有框架：SSR 框架（Nuxt/Next/SvelteKit）有更多内联内容，
-  // 纯 SPA 框架（Vue3/React18/Angular）验证 JS 驱动的页面在内联模式下的资源处理
+describe('Single-file mode E2E', () => {
+  // Covers all frameworks: SSR frameworks (Nuxt/Next/SvelteKit) have more inline
+  // content, while pure SPA frameworks (Vue3/React18/Angular) verify how
+  // JS-driven pages handle resources in inlined mode
   const SINGLE_FIXTURES = [
     'vue3-spa',
     'react18-spa',
@@ -555,20 +556,20 @@ describe('Single-file 模式 E2E', () => {
         result = await crawlFixtureSingle(fixtureName);
       }, 90000);
 
-      it('应成功生成 single-file 快照', () => {
-        expect(result.success, `single-file 爬取应成功: ${result.error}`).toBe(true);
+      it('should successfully generate a single-file snapshot', () => {
+        expect(result.success, `single-file crawl should succeed: ${result.error}`).toBe(true);
       });
 
-      it('应输出有效的 single-file HTML', () => {
+      it('should output valid single-file HTML', () => {
         const htmlPath = result.outputDir;
         assertValidHtml(htmlPath);
       });
 
-      it('CSS/JS 应被内联到单一 HTML', () => {
+      it('CSS/JS should be inlined into a single HTML', () => {
         assertSingleFileMode(result.outputDir);
       });
 
-      it('应有 SPA 水合检测结果', () => {
+      it('should have SPA hydration detection results', () => {
         if (result.success) {
           assertSpaHydrationDetected(result);
         }
@@ -578,11 +579,11 @@ describe('Single-file 模式 E2E', () => {
 });
 
 // ============================================================
-// 测试组：错误处理
+// Test groups: error handling
 // ============================================================
 
-describe('错误处理 E2E', () => {
-  it('访问不存在的 URL（404）应返回 success=false', async () => {
+describe('Error handling E2E', () => {
+  it('should return success=false when accessing a nonexistent URL (404)', async () => {
     const invalidUrl = `http://127.0.0.1:${server.port}/nonexistent-fixture/`;
     const outputDir = join(OUTPUTS_DIR, 'error-404');
 
@@ -603,15 +604,15 @@ describe('错误处理 E2E', () => {
         mode: 'bundle',
       });
 
-      expect(result.success, '404 页面应返回失败').toBe(false);
-      expect(result.error, '错误信息应包含 HTTP 状态码').toMatch(/HTTP\s+404/i);
+      expect(result.success, 'a 404 page should return failure').toBe(false);
+      expect(result.error, 'the error message should contain the HTTP status code').toMatch(/HTTP\s+404/i);
     } finally {
       if (page && !page.isClosed()) await page.close().catch(() => {});
       if (context) await context.close().catch(() => {});
     }
   }, 60000);
 
-  it('访问空 URL 应返回 success=false', async () => {
+  it('should return success=false when accessing an empty URL', async () => {
     const outputDir = join(OUTPUTS_DIR, 'error-empty');
 
     let context: BrowserContext | null = null;
@@ -631,9 +632,9 @@ describe('错误处理 E2E', () => {
         mode: 'bundle',
       });
 
-      // 根路径返回 404（没有索引页）
-      expect(result.success, '根路径请求应返回失败').toBe(false);
-      expect(result.error, '错误信息应包含 HTTP 状态码').toMatch(/HTTP\s+404/i);
+      // The root path returns 404 (there is no index page)
+      expect(result.success, 'the root-path request should return failure').toBe(false);
+      expect(result.error, 'the error message should contain the HTTP status code').toMatch(/HTTP\s+404/i);
     } finally {
       if (page && !page.isClosed()) await page.close().catch(() => {});
       if (context) await context.close().catch(() => {});
@@ -642,10 +643,10 @@ describe('错误处理 E2E', () => {
 });
 
 // ============================================================
-// 测试组：子资源下载验证
+// Test groups: sub-resource download verification
 // ============================================================
 
-describe('子资源下载验证', () => {
+describe('Sub-resource download verification', () => {
   const RESOURCE_FIXTURES = [
     { name: 'vue3-spa', expectedFramework: 'vue3' },
     { name: 'react18-spa', expectedFramework: 'react18' },
@@ -653,7 +654,7 @@ describe('子资源下载验证', () => {
   ];
 
   for (const { name, expectedFramework } of RESOURCE_FIXTURES) {
-    describe(`${name} 子资源`, () => {
+    describe(`${name} sub-resources`, () => {
       let result: CrawlResult;
 
       beforeAll(async () => {
@@ -682,23 +683,23 @@ describe('子资源下载验证', () => {
         }
       }, 90000);
 
-      it('应成功爬取', () => {
-        expect(result.success, `爬取应成功: ${result.error}`).toBe(true);
+      it('should crawl successfully', () => {
+        expect(result.success, `crawl should succeed: ${result.error}`).toBe(true);
       });
 
-      it('应有子资源下载统计', () => {
-        expect(result.stats, '爬取结果应包含 stats').not.toBeNull();
+      it('should have sub-resource download statistics', () => {
+        expect(result.stats, 'the crawl result should contain stats').not.toBeNull();
         if (result.stats) {
-          expect(result.stats.fetchedAssets, '应至少下载 1 个资源').toBeGreaterThanOrEqual(1);
-          expect(result.stats.totalBytes, '总字节数应 > 0').toBeGreaterThan(0);
+          expect(result.stats.fetchedAssets, 'at least 1 asset should be downloaded').toBeGreaterThanOrEqual(1);
+          expect(result.stats.totalBytes, 'total bytes should be > 0').toBeGreaterThan(0);
         }
       });
 
-      it('assets/ 目录应包含下载的子资源文件', () => {
+      it('the assets/ directory should contain downloaded sub-resource files', () => {
         assertSubResourcesDownloaded(result.outputDir);
       });
 
-      it('HTML 文件中应包含捕获的文本内容', () => {
+      it('the HTML file should contain the captured text content', () => {
         if (result.success) {
           const htmlPath = join(result.outputDir, 'index.html');
           assertValidHtml(htmlPath);
@@ -710,12 +711,12 @@ describe('子资源下载验证', () => {
 });
 
 // ============================================================
-// 测试组：高级场景
+// Test groups: advanced scenarios
 // ============================================================
 
-describe('高级场景 E2E', () => {
-  it('多框架批量爬取应全部成功', async () => {
-    // 使用所有已注册的框架进行批量爬取验证
+describe('Advanced scenarios E2E', () => {
+  it('batch crawling across all frameworks should fully succeed', async () => {
+    // Run batch crawl validation using every registered framework
     const batchTasks = FIXTURES.map((f) => ({
       name: f.name,
       url: server.getFixtureUrl(f.name),
@@ -757,11 +758,12 @@ describe('高级场景 E2E', () => {
     }
 
     const failures = batchResults.filter((r) => !r.success);
-    expect(failures, `批量爬取应全部成功，失败: ${failures.map((f) => `${f.name}: ${f.error}`).join(', ')}`).toHaveLength(0);
+    expect(failures, `all batch crawls should succeed, failures: ${failures.map((f) => `${f.name}: ${f.error}`).join(', ')}`).toHaveLength(0);
   }, 300000);
 
-  it('各框架应检测到唯一的框架标识', async () => {
-    // 验证每个框架的检测结果互不相同，避免检测逻辑退化为单一默认值
+  it('each framework should be detected with a unique framework id', async () => {
+    // Verify that each framework's detection result differs, so the detection
+    // logic does not degrade into a single default value
     const detectedFrameworks = new Set<string>();
 
     for (const result of allResults) {
@@ -770,12 +772,12 @@ describe('高级场景 E2E', () => {
       }
     }
 
-    // 预期至少检测到 3 种不同的框架标识（如 vue3, react18, angular 等）
-    expect(detectedFrameworks.size, `应检测到多种不同的框架标识，实际: ${Array.from(detectedFrameworks).join(', ')}`).toBeGreaterThanOrEqual(3);
+    // Expect at least 3 distinct framework ids detected (e.g. vue3, react18, angular)
+    expect(detectedFrameworks.size, `multiple distinct framework ids should be detected, actual: ${Array.from(detectedFrameworks).join(', ')}`).toBeGreaterThanOrEqual(3);
   });
 
-  it('各框架的 bundle 结构应包含完整的 HTML 骨架', async () => {
-    // 验证每个成功爬取的输出 bundle 都包含完整的 HTML 文档结构
+  it('each framework bundle should contain a complete HTML skeleton', async () => {
+    // Verify every successful crawl's output bundle contains a complete HTML document structure
     for (const result of allResults) {
       if (!result.success) continue;
 

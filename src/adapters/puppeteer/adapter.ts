@@ -94,16 +94,27 @@ export interface PuppeteerPage {
   isClosed(): boolean;
   url(): string;
   cookies(url?: string): Promise<PuppeteerCookie[]>;
-  evaluate<T, A extends unknown[] = unknown[]>(
-    pageFunction: ((...args: A) => T) | string,
-    ...args: A
-  ): Promise<T>;
+  /**
+   * Mirrors Puppeteer's own evaluate() signature so that a real
+   * `puppeteer.Page` satisfies this interface.
+   *
+   * Puppeteer maps the arguments to their in-page values (an ElementHandle
+   * becomes the DOM node) before invoking the function. That mapping relies
+   * on Puppeteer's own handle types, which are unavailable when Puppeteer is
+   * not installed, so the argument tuple stays untyped here.
+   */
+  evaluate<
+    Params extends unknown[],
+    Func extends (...args: any[]) => any = (...args: any[]) => any,
+  >(
+    pageFunction: Func | string,
+    ...args: Params
+  ): Promise<Awaited<ReturnType<Func>>>;
   waitForFunction(
     pageFunction: ((...args: unknown[]) => boolean) | string,
     options?: { timeout?: number; polling?: number | 'raf' | 'mutation' },
     ...args: unknown[]
   ): Promise<unknown>;
-  waitForTimeout(timeout: number): Promise<void>;
   setUserAgent(userAgent: string): Promise<void>;
   setViewport(viewport: { width: number; height: number }): Promise<void>;
   setExtraHTTPHeaders(headers: Record<string, string>): Promise<void>;
@@ -227,7 +238,7 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
     // Always runs regardless of waitForLoadState — the detector has its own
     // timeout protection and four-phase progressive detection, so it won't
     // cause excessive delays even after 'domcontentloaded'.
-    const spaResult = await waitForSpaHydration(this.page as unknown as SpaPageLike, {
+    const spaResult = await waitForSpaHydration(this.toSpaPage(), {
       timeout: options.timeout ?? 30000,
       logPrefix: '[Puppeteer Adapter]',
     });
@@ -266,6 +277,23 @@ export class PuppeteerFetcherAdapter implements FetcherAdapter {
         appElement: spaResult.appElement || undefined,
         isHydrated: spaResult.isHydrated,
       },
+    };
+  }
+
+  /**
+   * Adapt the Puppeteer page to the SPA detector's page contract.
+   *
+   * Puppeteer dropped Page.waitForTimeout(), so the detector's settling pause
+   * is driven from the client side: the browser keeps rendering while the
+   * client waits, which is what the pause is meant to achieve.
+   */
+  private toSpaPage(): SpaPageLike {
+    const page = this.page;
+    return {
+      evaluate: (pageFunction, ...args) => page.evaluate(pageFunction, ...args),
+      waitForFunction: (pageFunction, options, ...args) =>
+        page.waitForFunction(pageFunction, options, ...args),
+      waitForTimeout: (timeout) => new Promise((resolve) => setTimeout(resolve, timeout)),
     };
   }
 

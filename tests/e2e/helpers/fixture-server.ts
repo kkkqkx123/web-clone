@@ -1,10 +1,10 @@
 /**
  * E2E Fixture Server
  *
- * 轻量 HTTP 服务器，提供预构建的框架 fixture 静态文件。
- * 基于 Node.js http 模块，零外部依赖。
+ * Lightweight HTTP server that serves the prebuilt framework fixture static files.
+ * Built on the Node.js http module, zero external dependencies.
  *
- * 使用方式：
+ * Usage:
  *   const server = await startFixtureServer('/path/to/builds');
  *   const vueUrl = server.getFixtureUrl('vue3-spa');
  *   // vueUrl → http://127.0.0.1:<PORT>/vue3-spa/
@@ -16,17 +16,18 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface FixtureServer {
-  /** 获取指定 fixture 的可访问 URL */
+  /** Get the accessible URL of the given fixture */
   getFixtureUrl(fixtureName: string): string;
-  /** 获取服务器端口号 */
+  /** Get the server port number */
   readonly port: number;
-  /** 关闭服务器 */
+  /** Shut down the server */
   close(): Promise<void>;
 }
 
 /**
- * MIME 类型映射表。
- * 覆盖常见框架构建产物的文件类型，特别是 Angular/Next.js 的特殊后缀。
+ * MIME type mapping table.
+ * Covers the file types of common framework build outputs, in particular the
+ * special extensions produced by Angular/Next.js.
  */
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -57,9 +58,9 @@ function getMimeType(filePath: string): string {
 }
 
 /**
- * 处理 HTTP 请求，返回 fixture 构建产物中的静态文件。
+ * Handle an HTTP request and return a static file from the fixture build output.
  *
- * URL 路径 → 文件映射规则：
+ * URL path → file mapping rules:
  * - `/vue3-spa/`          → builds/vue3-spa/index.html
  * - `/vue3-spa/style.css` → builds/vue3-spa/style.css
  * - `/react18-spa/assets/index-xxx.js` → builds/react18-spa/assets/index-xxx.js
@@ -69,12 +70,12 @@ function createRequestHandler(baseDir: string) {
     const url = req.url || '/';
     const urlPath = url.split('?')[0]; // Strip query params
 
-    // 解析 fixture 名称和文件路径
-    // urlPath 格式: /fixtureName/path/to/file
+    // Parse the fixture name and file path
+    // urlPath format: /fixtureName/path/to/file
     const parts = urlPath.split('/').filter(Boolean);
 
     if (parts.length === 0) {
-      // 根目录请求，返回 404（没有索引页）
+      // Root request: return 404 (there is no index page)
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found: No root index. Use /fixtureName/ to access fixtures.');
       return;
@@ -83,7 +84,7 @@ function createRequestHandler(baseDir: string) {
     const fixtureName = parts[0];
     const filePath = parts.length > 1 ? join(...parts.slice(1)) : 'index.html';
 
-    // 安全检查：防止路径穿越
+    // Security check: prevent path traversal
     const safeFilePath = join(baseDir, fixtureName, filePath);
     if (!safeFilePath.startsWith(join(baseDir, fixtureName))) {
       res.writeHead(403, { 'Content-Type': 'text/plain' });
@@ -91,7 +92,7 @@ function createRequestHandler(baseDir: string) {
       return;
     }
 
-    // 如果是目录请求，尝试返回 index.html
+    // For a directory request, try to serve index.html
     let resolvedPath = safeFilePath;
     try {
       if (existsSync(resolvedPath) && statSync(resolvedPath).isDirectory()) {
@@ -103,14 +104,14 @@ function createRequestHandler(baseDir: string) {
       return;
     }
 
-    // 文件不存在
+    // File does not exist
     if (!existsSync(resolvedPath)) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end(`Not Found: ${fixtureName}/${filePath}`);
       return;
     }
 
-    // 读取并返回文件
+    // Read and serve the file
     try {
       const content = readFileSync(resolvedPath);
       const mime = getMimeType(resolvedPath);
@@ -128,10 +129,10 @@ function createRequestHandler(baseDir: string) {
 }
 
 /**
- * 启动 fixture 本地 HTTP 服务器。
+ * Start the local fixture HTTP server.
  *
- * @param buildsDir 包含各框架预构建产物的目录路径（如 tests/e2e/builds/）
- * @returns FixtureServer 实例
+ * @param buildsDir path to the directory containing each framework's prebuilt output (e.g. tests/e2e/builds/)
+ * @returns FixtureServer instance
  */
 export function startFixtureServer(buildsDir: string): Promise<FixtureServer> {
   return new Promise((resolve, reject) => {

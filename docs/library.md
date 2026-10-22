@@ -552,16 +552,23 @@ await waitForSpaHydration(page, {
 - Angular (detects `ng-version`, `__ngContext__`)
 - Nuxt 2/3 (detects `window.$nuxt`, `window.__NUXT__`)
 
-The `SpaPageLike` interface is a minimal page abstraction compatible with both
-Playwright's `Page` and Puppeteer's `Page`:
+The `SpaPageLike` interface is the page contract the detector runs against:
 
 ```typescript
 interface SpaPageLike {
-  evaluate<T>(fn: Function | string, ...args: any[]): Promise<T>;
-  waitForFunction(fn: Function | string, options?: { timeout?: number }, ...args: any[]): Promise<void>;
+  evaluate<T>(pageFunction: ((...args: unknown[]) => T) | string, ...args: unknown[]): Promise<T>;
+  waitForFunction(
+    pageFunction: ((...args: unknown[]) => boolean) | string,
+    options?: { timeout?: number; polling?: number | 'raf' | 'mutation' },
+    ...args: unknown[]
+  ): Promise<unknown>;
   waitForTimeout(ms: number): Promise<void>;
 }
 ```
+
+Playwright's `Page` satisfies it as is. Puppeteer removed `Page.waitForTimeout()`,
+so the Puppeteer adapter hands the detector its own view of the page and drives
+the settling pause from the client side.
 
 ---
 

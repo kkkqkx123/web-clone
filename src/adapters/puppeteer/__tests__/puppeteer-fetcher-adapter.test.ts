@@ -40,7 +40,6 @@ function createMockPage(): PuppeteerPage {
     ]),
     evaluate: vi.fn(),
     waitForFunction: vi.fn(),
-    waitForTimeout: vi.fn(),
     setUserAgent: vi.fn(),
     setViewport: vi.fn(),
     setExtraHTTPHeaders: vi.fn(),
